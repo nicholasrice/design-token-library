@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/nicholasrice/design-token-library/issues"
   },
-  "homepage": "https://github.com/nicholasrice/design-token-library#readme"
+  "homepage": "https://github.com/nicholasrice/design-token-library#readme",
+  "dependencies": {
+    "typescript": "^4.9.5"
+  }
 }
