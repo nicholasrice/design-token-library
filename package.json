@@ -2,6 +2,7 @@
   "name": "design-token-library",
   "version": "1.0.0",
   "description": "",
+  "type": "module",
   "main": "index.js",
   "scripts": {
     "build": "tsc",
@@ -20,5 +21,8 @@
   "homepage": "https://github.com/nicholasrice/design-token-library#readme",
   "dependencies": {
     "typescript": "^4.9.5"
+  },
+  "devDependencies": {
+    "@microsoft/fast-element": "^2.0.0-beta.24"
   }
 }
