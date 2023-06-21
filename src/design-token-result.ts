@@ -1,5 +1,5 @@
 import { Observable } from "@microsoft/fast-element";
-import type { DesignTokenValue } from "./index.js";
+import type { DesignTokenValue } from "./values.js";
 
 export interface DesignTokenResult<DSL, T> {
   /**

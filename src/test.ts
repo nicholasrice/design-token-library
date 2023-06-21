@@ -1,5 +1,5 @@
 import "./dom-shim.js";
-import { createDesignTokenLibrary } from "./index.js";
+import { DesignTokenLibrary, DesignTokenLibraryFactory } from "./index.js";
 interface MyDesignSystem {
   colors: {
     backgroundColor: string;
@@ -11,7 +11,7 @@ interface MyDesignSystem {
   };
   gridUnit: number;
 }
-const result = createDesignTokenLibrary<MyDesignSystem>({
+const result = DesignTokenLibraryFactory.create<MyDesignSystem>({
   colors: {
     backgroundColor: "red",
     foregroundColor: function () {
