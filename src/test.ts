@@ -1,3 +1,4 @@
+import "./dom-shim.js";
 import { createDesignTokenLibrary } from "./index.js";
 interface MyDesignSystem {
   colors: {

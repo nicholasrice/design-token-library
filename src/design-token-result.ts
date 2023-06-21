@@ -1,4 +1,5 @@
-import type { DesignTokenValue } from "./index";
+import { Observable } from "@microsoft/fast-element";
+import type { DesignTokenValue } from "./index.js";
 
 export interface DesignTokenResult<DSL, T> {
   /**
@@ -29,6 +30,7 @@ export class DesignTokenResultImpl<DSL, T>
      * TODO: Implement this.
      */
     public get value(): T {
+        Observable.track(this, "value");
         return null as any;
     }
 

@@ -1,4 +1,4 @@
-import { DesignTokenResult } from "./design-token-result.js";
+import { DesignTokenResult, DesignTokenResultImpl } from "./design-token-result.js";
 
 export type DerivedValue<DSL, T> = (this: DSL) => T;
 export type DesignTokenValue<DSL, T> = DerivedValue<DSL, T> | T;
@@ -23,5 +23,6 @@ export function createDesignTokenLibrary<T extends {}>(
   raw: DesignTokenLibrary<T>
 ): DesignTokenLibraryResult<T> {
   console.log(raw);
+  const f = new DesignTokenResultImpl();
   return {} as any;
 }
