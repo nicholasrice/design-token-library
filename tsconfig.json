@@ -6,6 +6,7 @@
         "strict": true,
         "esModuleInterop": true,
         "rootDir": "./src",
-        "moduleResolution": "NodeNext"
+        "moduleResolution": "NodeNext",
+        "experimentalDecorators": true
     }
 }

@@ -1,6 +1,5 @@
 import { DesignTokenResult, DesignTokenResultImpl } from "./design-token-result.js";
-import type { DesignTokenValue } from "./values.js";
-
+import { isDerivedValue, type DesignTokenValue, isStaticValue, isLibrarySection, isConfigurationValue } from "./values.js";
 /**
  * The target to which a design token library should be applied.
  */
@@ -17,19 +16,57 @@ export type DesignTokenCatalog<DSL = {}, R = never> = {
 };
 export type DesignTokenLibraryResult<DSL extends {}> = {
   library: DesignTokenCatalog<DSL>;
-  applyTo(target: DesignTokenLibraryTarget): void;
-  removeFrom(target: DesignTokenLibraryTarget): void;
+  apply(target: DesignTokenLibraryTarget): void;
+  unapply(target: DesignTokenLibraryTarget): void;
+  extend<NDSL extends object>(overrides: DesignTokenLibrary<DeepPartial<DSL> & NDSL>): DesignTokenLibraryResult<DSL & NDSL>;
 };
 
-class DesignTokenLibraryImpl<DSL extends {}> implements DesignTokenLibraryResult<DSL> {
-    library: DesignTokenCatalog<DSL> = {} as any;
+        const define = <DSL, T>(source: any, target: any, currentContext: any, rootContext: any = currentContext) => {
+            for (const key in source) {
+                const value = source[key];
+
+                if (
+                    isDerivedValue(value)
+                    || isConfigurationValue(value)
+                    || isStaticValue(value)
+                    ) {
+                        const result = new DesignTokenResultImpl<DSL, any>(
+                            rootContext as any,
+                            value
+                        );
+                        Reflect.defineProperty(target, key, {
+                            value: result,
+                            configurable: false,
+                            writable: false
+                        });
+                        Reflect.defineProperty(currentContext, key, {
+                            get() {
+                                return result.value;
+                            },
+                            configurable: false
+                        });
+                    } else {
+                        target[key] = {};
+                        currentContext[key] = {};
+                        define(value, target[key], currentContext[key], rootContext);
+                    }
+            }
+        }
+class DesignTokenLibraryImpl<DSL extends object> implements DesignTokenLibraryResult<DSL> {
+    constructor(rawLibrary: DesignTokenLibrary<DSL>) {
+        define(rawLibrary, this.library, this.context);
+    }
+
+    public readonly library: DesignTokenCatalog<DSL> = Object.create(null);
+    private readonly context = Object.create(null);
+
     
     /**
      * Applies the library to the provided target. This will set the CSS custom properties
      * for all tokens in the library on the target.
      * @param target - The target to which the library should be applied.
      */
-    applyTo(target: DesignTokenLibraryTarget): void {
+    public apply(target: DesignTokenLibraryTarget): void {
         
     }
 
@@ -38,13 +75,19 @@ class DesignTokenLibraryImpl<DSL extends {}> implements DesignTokenLibraryResult
      * for all tokens in the library from the target.
      * @param target - The target from which the library should be removed.
      */
-    removeFrom(target: Document): void {
+    public unapply(target: Document): void {
         
+    }
+
+    public extend<NDSL extends object>(overrides: DesignTokenLibrary<DeepPartial<DSL> & NDSL>): DesignTokenLibraryResult<DSL & NDSL> {
+       const lib = new DesignTokenLibraryImpl<NDSL>(overrides); 
+
+       return lib as any;
     }
 }
 
 export const DesignTokenLibraryFactory = Object.freeze({
     create<DSL extends {}>(library: DesignTokenLibrary<DSL>): DesignTokenLibraryResult<DSL> {
-        return new DesignTokenLibraryImpl<DSL>();
+        return new DesignTokenLibraryImpl<DSL>(library);
     }
 })
