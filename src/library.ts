@@ -77,12 +77,15 @@ function defineCustomProperties<T extends {}>(
           ? { name, ...value }
           : { name, value };
 
+        // Define the custom property data
         Reflect.defineProperty(target, key, {
           value: customPropertyFactory.define(config),
           writable: false,
         });
       } else {
-        traverse(value, (target[key] = {} as any), currentPath);
+        // Define the property bag
+        Reflect.defineProperty(target, key, { value: {}, writable: false });
+        traverse(value, target[key] as any, currentPath);
       }
     }
 
