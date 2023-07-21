@@ -1,78 +1,45 @@
 import "./dom-shim.js";
-import { DesignTokenLibrary, DesignTokenLibraryFactory, DesignTokenLibraryResult  } from "./index.js";
-import { css, ElementStyles, Updates } from "@microsoft/fast-element";
-import { updateSourceFile } from "typescript";
+import { DesignTokenLibraryFactory } from "./index.js";
+import { Updates } from "@microsoft/fast-element";
+export let red = (input: any) => "\x1b[31m" + input + "\x1b[0m";
+export let green = (input: any) => "\x1b[32m" + input + "\x1b[0m";
+
+function test(description: string, cb: () => void) {
+  try {
+    cb();
+    console.log(green(`SUCCESS: ${description}`));
+  } catch (e) {
+    console.error(red(`FAILED: ${description}`));
+  }
+}
+
+function expect(value: any) {
+  function fail(reason?: string) {
+    throw new Error("reason");
+  }
+
+  return {
+    toBe(expected: any) {
+      if (value !== expected) {
+        fail();
+      }
+    },
+  };
+}
 
 Updates.setMode(false);
-interface MyDesignSystem {
-  colors: {
-    backgroundColor: string;
-    foregroundColor: string;
-  };
-  typography: {
-    fontSize: number;
-    fontWeight: number;
-  };
-  gridUnit: number;
-  value: number;
-}
 
-const result = DesignTokenLibraryFactory.create<MyDesignSystem>({
-  colors: {
-    backgroundColor: "red",
-    foregroundColor: function () {
-      return this.colors.backgroundColor;
-    },
-  },
-  typography: {
-    fontSize: 12,
-    fontWeight: {
-      $value: function () { ; return 12; },
-      description: "The font weight",
-      name: "font-weight",
-    },
-  },
-  gridUnit: {
-    $value: 4,
-  },
-  value: 12
+test("should use object path to create css custom property names if no name is defined", () => {
+  const result = DesignTokenLibraryFactory.create({ foo: { bar: 12 } });
+
+  expect(result.customProperties.foo.bar.property).toBe("--foo.bar");
+  expect(result.customProperties.foo.bar.var).toBe("var(--foo.bar)");
 });
+test("should use name field in token definition for custom property if defined", () => {
+  const result = DesignTokenLibraryFactory.create({
+    foo: { bar: { value: 12, name: "fooBar" } },
+  });
 
-
-result.library.colors.backgroundColor.set("red");
-result.library.colors.backgroundColor.token; // string
-console.log(result.library.typography.fontWeight.value); // number
-console.log(result.library.colors.foregroundColor.value); // number
-result.apply(document);
-
-const extend = result.extend({
-  colors: { backgroundColor: "green", green: { $value: "green", name: 'green', token: 'foobar' } },
+  expect(result.customProperties.foo.bar.property).toBe("--fooBar");
+  expect(result.customProperties.foo.bar.var).toBe("var(--fooBar)");
 });
-
-extend.library.colors.backgroundColor.set("green");
-
-
-const CIB = {
-  config: {
-    theme: {
-      tokens: {} as DesignTokenLibraryResult<MyDesignSystem>,
-      addStyles(target: string, styles: ElementStyles) {},
-      removeStyles(target: string, styles: ElementStyles) {}
-    }
-  }
-}
-
-
-CIB.config.theme.tokens = CIB.config.theme.tokens.extend<MyDesignSystem>({
-  colors: {
-    backgroundColor: "red"
-  }
-});
-
-CIB.config.theme.tokens.library.colors.backgroundColor.set("someValue");
-
-const styles = css`
-  :host {
-    backgroundColor: ${CIB.config.theme.tokens.library.colors.backgroundColor.token}
-  }
-`;

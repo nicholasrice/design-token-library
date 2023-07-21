@@ -1,2 +1,1 @@
-
-export { DesignTokenLibrary, DesignTokenLibraryFactory, DesignTokenLibraryResult } from "./library.js";
+export { DesignTokenLibraryFactory } from "./library.js";
