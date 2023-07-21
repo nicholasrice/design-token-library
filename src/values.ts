@@ -1,30 +1,29 @@
-export type DerivedValue<DSL, T> = (this: DSL) => T;
 export type StaticValue<T> = T;
-export type DesignTokenValueConfiguration<DSL, T> = {
-    $value: DerivedValue<DSL, T> | StaticValue<T>;
+export type DerivedValue<DS, T> = (this: DS) => T;
+export type DesignTokenValue<DS, T> = DerivedValue<DS, T> | StaticValue<T>;
+export type DesignTokenConfiguration<DS, T> = {
+    value: DerivedValue<DS, T> | StaticValue<T>;
     description?: string;
-    name?: string;
 }
-export type DesignTokenValue<DSL, T> = DerivedValue<DSL, T> | StaticValue<T> | DesignTokenValueConfiguration<DSL, T>;
 
 /**
  * @internal
  */
-export function isDerivedValue<DSL, T>(value: DesignTokenValue<DSL, T>): value is DerivedValue<DSL, T> {
+export function isDerivedValue<DS, T>(value: DesignTokenValue<DS, T>): value is DerivedValue<DS, T> {
     return typeof value === "function";
 }
 
 /**
  * @internal
  */
-export function isConfigurationValue<DSL, T>(value: DesignTokenValue<DSL, T>): value is DesignTokenValueConfiguration<DSL, T> {
+export function isConfigurationValue<DS, T>(value: unknown): value is DesignTokenConfiguration<DS, T> {
     return typeof value === "object" && value !== null && "$value" in value;
 }
 
 /**
  * @internal
  */
-export function isStaticValue<DSL, T>(value: DesignTokenValue<DSL, T>): value is StaticValue<T> {
+export function isStaticValue<DS, T>(value: DesignTokenValue<DS, T>): value is StaticValue<T> {
     return !isDerivedValue(value) && !isConfigurationValue(value) && !isLibrarySection(value);
 }
 

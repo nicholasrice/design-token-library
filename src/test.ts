@@ -1,6 +1,6 @@
 import "./dom-shim.js";
-import { DesignTokenLibrary, DesignTokenLibraryFactory } from "./index.js";
-import { Updates } from "@microsoft/fast-element";
+import { DesignTokenLibrary, DesignTokenLibraryFactory, DesignTokenLibraryResult  } from "./index.js";
+import { css, ElementStyles, Updates } from "@microsoft/fast-element";
 import { updateSourceFile } from "typescript";
 
 Updates.setMode(false);
@@ -50,3 +50,29 @@ const extend = result.extend({
 });
 
 extend.library.colors.backgroundColor.set("green");
+
+
+const CIB = {
+  config: {
+    theme: {
+      tokens: {} as DesignTokenLibraryResult<MyDesignSystem>,
+      addStyles(target: string, styles: ElementStyles) {},
+      removeStyles(target: string, styles: ElementStyles) {}
+    }
+  }
+}
+
+
+CIB.config.theme.tokens = CIB.config.theme.tokens.extend<MyDesignSystem>({
+  colors: {
+    backgroundColor: "red"
+  }
+});
+
+CIB.config.theme.tokens.library.colors.backgroundColor.set("someValue");
+
+const styles = css`
+  :host {
+    backgroundColor: ${CIB.config.theme.tokens.library.colors.backgroundColor.token}
+  }
+`;
