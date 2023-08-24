@@ -170,6 +170,7 @@ export namespace DesignToken {
   interface OptionalProperties {
     description?: string;
     type?: DesignToken.Type;
+    extensions?: Record<string, any>;
   }
 
   interface TypedTokenProperties<Value, Type extends DesignToken.Type>
