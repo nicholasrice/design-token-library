@@ -241,12 +241,66 @@ export namespace DesignToken {
       | DesignToken.TokenProperties.Transition
       | DesignToken.TokenProperties.Typography;
   }
+
+  export type TokenPropertiesByTokenType<T extends DesignToken.Type | "any"> =
+    T extends "any"
+      ? DesignToken.TokenProperties.Any
+      : T extends "border"
+      ? DesignToken.TokenProperties.Border
+      : T extends "color"
+      ? DesignToken.TokenProperties.Color
+      : T extends "cubiceBezier"
+      ? DesignToken.TokenProperties.CubicBezier
+      : T extends "dimension"
+      ? DesignToken.TokenProperties.Dimension
+      : T extends "duration"
+      ? DesignToken.TokenProperties.Duration
+      : T extends "fontFamily"
+      ? DesignToken.TokenProperties.FontFamily
+      : T extends "fontWeight"
+      ? DesignToken.TokenProperties.FontWeight
+      : T extends "gradient"
+      ? DesignToken.TokenProperties.Gradient
+      : T extends "number"
+      ? DesignToken.TokenProperties.Number
+      : T extends "strokeStyle"
+      ? DesignToken.TokenProperties.StrokeStyle
+      : T extends "transition"
+      ? DesignToken.TokenProperties.Transition
+      : T extends "typography"
+      ? DesignToken.TokenProperties.Typography
+      : never;
+
+  export interface Group<T extends DesignToken.Type | "any" = "any">
+    extends Record<string, Group<T> | TokenPropertiesByTokenType<T>> {}
 }
 
 /**
+ *
  * TODO:
  * 1. @see {@link https://tr.designtokens.org/format/#additional-types}
  * 2. How will token aliases be represented
  * 3. Do we need StrokeStyle type? How does this reflect to CSS?
  * 4. Can we make this flexible to work outside parts of the token system that aren't specced?
  */
+
+const group: DesignToken.Group<"any"> = {
+  someToken: {
+    value: "#FFFFFFF",
+    type: "color",
+  },
+
+  someGroup: {
+    someToken: {
+      value: "#ffff",
+      type: "color",
+    },
+    someOtherGroup: {
+      anotherNestedGroup: {
+        value: "2px",
+        type: "dimension",
+        description: "foobar",
+      },
+    },
+  },
+};
