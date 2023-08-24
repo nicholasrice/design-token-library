@@ -10,6 +10,7 @@ export namespace DesignToken {
     | "gradient"
     | "number"
     | "shadow"
+    | "strokeStyle"
     | "transition"
     | "typography";
 
@@ -164,6 +165,80 @@ export namespace DesignToken {
       letterSpacing: Types.Dimension;
       lineHeight: Types.Number;
     }
+  }
+
+  interface OptionalProperties {
+    description?: string;
+    type?: DesignToken.Type;
+  }
+
+  interface TypedTokenProperties<Value, Type extends DesignToken.Type>
+    extends OptionalProperties {
+    value: Value;
+    type?: Type;
+  }
+
+  export namespace TokenProperties {
+    export type Color = TypedTokenProperties<DesignToken.Types.Color, "color">;
+    export type Dimension = TypedTokenProperties<
+      DesignToken.Types.Dimension,
+      "dimension"
+    >;
+    export type FontFamily = TypedTokenProperties<
+      DesignToken.Types.FontFamily,
+      "fontFamily"
+    >;
+    export type FontWeight = TypedTokenProperties<
+      DesignToken.Types.FontWeight,
+      "fontWeight"
+    >;
+    export type Number = TypedTokenProperties<
+      DesignToken.Types.Number,
+      "number"
+    >;
+    export type Duration = TypedTokenProperties<
+      DesignToken.Types.Duration,
+      "duration"
+    >;
+    export type CubicBezier = TypedTokenProperties<
+      DesignToken.Types.CubicBezier,
+      "cubicBezier"
+    >;
+    export type StrokeStyle = TypedTokenProperties<
+      DesignToken.Types.StrokeStyle,
+      "strokeStyle"
+    >;
+    export type Border = TypedTokenProperties<
+      DesignToken.Types.Border,
+      "border"
+    >;
+
+    export type Transition = TypedTokenProperties<
+      DesignToken.Types.Transition,
+      "transition"
+    >;
+    export type Gradient = TypedTokenProperties<
+      DesignToken.Types.Gradient,
+      "gradient"
+    >;
+    export type Typography = TypedTokenProperties<
+      DesignToken.Types.Typography,
+      "typography"
+    >;
+
+    export type Any =
+      | DesignToken.TokenProperties.Border
+      | DesignToken.TokenProperties.Color
+      | DesignToken.TokenProperties.CubicBezier
+      | DesignToken.TokenProperties.Dimension
+      | DesignToken.TokenProperties.Duration
+      | DesignToken.TokenProperties.FontFamily
+      | DesignToken.TokenProperties.FontWeight
+      | DesignToken.TokenProperties.Gradient
+      | DesignToken.TokenProperties.Number
+      | DesignToken.TokenProperties.StrokeStyle
+      | DesignToken.TokenProperties.Transition
+      | DesignToken.TokenProperties.Typography;
   }
 }
 
