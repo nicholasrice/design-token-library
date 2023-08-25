@@ -15,7 +15,9 @@ export const borders: DesignTokenLibrary<Borders, Theme> = {
         return theme.colors.accent;
       },
       style: "dashed",
-      width: "2px",
+      width(theme) {
+        return theme.dimensions.border;
+      },
     },
   },
   neutralThin: {

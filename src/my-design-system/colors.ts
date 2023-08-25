@@ -2,7 +2,7 @@ import { DesignToken, DesignTokenLibrary } from "../design-token.js";
 import type { Theme } from "./theme.js";
 
 export interface Colors {
-  type: DesignToken.Type.Border;
+  type: DesignToken.Type.Color;
   accent: DesignToken.Color<Theme>;
   neutral: DesignToken.Color<Theme>;
 }
