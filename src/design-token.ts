@@ -189,67 +189,141 @@ export namespace DesignToken {
     extensions?: Record<string, any>;
   }
 
+  type TokenByType<T extends DesignToken.Type> =
+    T extends DesignToken.Type.Border
+      ? DesignToken.Border
+      : T extends DesignToken.Type.Color
+      ? DesignToken.Color
+      : T extends DesignToken.Type.CubicBezier
+      ? DesignToken.CubicBezier
+      : T extends DesignToken.Type.Dimension
+      ? DesignToken.Dimension
+      : T extends DesignToken.Type.Duration
+      ? DesignToken.Duration
+      : T extends DesignToken.Type.FontFamily
+      ? DesignToken.FontFamily
+      : T extends DesignToken.Type.FontWeight
+      ? DesignToken.FontWeight
+      : T extends DesignToken.Type.Gradient
+      ? DesignToken.Gradient
+      : T extends DesignToken.Type.Number
+      ? DesignToken.Number
+      : T extends DesignToken.Type.Shadow
+      ? DesignToken.Shadow
+      : T extends DesignToken.Type.StrokeStyle
+      ? DesignToken.StrokeStyle
+      : T extends DesignToken.Type.Transition
+      ? DesignToken.Transition
+      : T extends DesignToken.Type.Typography
+      ? DesignToken.Typography
+      : never;
+  type TokenByValue<T> = T extends DesignToken.Values.Border
+    ? DesignToken.Border
+    : T extends DesignToken.Values.Color
+    ? DesignToken.Color
+    : T extends DesignToken.Values.CubicBezier
+    ? DesignToken.CubicBezier
+    : T extends DesignToken.Values.Dimension
+    ? DesignToken.Dimension
+    : T extends DesignToken.Values.Duration
+    ? DesignToken.Duration
+    : T extends DesignToken.Values.FontFamily
+    ? DesignToken.FontFamily
+    : T extends DesignToken.Values.FontWeight
+    ? DesignToken.FontWeight
+    : T extends DesignToken.Values.Gradient
+    ? DesignToken.Gradient
+    : T extends DesignToken.Values.Number
+    ? DesignToken.Number
+    : T extends DesignToken.Values.Shadow
+    ? DesignToken.Shadow
+    : T extends DesignToken.Values.StrokeStyle
+    ? DesignToken.StrokeStyle
+    : T extends DesignToken.Values.Transition
+    ? DesignToken.Transition
+    : T extends DesignToken.Values.Typography
+    ? DesignToken.Typography
+    : never;
+  export type Alias<T, K extends DesignToken.Any> = (root: T) => K;
+  export type DeepAlias<T, V extends DesignToken.Values.Any> = V extends {}
+    ? { [K in keyof V]: V[K] | ((theme: T) => TokenByValue<V[K]>) }
+    : never;
+
   interface TypedTokenProperties<
     Type extends DesignToken.Type,
-    Value extends DesignToken.Values.Any
+    Value extends DesignToken.Values.Any,
+    Theme = any
   > extends OptionalProperties {
-    value: Value;
+    value: Value | DeepAlias<Theme, Value> | Alias<Theme, TokenByType<Type>>;
     type?: Type;
   }
 
-  export type Border = TypedTokenProperties<
+  export type Border<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Border,
-    DesignToken.Values.Border
+    DesignToken.Values.Border,
+    Theme
   >;
-  export type Color = TypedTokenProperties<
+  export type Color<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Color,
-    DesignToken.Values.Color
+    DesignToken.Values.Color,
+    Theme
   >;
-  export type CubicBezier = TypedTokenProperties<
+  export type CubicBezier<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.CubicBezier,
-    DesignToken.Values.CubicBezier
+    DesignToken.Values.CubicBezier,
+    Theme
   >;
-  export type Dimension = TypedTokenProperties<
+  export type Dimension<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Dimension,
-    DesignToken.Values.Dimension
+    DesignToken.Values.Dimension,
+    Theme
   >;
-  export type Duration = TypedTokenProperties<
+  export type Duration<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Duration,
-    DesignToken.Values.Duration
+    DesignToken.Values.Duration,
+    Theme
   >;
-  export type FontFamily = TypedTokenProperties<
+  export type FontFamily<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.FontFamily,
-    DesignToken.Values.FontFamily
+    DesignToken.Values.FontFamily,
+    Theme
   >;
-  export type FontWeight = TypedTokenProperties<
+  export type FontWeight<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.FontWeight,
-    DesignToken.Values.FontWeight
+    DesignToken.Values.FontWeight,
+    Theme
   >;
-  export type Gradient = TypedTokenProperties<
+  export type Gradient<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Gradient,
-    DesignToken.Values.Gradient
+    DesignToken.Values.Gradient,
+    Theme
   >;
-  export type Number = TypedTokenProperties<
+  export type Number<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Number,
-    DesignToken.Values.Number
+    DesignToken.Values.Number,
+    Theme
   >;
-  export type Shadow = TypedTokenProperties<
+  export type Shadow<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Shadow,
-    DesignToken.Values.Shadow
+    DesignToken.Values.Shadow,
+    Theme
   >;
 
-  export type StrokeStyle = TypedTokenProperties<
+  export type StrokeStyle<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.StrokeStyle,
-    DesignToken.Values.StrokeStyle
+    DesignToken.Values.StrokeStyle,
+    Theme
   >;
 
-  export type Transition = TypedTokenProperties<
+  export type Transition<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Transition,
-    DesignToken.Values.Transition
+    DesignToken.Values.Transition,
+    Theme
   >;
-  export type Typography = TypedTokenProperties<
+  export type Typography<Theme extends {} = any> = TypedTokenProperties<
     DesignToken.Type.Typography,
-    DesignToken.Values.Typography
+    DesignToken.Values.Typography,
+    Theme
   >;
 
   export type Group = {
@@ -279,9 +353,9 @@ export namespace DesignToken {
  * How do we enable alias tokens?
  * How do we enable function values that serve as alias?
  */
-type DesignTokenLibrary<T extends {}, R extends {} = T> = {
+export type DesignTokenLibrary<T extends {}, R extends {} = T> = {
   [K in keyof T]: T[K] extends DesignToken.Any
-    ? T[K] | Alias<R, T[K]>
+    ? T[K]
     : K extends "type"
     ? DesignToken.Type
     : T[K] extends {}
@@ -306,16 +380,12 @@ const NoTypeGroup: DesignTokenLibrary<NoTypeGroup> = {
   },
 };
 
-type Alias<T extends {}, K extends DesignToken.Any> = (
-  library: T
-) => K | Alias<T, K>;
-
 /**
  * Test
  */
 interface TypeGroup {
   type: DesignToken.Type.Border;
-  tokenName: DesignToken.Border;
+  tokenName: DesignToken.Border<TypeGroup>;
 }
 const TypeGroup: DesignTokenLibrary<TypeGroup> = {
   type: DesignToken.Type.Border,
@@ -353,27 +423,6 @@ const NestedTypeGroup: DesignTokenLibrary<NestedTypeGroup> = {
         style: "solid",
         width: "2px",
       },
-    },
-  },
-};
-
-const NestedAliasedTypeGroup: DesignTokenLibrary<NestedTypeGroup> = {
-  groupName: {
-    type: DesignToken.Type.Border,
-    tokenName: {
-      type: DesignToken.Type.Border,
-      description: "foobar",
-      value: {
-        color: "#FFFFFF",
-        style: "solid",
-        width: "2px",
-      },
-    },
-  },
-  typedGroup: {
-    type: DesignToken.Type.Border,
-    tokenName: function (root: DesignTokenLibrary<NestedTypeGroup>) {
-      return root.groupName.tokenName;
     },
   },
 };
