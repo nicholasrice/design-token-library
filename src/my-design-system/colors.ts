@@ -3,8 +3,8 @@ import type { Theme } from "./theme.js";
 
 export interface Colors {
   type: DesignToken.Type.Border;
-  accent: DesignToken.Color;
-  neutral: DesignToken.Color;
+  accent: DesignToken.Color<Theme>;
+  neutral: DesignToken.Color<Theme>;
 }
 
 export const colors: DesignTokenLibrary<Colors, Theme> = {
@@ -13,6 +13,8 @@ export const colors: DesignTokenLibrary<Colors, Theme> = {
     value: "#FFFFFF",
   },
   accent: {
-    value: "#0078D4",
+    value: function (theme: Theme) {
+      return theme.colors.neutral;
+    },
   },
 };

@@ -244,8 +244,8 @@ export namespace DesignToken {
     : T extends DesignToken.Values.Typography
     ? DesignToken.Typography
     : never;
-  export type Alias<T, K extends DesignToken.Any> = (root: T) => K;
-  export type DeepAlias<T, V extends DesignToken.Values.Any> = V extends {}
+  type Alias<T, K extends DesignToken.Any> = (root: T) => K;
+  type DeepAlias<T, V extends DesignToken.Values.Any> = V extends {}
     ? { [K in keyof V]: V[K] | ((theme: T) => TokenByValue<V[K]>) }
     : never;
 
@@ -345,14 +345,6 @@ export namespace DesignToken {
     | Typography;
 }
 
-/**
- * Consumers should define a token library type that is a big nested object that conforms to the appropriate structure.
- * We can expose a DesignTokenLibrary<T> type that validates structure of a provided generic.
- *
- * Question:
- * How do we enable alias tokens?
- * How do we enable function values that serve as alias?
- */
 export type DesignTokenLibrary<T extends {}, R extends {} = T> = {
   [K in keyof T]: T[K] extends DesignToken.Any
     ? T[K]
