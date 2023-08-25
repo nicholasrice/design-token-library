@@ -197,13 +197,25 @@ export namespace DesignToken {
     type?: Type;
   }
 
+  export type Border = TypedTokenProperties<
+    DesignToken.Type.Border,
+    DesignToken.Values.Border
+  >;
   export type Color = TypedTokenProperties<
     DesignToken.Type.Color,
     DesignToken.Values.Color
   >;
+  export type CubicBezier = TypedTokenProperties<
+    DesignToken.Type.CubicBezier,
+    DesignToken.Values.CubicBezier
+  >;
   export type Dimension = TypedTokenProperties<
     DesignToken.Type.Dimension,
     DesignToken.Values.Dimension
+  >;
+  export type Duration = TypedTokenProperties<
+    DesignToken.Type.Duration,
+    DesignToken.Values.Duration
   >;
   export type FontFamily = TypedTokenProperties<
     DesignToken.Type.FontFamily,
@@ -213,43 +225,50 @@ export namespace DesignToken {
     DesignToken.Type.FontWeight,
     DesignToken.Values.FontWeight
   >;
+  export type Gradient = TypedTokenProperties<
+    DesignToken.Type.Gradient,
+    DesignToken.Values.Gradient
+  >;
   export type Number = TypedTokenProperties<
     DesignToken.Type.Number,
     DesignToken.Values.Number
   >;
-  export type Duration = TypedTokenProperties<
-    DesignToken.Type.Duration,
-    DesignToken.Values.Duration
+  export type Shadow = TypedTokenProperties<
+    DesignToken.Type.Shadow,
+    DesignToken.Values.Shadow
   >;
-  export type CubicBezier = TypedTokenProperties<
-    DesignToken.Type.CubicBezier,
-    DesignToken.Values.CubicBezier
-  >;
+
   export type StrokeStyle = TypedTokenProperties<
     DesignToken.Type.StrokeStyle,
     DesignToken.Values.StrokeStyle
-  >;
-  export type Border = TypedTokenProperties<
-    DesignToken.Type.Border,
-    DesignToken.Values.Border
   >;
 
   export type Transition = TypedTokenProperties<
     DesignToken.Type.Transition,
     DesignToken.Values.Transition
   >;
-  export type Gradient = TypedTokenProperties<
-    DesignToken.Type.Gradient,
-    DesignToken.Values.Gradient
-  >;
   export type Typography = TypedTokenProperties<
     DesignToken.Type.Typography,
     DesignToken.Values.Typography
   >;
 
-  export type Group<T extends DesignToken.Type> = {
-    type?: T;
+  export type Group = {
+    type?: DesignToken.Type;
   };
+  export type Any =
+    | Color
+    | Dimension
+    | FontFamily
+    | Number
+    | FontWeight
+    | Duration
+    | CubicBezier
+    | Shadow
+    | StrokeStyle
+    | Border
+    | Transition
+    | Gradient
+    | Typography;
 }
 
 /**
@@ -260,3 +279,101 @@ export namespace DesignToken {
  * How do we enable alias tokens?
  * How do we enable function values that serve as alias?
  */
+type DesignTokenLibrary<T extends {}, R extends {} = T> = {
+  [K in keyof T]: T[K] extends DesignToken.Any
+    ? T[K] | Alias<R, T[K]>
+    : K extends "type"
+    ? DesignToken.Type
+    : T[K] extends {}
+    ? DesignTokenLibrary<T[K], R>
+    : never;
+};
+
+/**
+ * Tests an object w/ only a value property
+ */
+interface NoTypeGroup {
+  tokenName: DesignToken.Border;
+}
+const NoTypeGroup: DesignTokenLibrary<NoTypeGroup> = {
+  tokenName: {
+    type: DesignToken.Type.Border,
+    value: {
+      color: "#FFFFFF",
+      style: "solid",
+      width: "2px",
+    },
+  },
+};
+
+type Alias<T extends {}, K extends DesignToken.Any> = (
+  library: T
+) => K | Alias<T, K>;
+
+/**
+ * Test
+ */
+interface TypeGroup {
+  type: DesignToken.Type.Border;
+  tokenName: DesignToken.Border;
+}
+const TypeGroup: DesignTokenLibrary<TypeGroup> = {
+  type: DesignToken.Type.Border,
+  tokenName: {
+    value: {
+      color: "#FFFFFF",
+      style: "solid",
+      width: "2px",
+    },
+  },
+};
+
+interface NestedTypeGroup {
+  groupName: TypeGroup;
+  typedGroup: TypeGroup;
+}
+const NestedTypeGroup: DesignTokenLibrary<NestedTypeGroup> = {
+  groupName: {
+    type: DesignToken.Type.Border,
+    tokenName: {
+      type: DesignToken.Type.Border,
+      description: "foobar",
+      value: {
+        color: "#FFFFFF",
+        style: "solid",
+        width: "2px",
+      },
+    },
+  },
+  typedGroup: {
+    type: DesignToken.Type.Border,
+    tokenName: {
+      value: {
+        color: "#FFF",
+        style: "solid",
+        width: "2px",
+      },
+    },
+  },
+};
+
+const NestedAliasedTypeGroup: DesignTokenLibrary<NestedTypeGroup> = {
+  groupName: {
+    type: DesignToken.Type.Border,
+    tokenName: {
+      type: DesignToken.Type.Border,
+      description: "foobar",
+      value: {
+        color: "#FFFFFF",
+        style: "solid",
+        width: "2px",
+      },
+    },
+  },
+  typedGroup: {
+    type: DesignToken.Type.Border,
+    tokenName: function (root: DesignTokenLibrary<NestedTypeGroup>) {
+      return root.groupName.tokenName;
+    },
+  },
+};
