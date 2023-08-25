@@ -1,23 +1,24 @@
 export namespace DesignToken {
-  export type Type =
-    | "border"
-    | "color"
-    | "cubicBezier"
-    | "dimension"
-    | "duration"
-    | "fontFamily"
-    | "fontWeight"
-    | "gradient"
-    | "number"
-    | "shadow"
-    | "strokeStyle"
-    | "transition"
-    | "typography";
+  export enum Type {
+    Border = "border",
+    Color = "color",
+    CubicBezier = "cubicBezier",
+    Dimension = "dimension",
+    Duration = "duration",
+    FontFamily = "fontFamily",
+    FontWeight = "fontWeight",
+    Gradient = "gradient",
+    Number = "number",
+    Shadow = "shadow",
+    StrokeStyle = "strokeStyle",
+    Transition = "transition",
+    Typography = "typography",
+  }
 
   /**
    * An implementation of {@link https://tr.designtokens.org/}
    */
-  export namespace Types {
+  export namespace Values {
     /**
      * @see {@link https://tr.designtokens.org/format/#types}
      */
@@ -42,7 +43,7 @@ export namespace DesignToken {
      *
      * @see {@link https://tr.designtokens.org/format/#dimension}
      */
-    export type Dimension = `${Types.Number}px` | `${Types.Number}rm`;
+    export type Dimension = `${Values.Number}px` | `${Values.Number}rm`;
 
     /**
      * The name of the font family;
@@ -62,7 +63,7 @@ export namespace DesignToken {
      * @see {@link https://tr.designtokens.org/format/#font-weight}
      */
     export type FontWeight =
-      | Types.Number
+      | Values.Number
       | "thin"
       | "hairline"
       | "extra-light"
@@ -86,7 +87,7 @@ export namespace DesignToken {
      *
      * @see {@link https://tr.designtokens.org/format/#duration}
      */
-    export type Duration = `${Types.Number}ms`;
+    export type Duration = `${Values.Number}ms`;
 
     /**
      * Cubic Bézier coordinates.
@@ -94,21 +95,21 @@ export namespace DesignToken {
      * @see {@link https://tr.designtokens.org/format/#cubic-bezier}
      */
     export type CubicBezier = [
-      P1x: Types.Number,
-      P1y: Types.Number,
-      P2x: Types.Number,
-      P2y: Types.Number
+      P1x: Values.Number,
+      P1y: Values.Number,
+      P2x: Values.Number,
+      P2y: Values.Number
     ];
 
     /**
      * @see {@link https://tr.designtokens.org/format/#shadow}
      */
     export interface Shadow {
-      color: Types.Color;
-      offsetX: Types.Dimension;
-      offsetY: Types.Dimension;
-      blur: Types.Dimension;
-      spread: Types.Dimension;
+      color: Values.Color;
+      offsetX: Values.Dimension;
+      offsetY: Values.Dimension;
+      blur: Values.Dimension;
+      spread: Values.Dimension;
     }
     /**
      *
@@ -124,7 +125,7 @@ export namespace DesignToken {
       | "outset"
       | "inset"
       | {
-          dashArray: Types.Dimension[];
+          dashArray: Values.Dimension[];
           lineCap: "round" | "butt" | "square";
         };
 
@@ -132,18 +133,18 @@ export namespace DesignToken {
      * @see {@link https://tr.designtokens.org/format/#border}
      */
     export interface Border {
-      color: Types.Color;
-      width: Types.Dimension;
-      style: Types.StrokeStyle;
+      color: Values.Color;
+      width: Values.Dimension;
+      style: Values.StrokeStyle;
     }
 
     /**
      * @see {@link https://tr.designtokens.org/format/#transition}
      */
     export interface Transition {
-      duration: Types.Duration;
-      delay: Types.Duration;
-      timingFunction: Types.CubicBezier;
+      duration: Values.Duration;
+      delay: Values.Duration;
+      timingFunction: Values.CubicBezier;
     }
 
     /**
@@ -151,20 +152,35 @@ export namespace DesignToken {
      * @see {@link https://tr.designtokens.org/format/#gradient}
      */
     export type Gradient = Array<{
-      color: Types.Color;
-      position: Types.Number;
+      color: Values.Color;
+      position: Values.Number;
     }>;
 
     /**
      * @see {@link https://tr.designtokens.org/format/#typography}
      */
     export interface Typography {
-      fontFamily: Types.FontFamily;
-      fontSize: Types.Dimension;
-      fontWeight: Types.FontWeight;
-      letterSpacing: Types.Dimension;
-      lineHeight: Types.Number;
+      fontFamily: Values.FontFamily;
+      fontSize: Values.Dimension;
+      fontWeight: Values.FontWeight;
+      letterSpacing: Values.Dimension;
+      lineHeight: Values.Number;
     }
+
+    export type Any =
+      | Color
+      | Dimension
+      | FontFamily
+      | Number
+      | FontWeight
+      | Duration
+      | CubicBezier
+      | Shadow
+      | StrokeStyle
+      | Border
+      | Transition
+      | Gradient
+      | Typography;
   }
 
   interface OptionalProperties {
@@ -173,134 +189,74 @@ export namespace DesignToken {
     extensions?: Record<string, any>;
   }
 
-  interface TypedTokenProperties<Value, Type extends DesignToken.Type>
-    extends OptionalProperties {
+  interface TypedTokenProperties<
+    Type extends DesignToken.Type,
+    Value extends DesignToken.Values.Any
+  > extends OptionalProperties {
     value: Value;
     type?: Type;
   }
 
-  export namespace TokenProperties {
-    export type Color = TypedTokenProperties<DesignToken.Types.Color, "color">;
-    export type Dimension = TypedTokenProperties<
-      DesignToken.Types.Dimension,
-      "dimension"
-    >;
-    export type FontFamily = TypedTokenProperties<
-      DesignToken.Types.FontFamily,
-      "fontFamily"
-    >;
-    export type FontWeight = TypedTokenProperties<
-      DesignToken.Types.FontWeight,
-      "fontWeight"
-    >;
-    export type Number = TypedTokenProperties<
-      DesignToken.Types.Number,
-      "number"
-    >;
-    export type Duration = TypedTokenProperties<
-      DesignToken.Types.Duration,
-      "duration"
-    >;
-    export type CubicBezier = TypedTokenProperties<
-      DesignToken.Types.CubicBezier,
-      "cubicBezier"
-    >;
-    export type StrokeStyle = TypedTokenProperties<
-      DesignToken.Types.StrokeStyle,
-      "strokeStyle"
-    >;
-    export type Border = TypedTokenProperties<
-      DesignToken.Types.Border,
-      "border"
-    >;
+  export type Color = TypedTokenProperties<
+    DesignToken.Type.Color,
+    DesignToken.Values.Color
+  >;
+  export type Dimension = TypedTokenProperties<
+    DesignToken.Type.Dimension,
+    DesignToken.Values.Dimension
+  >;
+  export type FontFamily = TypedTokenProperties<
+    DesignToken.Type.FontFamily,
+    DesignToken.Values.FontFamily
+  >;
+  export type FontWeight = TypedTokenProperties<
+    DesignToken.Type.FontWeight,
+    DesignToken.Values.FontWeight
+  >;
+  export type Number = TypedTokenProperties<
+    DesignToken.Type.Number,
+    DesignToken.Values.Number
+  >;
+  export type Duration = TypedTokenProperties<
+    DesignToken.Type.Duration,
+    DesignToken.Values.Duration
+  >;
+  export type CubicBezier = TypedTokenProperties<
+    DesignToken.Type.CubicBezier,
+    DesignToken.Values.CubicBezier
+  >;
+  export type StrokeStyle = TypedTokenProperties<
+    DesignToken.Type.StrokeStyle,
+    DesignToken.Values.StrokeStyle
+  >;
+  export type Border = TypedTokenProperties<
+    DesignToken.Type.Border,
+    DesignToken.Values.Border
+  >;
 
-    export type Transition = TypedTokenProperties<
-      DesignToken.Types.Transition,
-      "transition"
-    >;
-    export type Gradient = TypedTokenProperties<
-      DesignToken.Types.Gradient,
-      "gradient"
-    >;
-    export type Typography = TypedTokenProperties<
-      DesignToken.Types.Typography,
-      "typography"
-    >;
+  export type Transition = TypedTokenProperties<
+    DesignToken.Type.Transition,
+    DesignToken.Values.Transition
+  >;
+  export type Gradient = TypedTokenProperties<
+    DesignToken.Type.Gradient,
+    DesignToken.Values.Gradient
+  >;
+  export type Typography = TypedTokenProperties<
+    DesignToken.Type.Typography,
+    DesignToken.Values.Typography
+  >;
 
-    export type Any =
-      | DesignToken.TokenProperties.Border
-      | DesignToken.TokenProperties.Color
-      | DesignToken.TokenProperties.CubicBezier
-      | DesignToken.TokenProperties.Dimension
-      | DesignToken.TokenProperties.Duration
-      | DesignToken.TokenProperties.FontFamily
-      | DesignToken.TokenProperties.FontWeight
-      | DesignToken.TokenProperties.Gradient
-      | DesignToken.TokenProperties.Number
-      | DesignToken.TokenProperties.StrokeStyle
-      | DesignToken.TokenProperties.Transition
-      | DesignToken.TokenProperties.Typography;
-  }
-
-  export type TokenPropertiesByTokenType<T extends DesignToken.Type | "any"> =
-    T extends "any"
-      ? DesignToken.TokenProperties.Any
-      : T extends "border"
-      ? DesignToken.TokenProperties.Border
-      : T extends "color"
-      ? DesignToken.TokenProperties.Color
-      : T extends "cubiceBezier"
-      ? DesignToken.TokenProperties.CubicBezier
-      : T extends "dimension"
-      ? DesignToken.TokenProperties.Dimension
-      : T extends "duration"
-      ? DesignToken.TokenProperties.Duration
-      : T extends "fontFamily"
-      ? DesignToken.TokenProperties.FontFamily
-      : T extends "fontWeight"
-      ? DesignToken.TokenProperties.FontWeight
-      : T extends "gradient"
-      ? DesignToken.TokenProperties.Gradient
-      : T extends "number"
-      ? DesignToken.TokenProperties.Number
-      : T extends "strokeStyle"
-      ? DesignToken.TokenProperties.StrokeStyle
-      : T extends "transition"
-      ? DesignToken.TokenProperties.Transition
-      : T extends "typography"
-      ? DesignToken.TokenProperties.Typography
-      : never;
-
-  export interface Group<T extends DesignToken.Type | "any" = "any">
-    extends Record<string, Group<T> | TokenPropertiesByTokenType<T>> {}
+  export type Group<T extends DesignToken.Type> = {
+    type?: T;
+  };
 }
 
 /**
+ * Consumers should define a token library type that is a big nested object that conforms to the appropriate structure.
+ * We can expose a DesignTokenLibrary<T> type that validates structure of a provided generic.
  *
- * TODO:
- * 1. @see {@link https://tr.designtokens.org/format/#additional-types}
- * 2. How will token aliases be represented
- * 3. Do we need StrokeStyle type? How does this reflect to CSS?
- * 4. Can we make this flexible to work outside parts of the token system that aren't specced?
+ * Question:
+ * How do we enable alias tokens?
+ * How do we enable function values that serve as alias?
  */
-
-const group: DesignToken.Group<"any"> = {
-  someToken: {
-    value: "#FFFFFFF",
-    type: "color",
-  },
-
-  someGroup: {
-    someToken: {
-      value: "#ffff",
-      type: "color",
-    },
-    someOtherGroup: {
-      anotherNestedGroup: {
-        value: "2px",
-        type: "dimension",
-        description: "foobar",
-      },
-    },
-  },
-};
