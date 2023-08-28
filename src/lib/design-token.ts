@@ -354,20 +354,3 @@ export type DesignTokenLibrary<T extends {}, R extends {} = T> = {
     ? DesignTokenLibrary<T[K], R>
     : never;
 };
-
-/**
- * Tests an object w/ only a value property
- */
-interface NoTypeGroup {
-  tokenName: DesignToken.Border;
-}
-const NoTypeGroup: DesignTokenLibrary<NoTypeGroup> = {
-  tokenName: {
-    type: DesignToken.Type.Border,
-    value: {
-      color: "#FFFFFF",
-      style: "solid",
-      width: "2px",
-    },
-  },
-};
