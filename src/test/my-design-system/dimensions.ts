@@ -1,4 +1,4 @@
-import { DesignToken } from "../design-token.js";
+import { DesignToken } from "../../lib/design-token.js";
 import { Theme } from "./theme.js";
 
 export interface Dimensions {

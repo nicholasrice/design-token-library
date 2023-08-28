@@ -1,4 +1,4 @@
-import { DesignTokenLibrary } from "../design-token.js";
+import { DesignTokenLibrary } from "../../lib/design-token.js";
 import { borders, Borders } from "./borders.js";
 import { colors, Colors } from "./colors.js";
 import { dimensions, Dimensions } from "./dimensions.js";

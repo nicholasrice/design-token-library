@@ -3,11 +3,12 @@
   "version": "1.0.0",
   "description": "",
   "type": "module",
-  "main": "./dist/index.js",
+  "main": "./dist/lib/index.js",
+  "types": "./dist/lib/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "watch": "tsc -w",
-    "test": "npm run build && node dist/test.js"
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "test": "npx uvu dist/test .spec.js$"
   },
   "repository": {
     "type": "git",

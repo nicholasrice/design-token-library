@@ -1,4 +1,4 @@
-import { DesignToken, DesignTokenLibrary } from "../design-token.js";
+import { DesignToken, DesignTokenLibrary } from "../../lib/design-token.js";
 import type { Theme } from "./theme.js";
 
 export interface Colors {
