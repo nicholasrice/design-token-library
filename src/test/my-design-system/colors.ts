@@ -1,4 +1,5 @@
-import { DesignToken, DesignTokenLibrary } from "../../lib/design-token.js";
+import { DesignToken } from "../../lib/design-token.js";
+import { DesignTokenLibraryConfig } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
 
 export interface Colors {
@@ -7,7 +8,7 @@ export interface Colors {
   neutral: DesignToken.Color<Theme>;
 }
 
-export const colors: DesignTokenLibrary<Colors, Theme> = {
+export const colors: DesignTokenLibraryConfig<Colors, Theme> = {
   type: DesignToken.Type.Color,
   neutral: {
     value: "#FFFFFF",

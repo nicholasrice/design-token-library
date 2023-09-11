@@ -1,4 +1,5 @@
-import { DesignToken, DesignTokenLibrary } from "../../lib/design-token.js";
+import { DesignToken } from "../../lib/design-token.js";
+import { DesignTokenLibraryConfig } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
 
 export interface Borders {
@@ -7,7 +8,7 @@ export interface Borders {
   neutralThin: DesignToken.Border<Theme>;
 }
 
-export const borders: DesignTokenLibrary<Borders, Theme> = {
+export const borders: DesignTokenLibraryConfig<Borders, Theme> = {
   type: DesignToken.Type.Border,
   accentThin: {
     value: {

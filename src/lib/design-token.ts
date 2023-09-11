@@ -330,27 +330,46 @@ export namespace DesignToken {
     type?: DesignToken.Type;
   };
   export type Any =
+    | Border
     | Color
-    | Dimension
-    | FontFamily
-    | Number
-    | FontWeight
-    | Duration
     | CubicBezier
+    | Dimension
+    | Duration
+    | FontFamily
+    | FontWeight
+    | Gradient
+    | Number
     | Shadow
     | StrokeStyle
-    | Border
     | Transition
-    | Gradient
     | Typography;
-}
 
-export type DesignTokenLibrary<T extends {}, R extends {} = T> = {
-  [K in keyof T]: T[K] extends DesignToken.Any
-    ? T[K]
-    : K extends "type"
-    ? DesignToken.Type
-    : T[K] extends {}
-    ? DesignTokenLibrary<T[K], R>
-    : never;
-};
+  export type ValueByToken<T extends DesignToken.Any> =
+    T extends DesignToken.Border
+      ? DesignToken.Values.Border
+      : T extends Color
+      ? DesignToken.Values.Color
+      : T extends DesignToken.CubicBezier
+      ? DesignToken.Values.CubicBezier
+      : T extends DesignToken.Dimension
+      ? DesignToken.Values.Dimension
+      : T extends DesignToken.Duration
+      ? DesignToken.Values.Duration
+      : T extends DesignToken.FontFamily
+      ? DesignToken.Values.FontFamily
+      : T extends DesignToken.FontWeight
+      ? DesignToken.Values.FontWeight
+      : T extends DesignToken.Gradient
+      ? DesignToken.Values.Gradient
+      : T extends DesignToken.Number
+      ? DesignToken.Values.Number
+      : T extends DesignToken.Shadow
+      ? DesignToken.Values.Shadow
+      : T extends DesignToken.StrokeStyle
+      ? DesignToken.Values.StrokeStyle
+      : T extends DesignToken.Transition
+      ? DesignToken.Values.Transition
+      : T extends Typography
+      ? DesignToken.Values.Typography
+      : never;
+}

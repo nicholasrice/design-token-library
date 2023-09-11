@@ -1,4 +1,5 @@
-import { DesignToken, DesignTokenLibrary } from "../../lib/design-token.js";
+import { DesignToken } from "../../lib/design-token.js";
+import { DesignTokenLibraryConfig } from "../../lib/library.js";
 import { Theme } from "./theme.js";
 
 export interface Fonts {
@@ -10,7 +11,7 @@ export interface Fonts {
   };
 }
 
-export const fonts: DesignTokenLibrary<Fonts, Theme> = {
+export const fonts: DesignTokenLibraryConfig<Fonts, Theme> = {
   body: { value: ["foo", "bar"] },
   heading: { value: ["bat", (theme: Theme) => theme.fonts.body] },
   weights: {

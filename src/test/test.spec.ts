@@ -1,15 +1,193 @@
 import "./dom-shim.js";
-import { test } from "uvu";
-import * as assert from "uvu/assert";
-// import { Updates } from "@microsoft/fast-element";
+import { test, suite } from "uvu";
+import * as Assert from "uvu/assert";
+import {
+  DesignTokenLibraryConfig,
+  DesignTokenLibraryFactory,
+} from "../lib/library.js";
+import { Updates } from "@microsoft/fast-element";
+import { DesignToken } from "../lib/design-token.js";
+import { isLineBreak } from "typescript";
 
-// Updates.setMode(false);
+Updates.setMode(false);
 
-test("should use object path to create css custom property names if no name is defined", () => {
-  assert.is(2, 2);
+const Type = suite("DesignToken.type");
+const Description = suite("DesignToken.description");
+const Value = suite("DesignToken.value");
+
+Description("should exist in the library when defined on the token", () => {
+  const library = DesignTokenLibraryFactory.create({
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+      description: "Hello world",
+    },
+  });
+
+  Assert.equal(library.token.description, "Hello world");
 });
-test("should use name field in token definition for custom property if defined", () => {
-  assert.equal(2, 2);
+Type(
+  "A token should get it's type assigned when it is defined on the token",
+  () => {
+    const library = DesignTokenLibraryFactory.create({
+      token: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+    });
+
+    Assert.equal(library.token.type, DesignToken.Type.Color);
+  }
+);
+Type(
+  "A token should inherit it's group's type when it does not define a type ",
+  () => {
+    const library = DesignTokenLibraryFactory.create({
+      type: DesignToken.Type.Color,
+      token: {
+        value: "#FFFFFF",
+      },
+    });
+
+    Assert.equal(library.token.type, DesignToken.Type.Color);
+  }
+);
+Type(
+  "A token should override it's group's type when a type is explicitly assigned",
+  () => {
+    const library = DesignTokenLibraryFactory.create({
+      type: DesignToken.Type.Border,
+      token: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+    });
+
+    Assert.equal(library.token.type, DesignToken.Type.Color);
+  }
+);
+Type(
+  "should throw when there is no type declared for a token and it's ancestor groups",
+  () => {
+    Assert.throws(() => {
+      DesignTokenLibraryFactory.create({ token: { value: "#FFFFFF " } });
+    });
+  }
+);
+
+Value(
+  "should be the value a token was defined with when defined with a static value",
+  () => {
+    const library = DesignTokenLibraryFactory.create({
+      token: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      anotherToken: {
+        type: DesignToken.Type.Border,
+        value: {
+          color: "#FFFFFF",
+          style: "solid",
+          width: "2px",
+        },
+      },
+    });
+
+    Assert.equal(library.token.value, "#FFFFFF");
+    Assert.equal(library.anotherToken.value, {
+      color: "#FFFFFF",
+      style: "solid",
+      width: "2px",
+    });
+  }
+);
+
+Value.skip("should invoke function values with the token context");
+Value(
+  "should return the value of a referenced token when assigned a token reference",
+  () => {
+    interface Theme {
+      token: DesignToken.Color;
+      anotherToken: DesignToken.Color;
+    }
+    const config: DesignTokenLibraryConfig<Theme> = {
+      token: {
+        type: DesignToken.Type.Color,
+        value: "#FF0000",
+      },
+      anotherToken: {
+        type: DesignToken.Type.Color,
+        value: (theme: Theme) => theme.token,
+      },
+    };
+    const library = DesignTokenLibraryFactory.create(config);
+
+    Assert.equal(library.anotherToken.value, library.token.value);
+  }
+);
+Value("reference tokens should support multiple levels of inheritance", () => {
+  interface Theme {
+    token: DesignToken.Color;
+    secondaryToken: DesignToken.Color;
+    tertiaryToken: DesignToken.Color;
+  }
+  const config: DesignTokenLibraryConfig<Theme> = {
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FF0000",
+    },
+    secondaryToken: {
+      type: DesignToken.Type.Color,
+      value: (theme: Theme) => theme.token,
+    },
+    tertiaryToken: {
+      type: DesignToken.Type.Color,
+      value: (theme: Theme) => theme.secondaryToken,
+    },
+  };
+  const library = DesignTokenLibraryFactory.create(config);
+
+  Assert.equal(library.tertiaryToken.value, library.token.value);
+});
+Value("should support setting a static value", () => {
+  interface Library {
+    token: DesignToken.Color;
+  }
+  const config: DesignTokenLibraryConfig<Library> = {
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+    },
+  };
+  const library = DesignTokenLibraryFactory.create(config);
+  const value: DesignToken.Values.Color = "#000000";
+  library.token.set(value);
+
+  Assert.equal(library.token.value, value);
+});
+Value("should support setting a token alias", () => {
+  interface Theme {
+    token: DesignToken.Color;
+    secondaryToken: DesignToken.Color;
+  }
+
+  const config: DesignTokenLibraryConfig<Theme> = {
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+    },
+    secondaryToken: {
+      type: DesignToken.Type.Color,
+      value: "#000000",
+    },
+  };
+
+  const library = DesignTokenLibraryFactory.create(config);
+  library.secondaryToken.set((theme: Theme) => theme.token);
+
+  Assert.equal(library.secondaryToken.value, library.token.value);
 });
 
-test.run();
+Description.run();
+Type.run();
+Value.run();
