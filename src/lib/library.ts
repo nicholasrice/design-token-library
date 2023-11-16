@@ -41,8 +41,8 @@ export namespace Library {
    * Context object provided to {@link Alias} values at runtime
    */
   export type Context<T extends {}, R extends {} = T> = {
-    [K in keyof T]: T[K] extends DesignToken.Any
-      ? Readonly<Omit<Token<T[K], R>, "set">>
+    [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
+      ? Readonly<T[K]>
       : K extends "type"
       ? DesignToken.Type
       : T[K] extends {}
