@@ -1,6 +1,7 @@
 import "./dom-shim.js";
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { spy } from "sinon";
 import { Library } from "../lib/library.js";
 import { Updates } from "@microsoft/fast-element";
 import { DesignToken } from "../lib/design-token.js";
@@ -98,7 +99,33 @@ Value(
   }
 );
 
-Value.skip("should invoke function values with the token context");
+Value("should invoke function values with the token library", () => {
+  // Arrange
+  interface Theme {
+    token: DesignToken.Color;
+    anotherToken: DesignToken.Color;
+  }
+
+  const value = spy((context: Library.Context<Theme>) => context.token);
+  const config: Library.Config<Theme> = {
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FF0000",
+    },
+    anotherToken: {
+      type: DesignToken.Type.Color,
+      value,
+    },
+  };
+  const library = Library.create(config);
+
+  // Act
+  const anotherTokenValue = library.anotherToken.value;
+
+  Assert.equal(value.calledOnce, true);
+  Assert.equal(value.firstCall.args[0], library);
+});
+
 Value(
   "should return the value of a referenced token when assigned a token reference",
   () => {
@@ -134,11 +161,11 @@ Value("reference tokens should support multiple levels of inheritance", () => {
     },
     secondaryToken: {
       type: DesignToken.Type.Color,
-      value: (theme: Theme) => theme.token,
+      value: (theme) => theme.token,
     },
     tertiaryToken: {
       type: DesignToken.Type.Color,
-      value: (theme: Theme) => theme.secondaryToken,
+      value: (theme) => theme.secondaryToken,
     },
   };
   const library = Library.create(config);

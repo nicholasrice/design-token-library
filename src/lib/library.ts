@@ -153,16 +153,16 @@ function recurseCreate(
 class LibraryToken<T extends DesignToken.Any>
   implements Library.Token<any, any>
 {
-  #context: Library.Library<any, any>; // TODO: This should be Library.Context
-  #value: T["value"];
+  #context: Library.Context<any>;
+  #value: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
   public readonly description?: string;
+  public readonly type: Required<T>["type"];
   public extensions: Record<string, unknown>;
-  public type: Required<T>["type"];
 
   constructor(
-    value: T["value"],
+    value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
     type: Required<T>["type"],
-    context: Library.Library<any, any>,
+    context: Library.Context<any>,
     description: T["description"] = undefined,
     extensions: T["extensions"] = {}
   ) {
@@ -172,14 +172,19 @@ class LibraryToken<T extends DesignToken.Any>
     this.#value = value;
     this.#context = context;
   }
+
   /**
    * Gets the token value
    */
-  public get value(): T["value"] {
-    return this.#value;
+  public get value(): DesignToken.ValueByToken<T> {
+    if (typeof this.#value === "function") {
+      return this.#value(this.#context).value as DesignToken.ValueByToken<T>;
+    } else {
+      return this.#value;
+    }
   }
 
-  public set(value: T["value"]) {
+  public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
     if (this.#value !== value) {
       this.#value = value;
     }
