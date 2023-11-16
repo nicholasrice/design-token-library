@@ -1,6 +1,10 @@
 import { DesignToken } from "./design-token.js";
 
 export namespace Library {
+  /**
+   * Defines a token library that can be interacted with
+   * to mutate token values.
+   */
   export type Library<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
       ? Token<T[K], R>
@@ -11,10 +15,17 @@ export namespace Library {
       : never;
   };
 
+  /**
+   * A token value that serves as an alias to another token value
+   */
   export type Alias<T extends DesignToken.Any, R extends Context<any>> = (
     context: R
   ) => T;
 
+  /**
+   * An {@link Alias} that supports complex token value types
+   * such as {@link DesignToken.Border}
+   */
   export type DeepAlias<
     V extends DesignToken.Any,
     T extends Context<any>
@@ -26,6 +37,9 @@ export namespace Library {
       }
     : never;
 
+  /**
+   * Context object provided to {@link Alias} values at runtime
+   */
   export type Context<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
       ? Readonly<Omit<Token<T[K], R>, "set">>
@@ -36,11 +50,17 @@ export namespace Library {
       : never;
   };
 
+  /**
+   * A token in a {@link Library.Library}
+   */
   export type Token<T extends DesignToken.Any, C extends {}> = {
     set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
     readonly type: T["type"];
   } & Readonly<T>;
 
+  /**
+   * A configuration object provided to {@link Library.create}
+   */
   export type Config<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
       ? ConfigValue<T[K], R>
@@ -59,7 +79,13 @@ export namespace Library {
       });
 }
 
+/**
+ * Library export containing library functions.
+ */
 export const Library = Object.freeze({
+  /**
+   * Creates a new {@link Library.Library} form a {@link Library.Config}.
+   */
   create,
 });
 
