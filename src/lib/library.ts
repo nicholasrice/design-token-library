@@ -3,7 +3,7 @@ import { DesignToken } from "./design-token.js";
 export namespace Library {
   export type Library<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
-      ? Token<T[K]>
+      ? Token<T[K], R>
       : K extends "type"
       ? DesignToken.Type
       : T[K] extends {}
@@ -26,9 +26,9 @@ export namespace Library {
       }
     : never;
 
-  export type Context<T extends Config<any>, R extends {} = T> = {
+  export type Context<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
-      ? Readonly<Omit<Token<T[K]>, "set">>
+      ? Readonly<Omit<Token<T[K], R>, "set">>
       : K extends "type"
       ? DesignToken.Type
       : T[K] extends {}
@@ -36,8 +36,8 @@ export namespace Library {
       : never;
   };
 
-  export type Token<T extends DesignToken.Any> = {
-    set(value: DesignToken.ValueByToken<T>): void;
+  export type Token<T extends DesignToken.Any, C extends {}> = {
+    set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
     readonly type: T["type"];
   } & Readonly<T>;
 
@@ -124,7 +124,9 @@ function recurseCreate(
 /**
  * An individual token value in a library
  */
-class LibraryToken<T extends DesignToken.Any> implements Library.Token<any> {
+class LibraryToken<T extends DesignToken.Any>
+  implements Library.Token<any, any>
+{
   #context: Library.Library<any, any>; // TODO: This should be Library.Context
   #value: T["value"];
   public readonly description?: string;

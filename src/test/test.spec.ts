@@ -180,7 +180,7 @@ Value("should support setting a token alias", () => {
   };
 
   const library = Library.create(config);
-  library.secondaryToken.set((theme: Theme) => theme.token);
+  library.secondaryToken.set((theme) => theme.token);
 
   Assert.equal(library.secondaryToken.value, library.token.value);
 });
