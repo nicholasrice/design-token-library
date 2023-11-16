@@ -12,25 +12,18 @@ export const borders: Library.Config<Borders, Theme> = {
   type: DesignToken.Type.Border,
   accentThin: {
     value: {
-      color: "#FFF000",
-      // color: function (theme: Theme) {
-      //   return theme.colors.accent;
-      // },
+      color: function (theme) {
+        return theme.colors.accent;
+      },
       style: "dashed",
-      // width(theme) {
-      //   return theme.dimensions.border;
-      // },
-      width: "2px",
+      width(theme) {
+        return theme.dimensions.border;
+      },
     },
   },
   neutralThin: {
-    value: {
-      color: "#000000",
-      style: "solid",
-      width: "4px",
+    value: function (theme): DesignToken.Border {
+      return theme.borders.accentThin;
     },
-    // value: function (theme: Theme): DesignToken.Border {
-    //   return theme.borders.accentThin;
-    // },
   },
 };

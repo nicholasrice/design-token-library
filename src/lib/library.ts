@@ -11,8 +11,29 @@ export namespace Library {
       : never;
   };
 
-  export type Context<T extends Config<any>> = {
-    // TODO: This should be provided to Alias
+  export type Alias<T extends DesignToken.Any, R extends Context<any>> = (
+    context: R
+  ) => T;
+
+  export type DeepAlias<
+    V extends DesignToken.Any,
+    T extends Context<any>
+  > = V extends {}
+    ? {
+        [K in keyof DesignToken.ValueByToken<V>]:
+          | DesignToken.ValueByToken<V>[K]
+          | Alias<DesignToken.TokenByValue<DesignToken.ValueByToken<V>[K]>, T>;
+      }
+    : never;
+
+  export type Context<T extends Config<any>, R extends {} = T> = {
+    [K in keyof T]: T[K] extends DesignToken.Any
+      ? Readonly<Omit<Token<T[K]>, "set">>
+      : K extends "type"
+      ? DesignToken.Type
+      : T[K] extends {}
+      ? Context<T[K], R>
+      : never;
   };
 
   export type Token<T extends DesignToken.Any> = {
@@ -22,41 +43,42 @@ export namespace Library {
 
   export type Config<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
-      ? ConfigValue<T[K]>
-      : K extends "type"
-      ? DesignToken.Type
+      ? ConfigValue<T[K], R>
       : T[K] extends {}
       ? Config<T[K], R>
       : never;
   };
 
-  export type ConfigValue<T extends DesignToken.Any> = T & {
-    value: T["value"];
-  };
+  export type ConfigValue<T extends DesignToken.Any, R extends {}> =
+    | T
+    // There is an odd TypeScript type error that occurs if this is simply
+    // assign Omit<T, "value"> & { value...} where if the type of the argument
+    // in Library.create is untyped, it cannot be inferred, so use T | ...
+    | (Omit<T, "value"> & {
+        value: Library.Alias<T, Context<R>> | Library.DeepAlias<T, Context<R>>;
+      });
 }
 
 export const Library = Object.freeze({
   create,
 });
 
-function isDesignToken<T extends DesignToken.Any>(
+function create<T extends {} = any>(
+  config: Library.Config<T, T>
+): Library.Library<T, T> {
+  const library: Library.Library<any, any> = {};
+  recurseCreate(library, config, library);
+  return library;
+}
+
+function isToken<T extends DesignToken.Any>(
   value: T | any
 ): value is DesignToken.Any {
   return "value" in value;
 }
 
-function isDesignTokenGroup(
-  value: DesignToken.Group | any
-): value is DesignToken.Group {
-  return typeof value === "object" && value !== null && !isDesignToken(value);
-}
-
-function create<T extends {}>(
-  config: Library.Config<T>
-): Library.Library<T, T> {
-  const library: Library.Library<any, any> = {};
-  recurseCreate(library, config, library);
-  return library;
+function isGroup(value: DesignToken.Group | any): value is DesignToken.Group {
+  return typeof value === "object" && value !== null && !isToken(value);
 }
 
 function recurseCreate(
@@ -67,10 +89,10 @@ function recurseCreate(
 ) {
   for (const key in config) {
     if (key === "type") {
-      typeContext = config[key];
+      typeContext = config[key] as any;
       continue;
     }
-    if (isDesignTokenGroup(config[key])) {
+    if (isGroup(config[key])) {
       Reflect.defineProperty(library, key, { value: {}, writable: false });
       recurseCreate(
         library[key],
@@ -79,7 +101,7 @@ function recurseCreate(
         config[key].type || typeContext
       );
       Object.freeze(library[key]);
-    } else if (isDesignToken(config[key])) {
+    } else if (isToken(config[key])) {
       const { value, type, description, extensions } = config[key];
       if (!type && !typeContext) {
         throw new Error(
@@ -103,7 +125,7 @@ function recurseCreate(
  * An individual token value in a library
  */
 class LibraryToken<T extends DesignToken.Any> implements Library.Token<any> {
-  #context: Library.Library<any, any>;
+  #context: Library.Library<any, any>; // TODO: This should be Library.Context
   #value: T["value"];
   public readonly description?: string;
   public extensions: Record<string, unknown>;

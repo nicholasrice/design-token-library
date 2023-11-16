@@ -14,9 +14,8 @@ export const colors: Library.Config<Colors, Theme> = {
     value: "#FFFFFF",
   },
   accent: {
-    value: "#FF0000",
-    // value: function (theme: Theme) {
-    //   return theme.colors.neutral;
-    // },
+    value: function (theme) {
+      return theme.colors.neutral;
+    },
   },
 };

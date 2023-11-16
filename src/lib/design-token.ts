@@ -189,7 +189,7 @@ export namespace DesignToken {
     extensions?: Record<string, any>;
   }
 
-  type TokenByType<T extends DesignToken.Type> =
+  export type TokenByType<T extends DesignToken.Type> =
     T extends DesignToken.Type.Border
       ? DesignToken.Border
       : T extends DesignToken.Type.Color
@@ -217,7 +217,7 @@ export namespace DesignToken {
       : T extends DesignToken.Type.Typography
       ? DesignToken.Typography
       : never;
-  type TokenByValue<T> = T extends DesignToken.Values.Border
+  export type TokenByValue<T> = T extends DesignToken.Values.Border
     ? DesignToken.Border
     : T extends DesignToken.Values.Color
     ? DesignToken.Color

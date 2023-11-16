@@ -99,7 +99,7 @@ Value(
 );
 
 Value.skip("should invoke function values with the token context");
-Value.skip(
+Value(
   "should return the value of a referenced token when assigned a token reference",
   () => {
     interface Theme {
@@ -113,7 +113,6 @@ Value.skip(
       },
       anotherToken: {
         type: DesignToken.Type.Color,
-        // @ts-ignore
         value: (theme: Theme) => theme.token,
       },
     };
@@ -122,35 +121,30 @@ Value.skip(
     Assert.equal(library.anotherToken.value, library.token.value);
   }
 );
-Value.skip(
-  "reference tokens should support multiple levels of inheritance",
-  () => {
-    interface Theme {
-      token: DesignToken.Color;
-      secondaryToken: DesignToken.Color;
-      tertiaryToken: DesignToken.Color;
-    }
-    const config: Library.Config<Theme> = {
-      token: {
-        type: DesignToken.Type.Color,
-        value: "#FF0000",
-      },
-      secondaryToken: {
-        type: DesignToken.Type.Color,
-        // @ts-ignore
-        value: (theme: Theme) => theme.token,
-      },
-      tertiaryToken: {
-        type: DesignToken.Type.Color,
-        // @ts-ignore
-        value: (theme: Theme) => theme.secondaryToken,
-      },
-    };
-    const library = Library.create(config);
-
-    Assert.equal(library.tertiaryToken.value, library.token.value);
+Value("reference tokens should support multiple levels of inheritance", () => {
+  interface Theme {
+    token: DesignToken.Color;
+    secondaryToken: DesignToken.Color;
+    tertiaryToken: DesignToken.Color;
   }
-);
+  const config: Library.Config<Theme> = {
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FF0000",
+    },
+    secondaryToken: {
+      type: DesignToken.Type.Color,
+      value: (theme: Theme) => theme.token,
+    },
+    tertiaryToken: {
+      type: DesignToken.Type.Color,
+      value: (theme: Theme) => theme.secondaryToken,
+    },
+  };
+  const library = Library.create(config);
+
+  Assert.equal(library.tertiaryToken.value, library.token.value);
+});
 Value("should support setting a static value", () => {
   interface Library {
     token: DesignToken.Color;
@@ -168,7 +162,7 @@ Value("should support setting a static value", () => {
 
   Assert.equal(library.token.value, value);
 });
-Value.skip("should support setting a token alias", () => {
+Value("should support setting a token alias", () => {
   interface Theme {
     token: DesignToken.Color;
     secondaryToken: DesignToken.Color;
@@ -186,7 +180,6 @@ Value.skip("should support setting a token alias", () => {
   };
 
   const library = Library.create(config);
-  // @ts-ignore
   library.secondaryToken.set((theme: Theme) => theme.token);
 
   Assert.equal(library.secondaryToken.value, library.token.value);
