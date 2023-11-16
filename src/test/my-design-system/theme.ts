@@ -1,4 +1,4 @@
-import { DesignTokenLibraryConfig } from "../../lib/library.js";
+import { Library } from "../../lib/library.js";
 import { borders, Borders } from "./borders.js";
 import { colors, Colors } from "./colors.js";
 import { dimensions, Dimensions } from "./dimensions.js";
@@ -11,7 +11,7 @@ export interface Theme {
   fonts: Fonts;
 }
 
-export const theme: DesignTokenLibraryConfig<Theme, Theme> = {
+export const theme: Library.Config<Theme, Theme> = {
   colors,
   borders,
   dimensions,

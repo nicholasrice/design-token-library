@@ -244,91 +244,74 @@ export namespace DesignToken {
     : T extends DesignToken.Values.Typography
     ? DesignToken.Typography
     : never;
-  type Alias<T, K extends DesignToken.Any> = (root: T) => K;
-  type DeepAlias<T, V extends DesignToken.Values.Any> = V extends {}
-    ? { [K in keyof V]: V[K] | ((theme: T) => TokenByValue<V[K]>) }
-    : never;
 
   interface TypedTokenProperties<
     Type extends DesignToken.Type,
-    Value extends DesignToken.Values.Any,
-    Theme = any
+    Value extends DesignToken.Values.Any
   > extends OptionalProperties {
-    value: Value | DeepAlias<Theme, Value> | Alias<Theme, TokenByType<Type>>;
+    value: Value;
     type?: Type;
   }
 
-  export type Border<Theme extends {} = any> = TypedTokenProperties<
+  export type Border = TypedTokenProperties<
     DesignToken.Type.Border,
-    DesignToken.Values.Border,
-    Theme
+    DesignToken.Values.Border
   >;
-  export type Color<Theme extends {} = any> = TypedTokenProperties<
+  export type Color = TypedTokenProperties<
     DesignToken.Type.Color,
-    DesignToken.Values.Color,
-    Theme
+    DesignToken.Values.Color
   >;
-  export type CubicBezier<Theme extends {} = any> = TypedTokenProperties<
+  export type CubicBezier = TypedTokenProperties<
     DesignToken.Type.CubicBezier,
-    DesignToken.Values.CubicBezier,
-    Theme
+    DesignToken.Values.CubicBezier
   >;
-  export type Dimension<Theme extends {} = any> = TypedTokenProperties<
+  export type Dimension = TypedTokenProperties<
     DesignToken.Type.Dimension,
-    DesignToken.Values.Dimension,
-    Theme
+    DesignToken.Values.Dimension
   >;
-  export type Duration<Theme extends {} = any> = TypedTokenProperties<
+  export type Duration = TypedTokenProperties<
     DesignToken.Type.Duration,
-    DesignToken.Values.Duration,
-    Theme
+    DesignToken.Values.Duration
   >;
-  export type FontFamily<Theme extends {} = any> = TypedTokenProperties<
+  export type FontFamily = TypedTokenProperties<
     DesignToken.Type.FontFamily,
-    DesignToken.Values.FontFamily,
-    Theme
+    DesignToken.Values.FontFamily
   >;
-  export type FontWeight<Theme extends {} = any> = TypedTokenProperties<
+  export type FontWeight = TypedTokenProperties<
     DesignToken.Type.FontWeight,
-    DesignToken.Values.FontWeight,
-    Theme
+    DesignToken.Values.FontWeight
   >;
-  export type Gradient<Theme extends {} = any> = TypedTokenProperties<
+  export type Gradient = TypedTokenProperties<
     DesignToken.Type.Gradient,
-    DesignToken.Values.Gradient,
-    Theme
+    DesignToken.Values.Gradient
   >;
-  export type Number<Theme extends {} = any> = TypedTokenProperties<
+  export type Number = TypedTokenProperties<
     DesignToken.Type.Number,
-    DesignToken.Values.Number,
-    Theme
+    DesignToken.Values.Number
   >;
-  export type Shadow<Theme extends {} = any> = TypedTokenProperties<
+  export type Shadow = TypedTokenProperties<
     DesignToken.Type.Shadow,
-    DesignToken.Values.Shadow,
-    Theme
+    DesignToken.Values.Shadow
   >;
 
-  export type StrokeStyle<Theme extends {} = any> = TypedTokenProperties<
+  export type StrokeStyle = TypedTokenProperties<
     DesignToken.Type.StrokeStyle,
-    DesignToken.Values.StrokeStyle,
-    Theme
+    DesignToken.Values.StrokeStyle
   >;
 
-  export type Transition<Theme extends {} = any> = TypedTokenProperties<
+  export type Transition = TypedTokenProperties<
     DesignToken.Type.Transition,
-    DesignToken.Values.Transition,
-    Theme
+    DesignToken.Values.Transition
   >;
-  export type Typography<Theme extends {} = any> = TypedTokenProperties<
+  export type Typography = TypedTokenProperties<
     DesignToken.Type.Typography,
-    DesignToken.Values.Typography,
-    Theme
+    DesignToken.Values.Typography
   >;
 
   export type Group = {
     type?: DesignToken.Type;
   };
+
   export type Any =
     | Border
     | Color

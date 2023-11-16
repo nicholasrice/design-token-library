@@ -1,44 +1,41 @@
-import { Observable } from "@microsoft/fast-element";
-/**
- * const library = DesignTokenLibrary.create({
- * .. //
- * })
- */
-
 import { DesignToken } from "./design-token.js";
 
-/**
- * Describes
- * library.tokenName.value // readonly, the current token value
- * library.tokenName.set(value) // Sets the token value. value arg can be fn or value
- */
-export type IDesignTokenLibrary<T extends {}, R extends {} = T> = {
-  [K in keyof T]: T[K] extends DesignToken.Any
-    ? IDesignTokenLibraryValue<T[K]>
-    : K extends "type"
-    ? DesignToken.Type
-    : T[K] extends {}
-    ? IDesignTokenLibrary<T[K], R>
-    : never;
-};
+export namespace Library {
+  export type Library<T extends {}, R extends {} = T> = {
+    [K in keyof T]: T[K] extends DesignToken.Any
+      ? Token<T[K]>
+      : K extends "type"
+      ? DesignToken.Type
+      : T[K] extends {}
+      ? Library<T[K], R>
+      : never;
+  };
 
-export type IDesignTokenLibraryValue<T extends DesignToken.Any> = {
-  set(value: T["value"]): void;
-  readonly value: DesignToken.ValueByToken<T>;
-  readonly type: T["type"];
-} & Readonly<Omit<T, "value">>;
+  export type Context<T extends Config<any>> = {
+    // TODO: This should be provided to Alias
+  };
 
-export type DesignTokenLibraryConfig<T extends {}, R extends {} = T> = {
-  [K in keyof T]: T[K] extends DesignToken.Any
-    ? T[K]
-    : K extends "type"
-    ? DesignToken.Type
-    : T[K] extends {}
-    ? DesignTokenLibraryConfig<T[K], R>
-    : never;
-};
+  export type Token<T extends DesignToken.Any> = {
+    set(value: DesignToken.ValueByToken<T>): void;
+    readonly type: T["type"];
+  } & Readonly<T>;
 
-export const DesignTokenLibraryFactory = Object.freeze({
+  export type Config<T extends {}, R extends {} = T> = {
+    [K in keyof T]: T[K] extends DesignToken.Any
+      ? ConfigValue<T[K]>
+      : K extends "type"
+      ? DesignToken.Type
+      : T[K] extends {}
+      ? Config<T[K], R>
+      : never;
+  };
+
+  export type ConfigValue<T extends DesignToken.Any> = T & {
+    value: T["value"];
+  };
+}
+
+export const Library = Object.freeze({
   create,
 });
 
@@ -55,17 +52,17 @@ function isDesignTokenGroup(
 }
 
 function create<T extends {}>(
-  config: DesignTokenLibraryConfig<T>
-): IDesignTokenLibrary<T, T> {
-  const library: IDesignTokenLibrary<any, any> = {};
+  config: Library.Config<T>
+): Library.Library<T, T> {
+  const library: Library.Library<any, any> = {};
   recurseCreate(library, config, library);
   return library;
 }
 
 function recurseCreate(
-  library: IDesignTokenLibrary<any, any>,
-  config: DesignTokenLibraryConfig<any>,
-  context: IDesignTokenLibrary<any, any>,
+  library: Library.Library<any, any>,
+  config: Library.Config<any>,
+  context: Library.Library<any, any>,
   typeContext?: DesignToken.Type
 ) {
   for (const key in config) {
@@ -105,8 +102,8 @@ function recurseCreate(
 /**
  * An individual token value in a library
  */
-class LibraryToken<T extends DesignToken.Any> {
-  #context: IDesignTokenLibrary<any, any>;
+class LibraryToken<T extends DesignToken.Any> implements Library.Token<any> {
+  #context: Library.Library<any, any>;
   #value: T["value"];
   public readonly description?: string;
   public extensions: Record<string, unknown>;
@@ -115,7 +112,7 @@ class LibraryToken<T extends DesignToken.Any> {
   constructor(
     value: T["value"],
     type: Required<T>["type"],
-    context: IDesignTokenLibrary<any, any>,
+    context: Library.Library<any, any>,
     description: T["description"] = undefined,
     extensions: T["extensions"] = {}
   ) {
@@ -128,20 +125,13 @@ class LibraryToken<T extends DesignToken.Any> {
   /**
    * Gets the token value
    */
-  public get value(): DesignToken.ValueByToken<T> {
-    Observable.track(this, "value");
-
-    if (typeof this.#value === "function") {
-      return this.#value(this.#context).value as DesignToken.ValueByToken<T>;
-    } else {
-      return this.#value as any;
-    }
+  public get value(): T["value"] {
+    return this.#value;
   }
 
   public set(value: T["value"]) {
     if (this.#value !== value) {
       this.#value = value;
-      Observable.notify(this, "value");
     }
   }
 }
