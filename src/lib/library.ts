@@ -65,6 +65,7 @@ export namespace Library {
     readonly extensions: Record<string, any>;
     readonly value: DesignToken.ValueByToken<T>;
     readonly description: string;
+    readonly name: string;
   };
 
   /**
@@ -103,7 +104,7 @@ function create<T extends {} = any>(
   config: Library.Config<T, T>
 ): Library.Library<T> {
   const library: Library.TokenLibrary<any, any> = {};
-  recurseCreate(library, config, library);
+  recurseCreate("", library, config, library, null);
   return {
     tokens: library,
   };
@@ -130,19 +131,24 @@ function isAlias<T extends DesignToken.Any, K extends {}>(
 }
 
 function recurseCreate(
+  name: string,
   library: Library.TokenLibrary<any, any>,
   config: Library.Config<any>,
   context: Library.TokenLibrary<any, any>,
-  typeContext?: DesignToken.Type
+  typeContext: DesignToken.Type | null
 ) {
   for (const key in config) {
     if (key === "type") {
       typeContext = config[key] as any;
       continue;
     }
+
+    name = name.length === 0 ? key : `${name}.${key}`;
+
     if (isGroup(config[key])) {
       Reflect.defineProperty(library, key, { value: {}, writable: false });
       recurseCreate(
+        name,
         library[key] as any,
         config[key],
         context,
@@ -158,11 +164,12 @@ function recurseCreate(
       }
       Reflect.defineProperty(library, key, {
         value: new LibraryToken(
+          name,
           value,
           type || typeContext,
           context,
-          description,
-          extensions
+          description || "",
+          extensions || {}
         ),
       });
     }
@@ -177,20 +184,15 @@ class LibraryToken<T extends DesignToken.Any>
 {
   #context: Library.Context<any>;
   #value: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
-  public readonly description: string;
-  public readonly type: DesignToken.TypeByToken<T>;
-  public extensions: Record<string, unknown>;
 
   constructor(
+    public readonly name: string,
     value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
-    type: DesignToken.TypeByToken<T>,
+    public readonly type: DesignToken.TypeByToken<T>,
     context: Library.Context<any>,
-    description: T["description"] = undefined,
-    extensions: T["extensions"] = {}
+    public readonly description: string,
+    public readonly extensions: Record<string, any>
   ) {
-    this.description = description || "";
-    this.extensions = extensions;
-    this.type = type;
     this.#value = value;
     this.#context = context;
     Object.freeze(this);
@@ -225,5 +227,4 @@ class LibraryToken<T extends DesignToken.Any>
  *
  * TODO:
  * 1. System of Notification
- * 2. Add name
  */

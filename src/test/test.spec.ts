@@ -10,6 +10,7 @@ Updates.setMode(false);
 
 const Type = suite("DesignToken.type");
 const Description = suite("DesignToken.description");
+const Name = suite("DesignToken.name");
 const Value = suite("DesignToken.value");
 const Lib = suite("DesignToken.Library");
 
@@ -23,6 +24,35 @@ Description("should exist in the library when defined on the token", () => {
   });
 
   Assert.equal(library.tokens.token.description, "Hello world");
+});
+
+Name("should be the object name path delimited by '.' chars", () => {
+  const library = Library.create({
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+    },
+    colors: {
+      primary: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+    },
+  });
+
+  Assert.equal(library.tokens.token.name, "token");
+  Assert.equal(library.tokens.colors.primary.name, "colors.primary");
+});
+
+Name("should be case sensitive", () => {
+  const library = Library.create({
+    tOkeN: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+    },
+  });
+
+  Assert.equal(library.tokens.tOkeN.name, "tOkEn");
 });
 
 Type(
