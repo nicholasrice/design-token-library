@@ -24,6 +24,7 @@ Description("should exist in the library when defined on the token", () => {
 
   Assert.equal(library.token.description, "Hello world");
 });
+
 Type(
   "A token should get it's type assigned when it is defined on the token",
   () => {
@@ -37,6 +38,7 @@ Type(
     Assert.equal(library.token.type, DesignToken.Type.Color);
   }
 );
+
 Type(
   "A token should inherit it's group's type when it does not define a type ",
   () => {
@@ -50,6 +52,7 @@ Type(
     Assert.equal(library.token.type, DesignToken.Type.Color);
   }
 );
+
 Type(
   "A token should override it's group's type when a type is explicitly assigned",
   () => {
@@ -64,6 +67,7 @@ Type(
     Assert.equal(library.token.type, DesignToken.Type.Color);
   }
 );
+
 Type(
   "should throw when there is no type declared for a token and it's ancestor groups",
   () => {
@@ -149,6 +153,7 @@ Value(
     Assert.equal(library.anotherToken.value, library.token.value);
   }
 );
+
 Value("reference tokens should support multiple levels of inheritance", () => {
   interface Theme {
     token: DesignToken.Color;
@@ -173,6 +178,7 @@ Value("reference tokens should support multiple levels of inheritance", () => {
 
   Assert.equal(library.tertiaryToken.value, library.token.value);
 });
+
 Value("should support setting a static value", () => {
   interface Library {
     token: DesignToken.Color;
@@ -190,6 +196,7 @@ Value("should support setting a static value", () => {
 
   Assert.equal(library.token.value, value);
 });
+
 Value("should support setting a token alias", () => {
   interface Theme {
     token: DesignToken.Color;
