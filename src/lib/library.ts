@@ -55,9 +55,11 @@ export namespace Library {
    */
   export type Token<T extends DesignToken.Any, C extends {}> = {
     set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
-    readonly type: T["type"];
+    readonly type: DesignToken.TypeByToken<T>;
     readonly extensions: Record<string, any>;
-  } & Readonly<T>;
+    readonly value: DesignToken.ValueByToken<T>;
+    readonly description: string;
+  };
 
   /**
    * A configuration object provided to {@link Library.create}
@@ -133,7 +135,7 @@ function recurseCreate(
     if (isGroup(config[key])) {
       Reflect.defineProperty(library, key, { value: {}, writable: false });
       recurseCreate(
-        library[key],
+        library[key] as any,
         config[key],
         context,
         config[key].type || typeContext
@@ -167,18 +169,18 @@ class LibraryToken<T extends DesignToken.Any>
 {
   #context: Library.Context<any>;
   #value: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
-  public readonly description?: string;
-  public readonly type: Required<T>["type"];
+  public readonly description: string;
+  public readonly type: DesignToken.TypeByToken<T>;
   public extensions: Record<string, unknown>;
 
   constructor(
     value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
-    type: Required<T>["type"],
+    type: DesignToken.TypeByToken<T>,
     context: Library.Context<any>,
     description: T["description"] = undefined,
     extensions: T["extensions"] = {}
   ) {
-    this.description = description;
+    this.description = description || "";
     this.extensions = extensions;
     this.type = type;
     this.#value = value;
@@ -215,4 +217,6 @@ class LibraryToken<T extends DesignToken.Any>
  *
  * TODO:
  * 1. System of Notification
+ * 2. Add name
+ * 3. Library type should have all tokens under a `tokens` field
  */

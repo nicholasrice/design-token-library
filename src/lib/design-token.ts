@@ -217,6 +217,34 @@ export namespace DesignToken {
       : T extends DesignToken.Type.Typography
       ? DesignToken.Typography
       : never;
+  export type TypeByToken<T extends DesignToken.Any> =
+    T extends DesignToken.Border
+      ? DesignToken.Type.Border
+      : T extends DesignToken.Color
+      ? DesignToken.Type.Color
+      : T extends DesignToken.CubicBezier
+      ? DesignToken.Type.CubicBezier
+      : T extends DesignToken.Dimension
+      ? DesignToken.Type.Dimension
+      : T extends DesignToken.Duration
+      ? DesignToken.Type.Duration
+      : T extends DesignToken.FontFamily
+      ? DesignToken.Type.FontFamily
+      : T extends DesignToken.FontWeight
+      ? DesignToken.Type.FontWeight
+      : T extends DesignToken.Gradient
+      ? DesignToken.Type.Gradient
+      : T extends DesignToken.Number
+      ? DesignToken.Type.Number
+      : T extends DesignToken.Shadow
+      ? DesignToken.Type.Shadow
+      : T extends DesignToken.StrokeStyle
+      ? DesignToken.Type.StrokeStyle
+      : T extends DesignToken.Transition
+      ? DesignToken.Type.Transition
+      : T extends DesignToken.Typography
+      ? DesignToken.Type.Typography
+      : never;
   export type TokenByValue<T> = T extends DesignToken.Values.Border
     ? DesignToken.Border
     : T extends DesignToken.Values.Color
