@@ -6,7 +6,7 @@ export namespace Library {
    * to mutate token values.
    */
   export type Library<T extends {}, R extends {} = T> = {
-    [K in keyof T]: T[K] extends DesignToken.Any
+    [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
       ? Token<T[K], R>
       : K extends "type"
       ? DesignToken.Type
@@ -20,7 +20,7 @@ export namespace Library {
    */
   export type Alias<T extends DesignToken.Any, R extends Context<any>> = (
     context: R
-  ) => T;
+  ) => T | DesignToken.ValueByToken<T>;
 
   /**
    * An {@link Alias} that supports complex token value types
@@ -56,6 +56,7 @@ export namespace Library {
   export type Token<T extends DesignToken.Any, C extends {}> = {
     set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
     readonly type: T["type"];
+    readonly extensions: Record<string, any>;
   } & Readonly<T>;
 
   /**
@@ -87,6 +88,7 @@ export const Library = Object.freeze({
    * Creates a new {@link Library.Library} form a {@link Library.Config}.
    */
   create,
+  anonymousToken() {},
 });
 
 function create<T extends {} = any>(
@@ -97,14 +99,24 @@ function create<T extends {} = any>(
   return library;
 }
 
+function isObject<T>(value: T): value is T & {} {
+  return typeof value === "object" && value !== null;
+}
+
 function isToken<T extends DesignToken.Any>(
   value: T | any
 ): value is DesignToken.Any {
-  return "value" in value;
+  return isObject(value) && "value" in value;
 }
 
 function isGroup(value: DesignToken.Group | any): value is DesignToken.Group {
-  return typeof value === "object" && value !== null && !isToken(value);
+  return isObject(value) && !isToken(value);
+}
+
+function isAlias<T extends DesignToken.Any, K extends {}>(
+  value: any
+): value is Library.Alias<T, K> {
+  return typeof value === "function";
 }
 
 function recurseCreate(
@@ -171,14 +183,21 @@ class LibraryToken<T extends DesignToken.Any>
     this.type = type;
     this.#value = value;
     this.#context = context;
+    Object.freeze(this);
   }
 
   /**
    * Gets the token value
    */
-  public get value(): DesignToken.ValueByToken<T> {
-    if (typeof this.#value === "function") {
-      return this.#value(this.#context).value as DesignToken.ValueByToken<T>;
+  public get value(): T["value"] {
+    if (isAlias(this.#value)) {
+      const value = this.#value(this.#context);
+
+      if (isToken(value)) {
+        return value.value;
+      } else {
+        return value;
+      }
     } else {
       return this.#value;
     }
@@ -190,3 +209,10 @@ class LibraryToken<T extends DesignToken.Any>
     }
   }
 }
+
+/**
+ *
+ *
+ * TODO:
+ * 1. System of Notification
+ */

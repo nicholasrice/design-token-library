@@ -11,6 +11,7 @@ Updates.setMode(false);
 const Type = suite("DesignToken.type");
 const Description = suite("DesignToken.description");
 const Value = suite("DesignToken.value");
+const Lib = suite("DesignToken.Library");
 
 Description("should exist in the library when defined on the token", () => {
   const library = Library.create({
@@ -207,11 +208,85 @@ Value("should support setting a token alias", () => {
   };
 
   const library = Library.create(config);
-  library.secondaryToken.set((theme) => theme.token);
+  library.secondaryToken.set((theme) => theme.token.value);
 
   Assert.equal(library.secondaryToken.value, library.token.value);
+});
+
+Value("should support setting a value alias", () => {
+  interface Theme {
+    token: DesignToken.Color;
+    secondaryToken: DesignToken.Color;
+  }
+
+  const config: Library.Config<Theme> = {
+    token: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+    },
+    secondaryToken: {
+      type: DesignToken.Type.Color,
+      value: "#000000",
+    },
+  };
+
+  const library = Library.create(config);
+  library.secondaryToken.set(() => "#FF0000");
+
+  Assert.equal(library.secondaryToken.value, "#FF0000");
+});
+
+Lib("should be immutable", () => {
+  const library = Library.create({
+    colors: {
+      type: DesignToken.Type.Color,
+      primary: {
+        value: "#FFFFFF",
+      },
+      secondary: {
+        value: "#000000",
+      },
+    },
+  });
+
+  Assert.throws(
+    () =>
+      // @ts-ignore
+      (library.colors = {}),
+    "Assigning a group should throw"
+  );
+  Assert.throws(
+    // @ts-ignore
+    () => (library.colors.type = DesignToken.Type.Color),
+    "Assigning the 'type' field of a group should throw"
+  );
+  Assert.throws(
+    // @ts-ignore
+    () => (library.colors.primary = { value: "#FFF000" }),
+    "Assigning a token field should throw"
+  );
+  Assert.throws(
+    // @ts-ignore
+    () => (library.colors.primary.value = "#FFF000"),
+    "Assigning a token 'value' field  should throw"
+  );
+  Assert.throws(
+    // @ts-ignore
+    () => (library.colors.primary.type = DesignToken.Type.Border),
+    "Assigning a token 'type' field  should throw"
+  );
+  Assert.throws(
+    // @ts-ignore
+    () => (library.colors.primary.extensions = {}),
+    "Assigning a token 'extensions' field  should throw"
+  );
+  Assert.not.throws(
+    () => (library.colors.primary.extensions.foo = {}),
+    "Assigning a field of a token's extension field should not throw"
+  );
 });
 
 Description.run();
 Type.run();
 Value.run();
+Lib.run();
