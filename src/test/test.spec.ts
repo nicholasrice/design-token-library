@@ -22,7 +22,7 @@ Description("should exist in the library when defined on the token", () => {
     },
   });
 
-  Assert.equal(library.token.description, "Hello world");
+  Assert.equal(library.tokens.token.description, "Hello world");
 });
 
 Type(
@@ -35,7 +35,7 @@ Type(
       },
     });
 
-    Assert.equal(library.token.type, DesignToken.Type.Color);
+    Assert.equal(library.tokens.token.type, DesignToken.Type.Color);
   }
 );
 
@@ -49,7 +49,7 @@ Type(
       },
     });
 
-    Assert.equal(library.token.type, DesignToken.Type.Color);
+    Assert.equal(library.tokens.token.type, DesignToken.Type.Color);
   }
 );
 
@@ -64,7 +64,7 @@ Type(
       },
     });
 
-    Assert.equal(library.token.type, DesignToken.Type.Color);
+    Assert.equal(library.tokens.token.type, DesignToken.Type.Color);
   }
 );
 
@@ -95,8 +95,8 @@ Value(
       },
     });
 
-    Assert.equal(library.token.value, "#FFFFFF");
-    Assert.equal(library.anotherToken.value, {
+    Assert.equal(library.tokens.token.value, "#FFFFFF");
+    Assert.equal(library.tokens.anotherToken.value, {
       color: "#FFFFFF",
       style: "solid",
       width: "2px",
@@ -125,10 +125,10 @@ Value("should invoke function values with the token library", () => {
   const library = Library.create(config);
 
   // Act
-  const anotherTokenValue = library.anotherToken.value;
+  const anotherTokenValue = library.tokens.anotherToken.value;
 
   Assert.equal(value.calledOnce, true);
-  Assert.equal(value.firstCall.args[0], library);
+  Assert.equal(value.firstCall.args[0], library.tokens);
 });
 
 Value(
@@ -150,7 +150,7 @@ Value(
     };
     const library = Library.create(config);
 
-    Assert.equal(library.anotherToken.value, library.token.value);
+    Assert.equal(library.tokens.anotherToken.value, library.tokens.token.value);
   }
 );
 
@@ -176,7 +176,7 @@ Value("reference tokens should support multiple levels of inheritance", () => {
   };
   const library = Library.create(config);
 
-  Assert.equal(library.tertiaryToken.value, library.token.value);
+  Assert.equal(library.tokens.tertiaryToken.value, library.tokens.token.value);
 });
 
 Value("should support setting a static value", () => {
@@ -192,9 +192,9 @@ Value("should support setting a static value", () => {
   };
   const library = Library.create(config);
   const value: DesignToken.Values.Color = "#000000";
-  library.token.set(value);
+  library.tokens.token.set(value);
 
-  Assert.equal(library.token.value, value);
+  Assert.equal(library.tokens.token.value, value);
 });
 
 Value("should support setting a token alias", () => {
@@ -215,9 +215,9 @@ Value("should support setting a token alias", () => {
   };
 
   const library = Library.create(config);
-  library.secondaryToken.set((theme) => theme.token.value);
+  library.tokens.secondaryToken.set((theme) => theme.token.value);
 
-  Assert.equal(library.secondaryToken.value, library.token.value);
+  Assert.equal(library.tokens.secondaryToken.value, library.tokens.token.value);
 });
 
 Value("should support setting a value alias", () => {
@@ -238,9 +238,9 @@ Value("should support setting a value alias", () => {
   };
 
   const library = Library.create(config);
-  library.secondaryToken.set(() => "#FF0000");
+  library.tokens.secondaryToken.set(() => "#FF0000");
 
-  Assert.equal(library.secondaryToken.value, "#FF0000");
+  Assert.equal(library.tokens.secondaryToken.value, "#FF0000");
 });
 
 Lib("should be immutable", () => {
@@ -256,39 +256,41 @@ Lib("should be immutable", () => {
     },
   });
 
+  library.tokens.colors.primary.description;
+
   Assert.throws(
     () =>
       // @ts-ignore
-      (library.colors = {}),
+      (library.tokens.colors = {}),
     "Assigning a group should throw"
   );
   Assert.throws(
     // @ts-ignore
-    () => (library.colors.type = DesignToken.Type.Color),
+    () => (library.tokens.colors.type = DesignToken.Type.Color),
     "Assigning the 'type' field of a group should throw"
   );
   Assert.throws(
     // @ts-ignore
-    () => (library.colors.primary = { value: "#FFF000" }),
+    () => (library.tokens.colors.primary = { value: "#FFF000" }),
     "Assigning a token field should throw"
   );
   Assert.throws(
     // @ts-ignore
-    () => (library.colors.primary.value = "#FFF000"),
+    () => (library.tokens.colors.primary.value = "#FFF000"),
     "Assigning a token 'value' field  should throw"
   );
   Assert.throws(
     // @ts-ignore
-    () => (library.colors.primary.type = DesignToken.Type.Border),
+    () => (library.tokens.colors.primary.type = DesignToken.Type.Border),
     "Assigning a token 'type' field  should throw"
   );
   Assert.throws(
     // @ts-ignore
-    () => (library.colors.primary.extensions = {}),
+    () => (library.tokens.colors.primary.extensions = {}),
     "Assigning a token 'extensions' field  should throw"
   );
   Assert.not.throws(
-    () => (library.colors.primary.extensions.foo = {}),
+    () => (library.tokens.colors.primary.extensions.foo = {}),
     "Assigning a field of a token's extension field should not throw"
   );
 });

@@ -1,17 +1,23 @@
 import { DesignToken } from "./design-token.js";
 
 export namespace Library {
+  export type Library<T extends {}> = LibraryInternal<T, T>;
+
+  interface LibraryInternal<T extends {}, R extends {}> {
+    tokens: TokenLibrary<T, R>;
+  }
+
   /**
    * Defines a token library that can be interacted with
    * to mutate token values.
    */
-  export type Library<T extends {}, R extends {} = T> = {
+  export type TokenLibrary<T extends {}, R extends {} = T> = {
     [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
       ? Token<T[K], R>
       : K extends "type"
       ? DesignToken.Type
       : T[K] extends {}
-      ? Library<T[K], R>
+      ? TokenLibrary<T[K], R>
       : never;
   };
 
@@ -51,7 +57,7 @@ export namespace Library {
   };
 
   /**
-   * A token in a {@link Library.Library}
+   * A token in a {@link TokenLibrary.TokenLibrary}
    */
   export type Token<T extends DesignToken.Any, C extends {}> = {
     set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
@@ -62,7 +68,7 @@ export namespace Library {
   };
 
   /**
-   * A configuration object provided to {@link Library.create}
+   * A configuration object provided to {@link TokenLibrary.create}
    */
   export type Config<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
@@ -87,7 +93,7 @@ export namespace Library {
  */
 export const Library = Object.freeze({
   /**
-   * Creates a new {@link Library.Library} form a {@link Library.Config}.
+   * Creates a new {@link Library.TokenLibrary} form a {@link Library.Config}.
    */
   create,
   anonymousToken() {},
@@ -95,10 +101,12 @@ export const Library = Object.freeze({
 
 function create<T extends {} = any>(
   config: Library.Config<T, T>
-): Library.Library<T, T> {
-  const library: Library.Library<any, any> = {};
+): Library.Library<T> {
+  const library: Library.TokenLibrary<any, any> = {};
   recurseCreate(library, config, library);
-  return library;
+  return {
+    tokens: library,
+  };
 }
 
 function isObject<T>(value: T): value is T & {} {
@@ -122,9 +130,9 @@ function isAlias<T extends DesignToken.Any, K extends {}>(
 }
 
 function recurseCreate(
-  library: Library.Library<any, any>,
+  library: Library.TokenLibrary<any, any>,
   config: Library.Config<any>,
-  context: Library.Library<any, any>,
+  context: Library.TokenLibrary<any, any>,
   typeContext?: DesignToken.Type
 ) {
   for (const key in config) {
@@ -218,5 +226,4 @@ class LibraryToken<T extends DesignToken.Any>
  * TODO:
  * 1. System of Notification
  * 2. Add name
- * 3. Library type should have all tokens under a `tokens` field
  */
