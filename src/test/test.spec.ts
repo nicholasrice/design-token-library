@@ -209,6 +209,47 @@ Value("reference tokens should support multiple levels of inheritance", () => {
   Assert.equal(library.tokens.tertiaryToken.value, library.tokens.token.value);
 });
 
+Value("should support reading alias values from complex values", () => {
+  interface Theme {
+    color: DesignToken.Color;
+    dimension: DesignToken.Dimension;
+    border: DesignToken.Border;
+  }
+
+  const config: Library.Config<Theme> = {
+    color: {
+      type: DesignToken.Type.Color,
+      value: "#FF0000",
+    },
+    dimension: {
+      type: DesignToken.Type.Dimension,
+      value: "12px",
+    },
+    border: {
+      type: DesignToken.Type.Border,
+      value: {
+        color: (context) => context.color,
+        width: "3px",
+        style: {
+          dashArray: [(context) => context.dimension, "14px"],
+          lineCap: "butt",
+        },
+      },
+    },
+  };
+
+  const library = Library.create(config);
+  const border = library.tokens.border.value;
+
+  Assert.equal(border.color, "#FF0000", "color alias should be equal");
+  Assert.equal(border.width, "3px", "dimension value should be equal");
+  Assert.equal(
+    border.style,
+    { dashArray: ["12px", "14px"], lineCap: "butt" },
+    "DeepAlias border style should be equal"
+  );
+});
+
 Value("should support setting a static value", () => {
   interface Library {
     token: DesignToken.Color;

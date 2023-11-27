@@ -33,15 +33,13 @@ export namespace Library {
    * such as {@link DesignToken.Border}
    */
   export type DeepAlias<
-    V extends DesignToken.Any,
+    V extends DesignToken.Values.Any,
     T extends Context<any>
-  > = V extends {}
-    ? {
-        [K in keyof DesignToken.ValueByToken<V>]:
-          | DesignToken.ValueByToken<V>[K]
-          | Alias<DesignToken.TokenByValue<DesignToken.ValueByToken<V>[K]>, T>;
-      }
-    : never;
+  > = {
+    [K in keyof V]: V[K] extends DesignToken.Values.Any
+      ? V[K] | Alias<DesignToken.TokenByValue<V[K]>, T> | DeepAlias<V[K], T>
+      : never;
+  };
 
   /**
    * Context object provided to {@link Alias} values at runtime
@@ -85,7 +83,9 @@ export namespace Library {
     // assign Omit<T, "value"> & { value...} where if the type of the argument
     // in Library.create is untyped, it cannot be inferred, so use T | ...
     | (Omit<T, "value"> & {
-        value: Library.Alias<T, Context<R>> | Library.DeepAlias<T, Context<R>>;
+        value:
+          | Library.Alias<T, Context<R>>
+          | Library.DeepAlias<DesignToken.ValueByToken<T>, Context<R>>;
       });
 }
 
@@ -97,7 +97,6 @@ export const Library = Object.freeze({
    * Creates a new {@link Library.TokenLibrary} form a {@link Library.Config}.
    */
   create,
-  anonymousToken() {},
 });
 
 function create<T extends {} = any>(
@@ -176,6 +175,28 @@ function recurseCreate(
   }
 }
 
+function recurseResolve(value: any, context: Library.Context<any>) {
+  const r: any = Array.isArray(value) ? [] : {};
+  for (const key in value) {
+    let v = value[key];
+
+    if (isAlias(v)) {
+      v = v(context);
+    }
+
+    if (isToken(v)) {
+      v = v.value;
+    }
+
+    if (isObject(v)) {
+      r[key] = recurseResolve(v, context);
+    } else {
+      r[key] = v;
+    }
+  }
+
+  return r;
+}
 /**
  * An individual token value in a library
  */
@@ -202,17 +223,12 @@ class LibraryToken<T extends DesignToken.Any>
    * Gets the token value
    */
   public get value(): T["value"] {
-    if (isAlias(this.#value)) {
-      const value = this.#value(this.#context);
+    const raw = isAlias(this.#value) ? this.#value(this.#context) : this.#value;
+    const normalized = isToken(raw) ? raw.value : raw;
 
-      if (isToken(value)) {
-        return value.value;
-      } else {
-        return value;
-      }
-    } else {
-      return this.#value;
-    }
+    return isObject(normalized)
+      ? (recurseResolve(normalized, this.#context) as any) // Resolve any array or object values
+      : normalized;
   }
 
   public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
