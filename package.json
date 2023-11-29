@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc -b",
     "watch": "tsc -b -w",
-    "test": "npx uvu dist/test .spec.js$"
+    "test": "npx uvu dist/test .spec.js$",
+    "size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp"
   },
   "repository": {
     "type": "git",
