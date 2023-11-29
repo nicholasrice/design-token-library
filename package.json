@@ -15,7 +15,8 @@
     "build": "tsc -b",
     "watch": "tsc -b -w",
     "test": "npx uvu dist/test .spec.js$",
-    "size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp"
+    "size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
+    "api-report": "npx api-extractor run --local --verbose"
   },
   "repository": {
     "type": "git",
@@ -28,6 +29,7 @@
   },
   "homepage": "https://github.com/nicholasrice/design-token-library#readme",
   "devDependencies": {
+    "@microsoft/api-extractor": "^7.38.3",
     "@types/sinon": "^17.0.1",
     "esbuild": "0.19.8",
     "sinon": "^17.0.1",

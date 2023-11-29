@@ -1,5 +1,8 @@
 import { DesignToken } from "./design-token.js";
 
+/**
+ * @public
+ */
 export namespace Library {
   export type Library<T extends {}> = LibraryInternal<T, T>;
 
@@ -10,6 +13,8 @@ export namespace Library {
   /**
    * Defines a token library that can be interacted with
    * to mutate token values.
+   *
+   * @public
    */
   export type TokenLibrary<T extends {}, R extends {} = T> = {
     [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
@@ -23,14 +28,18 @@ export namespace Library {
 
   /**
    * A token value that serves as an alias to another token value
+   *
+   * @public
    */
   export type Alias<T extends DesignToken.Any, R extends Context<any>> = (
     context: R
   ) => T | DesignToken.ValueByToken<T>;
 
   /**
-   * An {@link Alias} that supports complex token value types
+   * An {@link (Library:namespace).Alias} that supports complex token value types
    * such as {@link DesignToken.Border}
+   *
+   * @public
    */
   export type DeepAlias<
     V extends DesignToken.Values.Any,
@@ -42,7 +51,9 @@ export namespace Library {
   };
 
   /**
-   * Context object provided to {@link Alias} values at runtime
+   * Context object provided to {@link (Library:namespace).Alias} values at runtime
+   *
+   * @public
    */
   export type Context<T extends {}, R extends {} = T> = {
     [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
@@ -55,7 +66,9 @@ export namespace Library {
   };
 
   /**
-   * A token in a {@link TokenLibrary.TokenLibrary}
+   * A token in a {@link (Library:namespace).TokenLibrary}
+   *
+   * @public
    */
   export type Token<T extends DesignToken.Any, C extends {}> = {
     set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
@@ -67,7 +80,9 @@ export namespace Library {
   };
 
   /**
-   * A configuration object provided to {@link TokenLibrary.create}
+   * A configuration object provided to {@link Library.create}
+   *
+   * @public
    */
   export type Config<T extends {}, R extends {} = T> = {
     [K in keyof T]: T[K] extends DesignToken.Any
@@ -77,6 +92,9 @@ export namespace Library {
       : never;
   };
 
+  /**
+   * @public
+   */
   export type ConfigValue<T extends DesignToken.Any, R extends {}> =
     | T
     // There is an odd TypeScript type error that occurs if this is simply
@@ -87,26 +105,19 @@ export namespace Library {
           | Library.Alias<T, Context<R>>
           | Library.DeepAlias<DesignToken.ValueByToken<T>, Context<R>>;
       });
-}
 
-/**
- * Library export containing library functions.
- */
-export const Library = Object.freeze({
   /**
-   * Creates a new {@link Library.TokenLibrary} form a {@link Library.Config}.
+   * @public
    */
-  create,
-});
-
-function create<T extends {} = any>(
-  config: Library.Config<T, T>
-): Library.Library<T> {
-  const library: Library.TokenLibrary<any, any> = {};
-  recurseCreate("", library, config, library, null);
-  return {
-    tokens: library,
-  };
+  export function create<T extends {} = any>(
+    config: Library.Config<T, T>
+  ): Library.Library<T> {
+    const library: Library.TokenLibrary<any, any> = {};
+    recurseCreate("", library, config, library, null);
+    return {
+      tokens: library,
+    };
+  }
 }
 
 function isObject<T>(value: T): value is T & {} {

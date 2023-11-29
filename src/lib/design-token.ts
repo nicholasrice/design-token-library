@@ -1,3 +1,6 @@
+/**
+ * @public
+ */
 export namespace DesignToken {
   export enum Type {
     Border = "border",
