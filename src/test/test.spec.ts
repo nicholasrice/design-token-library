@@ -3,10 +3,7 @@ import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import { Library } from "../lib/library.js";
-import { Updates } from "@microsoft/fast-element";
 import { DesignToken } from "../lib/design-token.js";
-
-Updates.setMode(false);
 
 const Type = suite("DesignToken.type");
 const Description = suite("DesignToken.description");
