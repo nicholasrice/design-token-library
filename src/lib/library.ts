@@ -6,6 +6,9 @@ import { DesignToken } from "./design-token.js";
 export namespace Library {
   export type Library<T extends {}> = LibraryInternal<T, T>;
 
+  /**
+   * @internal
+   */
   interface LibraryInternal<T extends {}, R extends {}> {
     tokens: TokenLibrary<T, R>;
   }
