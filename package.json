@@ -4,6 +4,12 @@
   "description": "",
   "type": "module",
   "main": "./dist/lib/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/lib/index.d.ts",
+      "default": "./dist/lib/index.js"
+    }
+  },
   "types": "./dist/lib/index.d.ts",
   "scripts": {
     "build": "tsc -b",
@@ -22,6 +28,7 @@
   "homepage": "https://github.com/nicholasrice/design-token-library#readme",
   "devDependencies": {
     "@types/sinon": "^17.0.1",
+    "esbuild": "0.19.8",
     "sinon": "^17.0.1",
     "typescript": "^4.9.5",
     "uvu": "^0.5.6"
