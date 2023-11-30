@@ -13,9 +13,7 @@ export interface Fonts {
 
 export const fonts: Library.Config<Fonts, Theme> = {
   body: { value: ["foo", "bar"] },
-  // TODO: array index not supported
-  // heading: { value: ["bat", (theme: Theme) => theme.fonts.body] },
-  heading: { value: ["bat"] },
+  heading: { value: ["bat", (theme) => theme.fonts.body] },
   weights: {
     normal: { value: "normal" },
     heavy: { value: "heavy" },
