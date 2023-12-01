@@ -228,7 +228,7 @@ class LibraryToken<T extends DesignToken.Any>
   #context: Library.Context<any>;
   #raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
   #cached: DesignToken.ValueByToken<T> | typeof empty = empty;
-  #subscriptions: ISubscriptionSubject<any>[] = [];
+  #subscriptions: Set<ISubscriptionSubject<any>> = new Set();
 
   constructor(
     public readonly name: string,
@@ -283,13 +283,17 @@ class LibraryToken<T extends DesignToken.Any>
   public watch(source: Object): void {
     const notifier = getNotifier(source);
     notifier.subscribe(this);
-    this.#subscriptions.push(notifier);
+    this.#subscriptions.add(notifier);
   }
 
+  /**
+   * Disconnect the token from it's subscriptions
+   */
   public disconnect() {
-    let record;
-    while ((record = this.#subscriptions.pop())) {
+    const subs = this.#subscriptions;
+    for (const record of subs.values()) {
       record.unsubscribe(this);
+      subs.delete(record);
     }
   }
 }
