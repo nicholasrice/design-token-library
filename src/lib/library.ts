@@ -278,6 +278,7 @@ class LibraryToken<T extends DesignToken.Any>
     // Token should add itself to the update queue, but should not
     // explicitly read it's own value at this point in time for performance
     // reasons.
+    getNotifier(this).notify(); // Notify subscribers that this token changed.
   }
 
   public watch(source: Object): void {

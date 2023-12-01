@@ -19,7 +19,7 @@ export namespace Watcher {
    * @returns - a function that instructs the watcher to stop using the provided watcher
    */
   export function use(watcher: IWatcher): () => void {
-    const previousWatcher = watcher;
+    const previousWatcher = _watcher;
     _watcher = watcher;
 
     return () => {

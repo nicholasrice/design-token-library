@@ -370,7 +370,7 @@ Value(
 
     Assert.equal(library.tokens.c.value.color, "#FFFFFF");
 
-    library.tokens.b.set("#000000");
+    library.tokens.a.set("#000000");
     Assert.equal(library.tokens.c.value.color, "#000000");
   }
 );
