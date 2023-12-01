@@ -267,18 +267,19 @@ class LibraryToken<T extends DesignToken.Any>
   }
 
   public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
-    this.#cached = empty;
     this.#raw = value;
-
-    getNotifier(this).notify();
+    this.update();
   }
 
-  public update(target: Library.Alias<T, any>): void {
-    this.#cached = empty; // Invalidate cache when a dependency changes
-    // Token should add itself to the update queue, but should not
-    // explicitly read it's own value at this point in time for performance
-    // reasons.
-    getNotifier(this).notify(); // Notify subscribers that this token changed.
+  public update(): void {
+    // Only react if the token hasn't already been invalidated
+    // This prevents the token notifying multiple times
+    // if a combination of it's dependencies change before
+    // the value is re-calculated
+    if (this.#cached !== empty) {
+      this.#cached = empty;
+      getNotifier(this).notify();
+    }
   }
 
   public watch(source: Object): void {
