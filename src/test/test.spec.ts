@@ -1,4 +1,3 @@
-import "./dom-shim.js";
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
@@ -310,6 +309,71 @@ Value("should support setting a value alias", () => {
 
   Assert.equal(library.tokens.secondaryToken.value, "#FF0000");
 });
+
+Value(
+  "should update the value of a token assigned an alias after the alias value changes",
+  () => {
+    interface Theme {
+      a: DesignToken.Color;
+      b: DesignToken.Color;
+    }
+
+    const config: Library.Config<Theme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+    };
+
+    const library = Library.create(config);
+
+    Assert.equal(library.tokens.b.value, "#FFFFFF");
+
+    library.tokens.a.set("#000000");
+    Assert.equal(library.tokens.b.value, "#000000");
+  }
+);
+
+Value(
+  "should update the value of a token assigned a value alias after the alias value changes",
+  () => {
+    interface Theme {
+      a: DesignToken.Color;
+      b: DesignToken.Color;
+      c: DesignToken.Border;
+    }
+
+    const config: Library.Config<Theme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+      c: {
+        type: DesignToken.Type.Border,
+        value: {
+          style: "solid",
+          color: (context) => context.b,
+          width: "2px",
+        },
+      },
+    };
+
+    const library = Library.create(config);
+
+    Assert.equal(library.tokens.c.value.color, "#FFFFFF");
+
+    library.tokens.b.set("#000000");
+    Assert.equal(library.tokens.c.value.color, "#000000");
+  }
+);
 
 Lib("should be immutable", () => {
   const library = Library.create({

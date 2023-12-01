@@ -1,4 +1,7 @@
 import { DesignToken } from "./design-token.js";
+import { ISubscriptionSubject, ISubscriber, getNotifier } from "./notifier.js";
+import { empty } from "./utilities.js";
+import { IWatcher, Watcher } from "./watcher.js";
 
 /**
  * @public
@@ -170,15 +173,21 @@ function recurseCreate(
           `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`
         );
       }
+      const token = new LibraryToken(
+        name,
+        value,
+        type || typeContext,
+        context,
+        description || "",
+        extensions || {}
+      );
       Reflect.defineProperty(library, key, {
-        value: new LibraryToken(
-          name,
-          value,
-          type || typeContext,
-          context,
-          description || "",
-          extensions || {}
-        ),
+        get() {
+          // Token access needs to be tracked because an alias token
+          // is a function that returns a token
+          Watcher.track(token);
+          return token;
+        },
       });
     }
   }
@@ -206,14 +215,20 @@ function recurseResolve(value: any, context: Library.Context<any>) {
 
   return r;
 }
+
 /**
  * An individual token value in a library
  */
 class LibraryToken<T extends DesignToken.Any>
-  implements Library.Token<any, any>
+  implements
+    Library.Token<any, any>,
+    ISubscriber<Library.Alias<T, any>>,
+    IWatcher
 {
   #context: Library.Context<any>;
-  #value: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
+  #raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
+  #cached: DesignToken.ValueByToken<T> | typeof empty = empty;
+  #subscriptions: ISubscriptionSubject<any>[] = [];
 
   constructor(
     public readonly name: string,
@@ -223,7 +238,7 @@ class LibraryToken<T extends DesignToken.Any>
     public readonly description: string,
     public readonly extensions: Record<string, any>
   ) {
-    this.#value = value;
+    this.#raw = value;
     this.#context = context;
     Object.freeze(this);
   }
@@ -232,17 +247,49 @@ class LibraryToken<T extends DesignToken.Any>
    * Gets the token value
    */
   public get value(): T["value"] {
-    const raw = isAlias(this.#value) ? this.#value(this.#context) : this.#value;
+    if (this.#cached !== empty) {
+      return this.#cached;
+    }
+
+    this.disconnect();
+    const unregister = Watcher.use(this);
+    const raw = isAlias(this.#raw) ? this.#raw(this.#context) : this.#raw;
     const normalized = isToken(raw) ? raw.value : raw;
 
-    return isObject(normalized)
+    const value = isObject(normalized)
       ? (recurseResolve(normalized, this.#context) as any) // Resolve any array or object values
       : normalized;
+
+    this.#cached = value;
+    unregister();
+
+    return value;
   }
 
   public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
-    if (this.#value !== value) {
-      this.#value = value;
+    this.#cached = empty;
+    this.#raw = value;
+
+    getNotifier(this).notify();
+  }
+
+  public update(target: Library.Alias<T, any>): void {
+    this.#cached = empty; // Invalidate cache when a dependency changes
+    // Token should add itself to the update queue, but should not
+    // explicitly read it's own value at this point in time for performance
+    // reasons.
+  }
+
+  public watch(source: Object): void {
+    const notifier = getNotifier(source);
+    notifier.subscribe(this);
+    this.#subscriptions.push(notifier);
+  }
+
+  public disconnect() {
+    let record;
+    while ((record = this.#subscriptions.pop())) {
+      record.unsubscribe(this);
     }
   }
 }

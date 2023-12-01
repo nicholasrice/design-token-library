@@ -1,18 +1,19 @@
-export class Subscriber<T = any> implements INotifier<T> {
-  public static getNotifier<T>(target: T): INotifier<T> {
-    let notifier = Subscriber.lookup.get(target);
+class SubscriptionSubject<T = any> implements ISubscriptionSubject<T> {
+  public static getNotifier<T>(target: T): ISubscriptionSubject<T> {
+    let notifier = SubscriptionSubject.lookup.get(target);
 
     if (!notifier) {
-      notifier = new Subscriber(target);
-      Subscriber.lookup.set(target, notifier);
+      notifier = new SubscriptionSubject(target);
+      SubscriptionSubject.lookup.set(target, notifier);
     }
 
     return notifier;
   }
 
-  private static lookup: WeakMap<any, INotifier<unknown>> = new WeakMap();
+  private static lookup: WeakMap<any, ISubscriptionSubject<unknown>> =
+    new WeakMap();
   readonly #subject: T;
-  readonly #subscribers: ISubscriber<T>[] = [];
+  readonly #subscribers: Set<ISubscriber<T>> = new Set();
 
   constructor(subject: T) {
     this.#subject = subject;
@@ -26,16 +27,11 @@ export class Subscriber<T = any> implements INotifier<T> {
   }
 
   subscribe(target: ISubscriber<T>): void {
-    if (!this.#subscribers.includes(target)) {
-      this.#subscribers.push(target);
-    }
+    this.#subscribers.add(target);
   }
 
   unsubscribe(target: ISubscriber<T>): void {
-    const index = this.#subscribers.indexOf(target);
-    if (index !== -1) {
-      this.#subscribers.splice(index, 1);
-    }
+    this.#subscribers.delete(target);
   }
 }
 
@@ -49,10 +45,10 @@ export interface ISubscriber<T> {
 /**
  * @internal
  */
-export interface INotifier<T> {
+export interface ISubscriptionSubject<T> {
   notify(): void;
   subscribe(target: ISubscriber<T>): void;
   unsubscribe(target: ISubscriber<T>): void;
 }
 
-export const getNotifier = Subscriber.getNotifier;
+export const getNotifier = SubscriptionSubject.getNotifier;
