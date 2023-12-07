@@ -281,7 +281,7 @@ class LibraryToken<T extends DesignToken.Any>
     const normalized = isToken(raw) ? raw.value : raw;
 
     const value = isObject(normalized)
-      ? (recurseResolve(normalized, this.#context) as any) // Resolve any array or object values
+      ? recurseResolve(normalized, this.#context)
       : normalized;
 
     this.#cached = value;
@@ -296,7 +296,6 @@ class LibraryToken<T extends DesignToken.Any>
   }
 
   public update(): void {
-    // Always add to the queue, in case the value wasn't between updates
     this.queue.add(this);
 
     // Only react if the token hasn't already been invalidated

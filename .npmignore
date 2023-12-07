@@ -1,0 +1,6 @@
+dist/test
+docs
+tsconfig.json
+src
+.vscode
+api-extractor.json
