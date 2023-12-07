@@ -1,5 +1,6 @@
 import { DesignToken } from "./design-token.js";
 import { ISubscriptionSubject, ISubscriber, getNotifier } from "./notifier.js";
+import { IQueue, Queue } from "./queue.js";
 import { empty } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
@@ -9,7 +10,15 @@ import { IWatcher, Watcher } from "./watcher.js";
 export namespace Library {
   export interface Library<T extends {}, R extends {} = T> {
     tokens: TokenLibrary<T, R>;
+    subscribe(subscriber: Library.Subscriber<R>): void;
+    unsubscribe(subscriber: Library.Subscriber<R>): void;
   }
+
+  export interface Subscriber<R extends {}> {
+    update(records: ReadonlyArray<Library.Token<DesignToken.Any, R>>): void;
+  }
+
+  export interface ChangeRecord {}
 
   /**
    * Defines a token library that can be interacted with
@@ -113,11 +122,7 @@ export namespace Library {
   export function create<T extends {} = any>(
     config: Library.Config<T, T>
   ): Library.Library<T> {
-    const library: Library.TokenLibrary<any, any> = {};
-    recurseCreate("", library, config, library, null);
-    return {
-      tokens: library,
-    };
+    return new LibraryImpl(config);
   }
 }
 
@@ -146,7 +151,8 @@ function recurseCreate(
   library: Library.TokenLibrary<any, any>,
   config: Library.Config<any>,
   context: Library.TokenLibrary<any, any>,
-  typeContext: DesignToken.Type | null
+  typeContext: DesignToken.Type | null,
+  queue: IQueue<Library.Token<DesignToken.Any, any>>
 ) {
   for (const key in config) {
     if (key === "type") {
@@ -163,7 +169,8 @@ function recurseCreate(
         library[key] as any,
         config[key],
         context,
-        config[key].type || typeContext
+        config[key].type || typeContext,
+        queue
       );
       Object.freeze(library[key]);
     } else if (isToken(config[key])) {
@@ -179,7 +186,8 @@ function recurseCreate(
         type || typeContext,
         context,
         description || "",
-        extensions || {}
+        extensions || {},
+        queue
       );
       Reflect.defineProperty(library, key, {
         get() {
@@ -216,6 +224,21 @@ function recurseResolve(value: any, context: Library.Context<any>) {
   return r;
 }
 
+class LibraryImpl<T extends {} = any> implements Library.Library<T> {
+  private readonly queue: IQueue<Library.Token<DesignToken.Any, T>> =
+    new Queue();
+  constructor(config: Library.Config<T, T>) {
+    const tokens: Library.TokenLibrary<any, any> = {};
+    recurseCreate("", tokens, config, tokens, null, this.queue);
+    this.tokens = tokens;
+  }
+  public tokens: Library.TokenLibrary<T, T>;
+  public subscribe(subscriber: any) {
+    this.queue.subscribe(subscriber);
+  }
+  public unsubscribe = this.queue.unsubscribe;
+}
+
 /**
  * An individual token value in a library
  */
@@ -236,7 +259,8 @@ class LibraryToken<T extends DesignToken.Any>
     public readonly type: DesignToken.TypeByToken<T>,
     context: Library.Context<any>,
     public readonly description: string,
-    public readonly extensions: Record<string, any>
+    public readonly extensions: Record<string, any>,
+    private queue: IQueue<Library.Token<DesignToken.Any, any>>
   ) {
     this.#raw = value;
     this.#context = context;
@@ -272,6 +296,9 @@ class LibraryToken<T extends DesignToken.Any>
   }
 
   public update(): void {
+    // Always add to the queue, in case the value wasn't between updates
+    this.queue.add(this);
+
     // Only react if the token hasn't already been invalidated
     // This prevents the token notifying multiple times
     // if a combination of it's dependencies change before
@@ -299,10 +326,3 @@ class LibraryToken<T extends DesignToken.Any>
     }
   }
 }
-
-/**
- *
- *
- * TODO:
- * 1. System of Notification
- */

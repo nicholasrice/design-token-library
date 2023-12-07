@@ -4,11 +4,18 @@ import { spy } from "sinon";
 import { Library } from "../lib/library.js";
 import { DesignToken } from "../lib/design-token.js";
 
-const Type = suite("DesignToken.type");
 const Description = suite("DesignToken.description");
-const Name = suite("DesignToken.name");
-const Value = suite("DesignToken.value");
 const Lib = suite("DesignToken.Library");
+const Name = suite("DesignToken.name");
+const Subscription = suite("DesignToken.subscription");
+const Type = suite("DesignToken.type");
+const Value = suite("DesignToken.value");
+
+function nextUpdate(): Promise<void> {
+  return new Promise((resolve) => {
+    queueMicrotask(resolve);
+  });
+}
 
 Description("should exist in the library when defined on the token", () => {
   const library = Library.create({
@@ -375,6 +382,91 @@ Value(
   }
 );
 
+Subscription(
+  "should notify a subscriber after a token changes with an array of the changed tokens",
+  async () => {
+    // Arrange
+    const library = Library.create({
+      token: { type: DesignToken.Type.Color, value: "#FFFFFF" },
+    });
+    const update = spy();
+    const subscriber = {
+      update,
+    };
+    library.subscribe(subscriber);
+
+    // Act
+    library.tokens.token.set("#000000");
+    await nextUpdate();
+
+    // Assert
+    Assert.is(update.called, true);
+    const args = update.firstCall.args;
+    Assert.is(args.length, 1);
+    Assert.ok(Array.isArray(args[0]));
+    Assert.is(args[0][0], library.tokens.token);
+  }
+);
+
+Subscription(
+  "should notify a subscriber once after multiple tokens are changed in the same task microtask",
+  async () => {
+    // Arrange
+    const library = Library.create({
+      a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
+      b: { type: DesignToken.Type.Color, value: "#000000" },
+    });
+    const update = spy();
+    const subscriber = {
+      update,
+    };
+    library.subscribe(subscriber);
+
+    // Act
+    library.tokens.a.set("#000000");
+    library.tokens.b.set("#FFFFFF");
+    await nextUpdate();
+
+    // Assert
+    Assert.is(update.calledOnce, true);
+    const args = update.firstCall.args;
+    Assert.is(args.length, 1);
+    Assert.ok(Array.isArray(args[0]));
+    Assert.is(args[0][0], library.tokens.a);
+    Assert.is(args[0][1], library.tokens.b);
+  }
+);
+
+Subscription(
+  "should notify a subscriber twice after multiple tokens are changed in different microtasks",
+  async () => {
+    // Arrange
+    const library = Library.create({
+      a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
+      b: { type: DesignToken.Type.Color, value: "#000000" },
+    });
+    const update = spy();
+    const subscriber = {
+      update,
+    };
+    library.subscribe(subscriber);
+
+    // Act
+    library.tokens.a.set("#000000");
+    await nextUpdate();
+
+    // Assert
+    Assert.is(update.calledOnce, true);
+    Assert.is(update.firstCall.args[0][0], library.tokens.a);
+
+    // Act
+    library.tokens.b.set("#FFFFFF");
+    await nextUpdate();
+    Assert.is(update.callCount, 2);
+    Assert.is(update.secondCall.args[0][0], library.tokens.b);
+  }
+);
+
 Lib("should be immutable", () => {
   const library = Library.create({
     colors: {
@@ -431,3 +523,4 @@ Description.run();
 Type.run();
 Value.run();
 Lib.run();
+Subscription.run();
