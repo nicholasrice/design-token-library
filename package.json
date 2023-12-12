@@ -15,7 +15,7 @@
     "build": "tsc -b",
     "watch": "tsc -b -w",
     "test": "npx uvu dist/test .spec.js$",
-    "size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
+    "report-size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
     "api-report": "npx api-extractor run --local --verbose",
     "docs": "npx api-documenter markdown --input-folder temp --output-folder docs"
   },

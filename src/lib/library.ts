@@ -130,7 +130,7 @@ function isObject<T>(value: T): value is T & {} {
   return typeof value === "object" && value !== null;
 }
 
-function isToken<T extends DesignToken.Any>(
+export function isToken<T extends DesignToken.Any>(
   value: T | any
 ): value is DesignToken.Any {
   return isObject(value) && "value" in value;
@@ -163,7 +163,10 @@ function recurseCreate(
     name = name.length === 0 ? key : `${name}.${key}`;
 
     if (isGroup(config[key])) {
-      Reflect.defineProperty(library, key, { value: {}, writable: false });
+      Reflect.defineProperty(library, key, {
+        value: {},
+        enumerable: true,
+      });
       recurseCreate(
         name,
         library[key] as any,
@@ -196,6 +199,7 @@ function recurseCreate(
           Watcher.track(token);
           return token;
         },
+        enumerable: true,
       });
     }
   }
