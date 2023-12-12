@@ -119,41 +119,46 @@ export namespace Library {
   /**
    * @public
    */
-  export function create<T extends {} = any>(
+  export const create = <T extends {} = any>(
     config: Library.Config<T, T>
-  ): Library.Library<T> {
+  ): Library.Library<T> => {
     return new LibraryImpl(config);
-  }
+  };
 }
 
-function isObject<T>(value: T): value is T & {} {
+const isObject = <T>(value: T): value is T & {} => {
   return typeof value === "object" && value !== null;
-}
+};
 
-export function isToken<T extends DesignToken.Any>(
+/**
+ * @internal
+ */
+const isToken = <T extends DesignToken.Any>(
   value: T | any
-): value is DesignToken.Any {
+): value is DesignToken.Any => {
   return isObject(value) && "value" in value;
-}
+};
 
-function isGroup(value: DesignToken.Group | any): value is DesignToken.Group {
+const isGroup = (
+  value: DesignToken.Group | any
+): value is DesignToken.Group => {
   return isObject(value) && !isToken(value);
-}
+};
 
-function isAlias<T extends DesignToken.Any, K extends {}>(
+const isAlias = <T extends DesignToken.Any, K extends {}>(
   value: any
-): value is Library.Alias<T, K> {
+): value is Library.Alias<T, K> => {
   return typeof value === "function";
-}
+};
 
-function recurseCreate(
+const recurseCreate = (
   name: string,
   library: Library.TokenLibrary<any, any>,
   config: Library.Config<any>,
   context: Library.TokenLibrary<any, any>,
   typeContext: DesignToken.Type | null,
   queue: IQueue<Library.Token<DesignToken.Any, any>>
-) {
+): void => {
   for (const key in config) {
     if (key === "type") {
       typeContext = config[key] as any;
@@ -203,9 +208,9 @@ function recurseCreate(
       });
     }
   }
-}
+};
 
-function recurseResolve(value: any, context: Library.Context<any>) {
+const recurseResolve = (value: any, context: Library.Context<any>) => {
   const r: any = Array.isArray(value) ? [] : {};
   for (const key in value) {
     let v = value[key];
@@ -226,7 +231,7 @@ function recurseResolve(value: any, context: Library.Context<any>) {
   }
 
   return r;
-}
+};
 
 class LibraryImpl<T extends {} = any> implements Library.Library<T> {
   private readonly queue: IQueue<Library.Token<DesignToken.Any, T>> =
