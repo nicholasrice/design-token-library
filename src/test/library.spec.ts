@@ -49,13 +49,13 @@ Name("should be the object name path delimited by '.' chars", () => {
 
 Name("should be case sensitive", () => {
   const library = Library.create({
-    tOkeN: {
+    tOkEn: {
       type: DesignToken.Type.Color,
       value: "#FFFFFF",
     },
   });
 
-  Assert.equal(library.tokens.tOkeN.name, "tOkEn");
+  Assert.equal(library.tokens.tOkEn.name, "tOkEn");
 });
 
 Type(
@@ -520,7 +520,8 @@ Lib("should be immutable", () => {
 });
 
 Description.run();
+Lib.run();
+Name.run();
+Subscription.run();
 Type.run();
 Value.run();
-Lib.run();
-Subscription.run();

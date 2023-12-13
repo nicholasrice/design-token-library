@@ -165,7 +165,7 @@ const recurseCreate = (
       continue;
     }
 
-    name = name.length === 0 ? key : `${name}.${key}`;
+    const _name = name.length === 0 ? key : `${name}.${key}`;
 
     if (isGroup(config[key])) {
       Reflect.defineProperty(library, key, {
@@ -173,7 +173,7 @@ const recurseCreate = (
         enumerable: true,
       });
       recurseCreate(
-        name,
+        _name,
         library[key] as any,
         config[key],
         context,
@@ -189,7 +189,7 @@ const recurseCreate = (
         );
       }
       const token = new LibraryToken(
-        name,
+        _name,
         value,
         type || typeContext,
         context,
