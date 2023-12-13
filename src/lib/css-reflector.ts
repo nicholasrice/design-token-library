@@ -6,12 +6,6 @@ import { Library } from "./library.js";
  */
 export interface CSSReflector {
   /**
-   * Applies the CSS custom properties to a target document or shadow root.
-   * @param target -
-   */
-  applyTo(target: DocumentOrShadowRoot): void;
-
-  /**
    * The computed CSS for the library.
    */
   readonly css: string;
@@ -19,6 +13,57 @@ export interface CSSReflector {
 
 export function toCSS(library: Library.Library<any, any>): string {
   return recurseToCss(library.tokens);
+}
+
+interface CSSPropertyValues {
+  readonly var: `var(--${string})`;
+  readonly property: `--${string}`;
+}
+export type CSSPropertiesLibrary<T extends {}> = {
+  [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
+    ? CSSPropertyValues
+    : K extends "type"
+    ? DesignToken.Type
+    : T[K] extends {}
+    ? CSSPropertiesLibrary<T[K]>
+    : never;
+};
+
+export function toProperties<T extends Library.Library<any>>(
+  library: T
+): CSSPropertiesLibrary<T["tokens"]> {
+  const recurse = (
+    section: Library.TokenLibrary<any>,
+    properties: CSSPropertiesLibrary<any>
+  ) => {
+    for (const key in section) {
+      const sectionValue = section[key];
+
+      if (isToken(sectionValue)) {
+        const property = `--${sectionValue.name}`;
+        const propertyValue = Object.freeze({
+          var: `var(${property})`,
+          property,
+        });
+        Reflect.defineProperty(properties, key, {
+          value: propertyValue,
+          enumerable: true,
+        });
+      } else {
+        const value = {};
+        recurse(sectionValue, value);
+        Reflect.defineProperty(properties, key, {
+          value: Object.freeze(value),
+          enumerable: true,
+        });
+      }
+    }
+  };
+
+  const properties: CSSPropertiesLibrary<T["tokens"]> = {} as any;
+  recurse(library.tokens, properties);
+
+  return properties;
 }
 
 const isToken = (

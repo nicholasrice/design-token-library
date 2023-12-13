@@ -1,10 +1,11 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
-import { toCSS } from "../lib/css-reflector.js";
+import { toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 
 const toCssSuite = suite("toCss");
+const toPropertiesSuite = suite("toProperties");
 
 interface Config<T extends DesignToken.Any> {
   token: T;
@@ -184,4 +185,37 @@ toCssSuite("should convert .ShadowGradient", () => {
   Assert.is(result, "--token:0px 1px 2px 3px #FFFFFF;");
 });
 
+toPropertiesSuite(
+  "should convert a library to CSS custom property names and var names",
+  () => {
+    interface Theme {
+      a: DesignToken.Color;
+      b: {
+        c: DesignToken.Border;
+        d: DesignToken.Dimension;
+      };
+    }
+    const config: Library.Config<Theme> = {
+      a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
+      b: {
+        c: {
+          type: DesignToken.Type.Border,
+          value: { color: "#FFF", style: "solid", width: "2px" },
+        },
+        d: { type: DesignToken.Type.Dimension, value: "4px" },
+      },
+    };
+
+    const library = Library.create(config);
+    const properties = toProperties(library);
+    Assert.is(properties.a.property, "--a");
+    Assert.is(properties.a.var, "var(--a)");
+    Assert.is(properties.b.c.property, "--b.c");
+    Assert.is(properties.b.c.var, "var(--b.c)");
+    Assert.is(properties.b.d.property, "--b.d");
+    Assert.is(properties.b.d.var, "var(--b.d)");
+  }
+);
+
 toCssSuite.run();
+toPropertiesSuite.run();
