@@ -33,4 +33,4 @@ jobs:
           node-version: "20.x"
       - run: npm ci
       - run: npm run build
-      - run: npm docs
+      - run: npm run docs
