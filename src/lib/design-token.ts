@@ -345,21 +345,15 @@ export namespace DesignToken {
       : never;
 
   /**
-   * Options properties supported by a DesignToken
-   */
-  export interface OptionalProperties<Type extends DesignToken.Type> {
-    description?: string;
-    type?: Type;
-    extensions?: Record<string, any>;
-  }
-
-  /**
    * All properties supported by a DesignToken
    */
   export interface Properties<
     Type extends DesignToken.Type,
     Value extends DesignToken.Values.Any
-  > extends OptionalProperties<Type> {
+  > {
+    description?: string;
+    type?: Type;
+    extensions?: Record<string, any>;
     value: Value;
   }
 
