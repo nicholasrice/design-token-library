@@ -186,12 +186,9 @@ export namespace DesignToken {
       | Typography;
   }
 
-  interface OptionalProperties {
-    description?: string;
-    type?: DesignToken.Type;
-    extensions?: Record<string, any>;
-  }
-
+  /**
+   * @internal
+   */
   export type TokenByType<T extends DesignToken.Type> =
     T extends DesignToken.Type.Border
       ? DesignToken.Border
@@ -220,6 +217,10 @@ export namespace DesignToken {
       : T extends DesignToken.Type.Typography
       ? DesignToken.Typography
       : never;
+
+  /**
+   * @internal
+   */
   export type TypeByToken<T extends DesignToken.Any> =
     T extends DesignToken.Border
       ? DesignToken.Type.Border
@@ -248,6 +249,10 @@ export namespace DesignToken {
       : T extends DesignToken.Typography
       ? DesignToken.Type.Typography
       : never;
+
+  /**
+   * @internal
+   */
   export type TokenByValue<T> = T extends DesignToken.Values.Border
     ? DesignToken.Border
     : T extends DesignToken.Values.Color
@@ -275,6 +280,10 @@ export namespace DesignToken {
     : T extends DesignToken.Values.Typography
     ? DesignToken.Typography
     : never;
+
+  /**
+   * @internal
+   */
   export type ValueByType<T> = T extends DesignToken.Values.Border
     ? DesignToken.Type.Border
     : T extends DesignToken.Values.Color
@@ -303,88 +312,9 @@ export namespace DesignToken {
     ? DesignToken.Type.Typography
     : never;
 
-  interface TypedTokenProperties<
-    Type extends DesignToken.Type,
-    Value extends DesignToken.Values.Any
-  > extends OptionalProperties {
-    value: Value;
-    type?: Type;
-  }
-
-  export type Border = TypedTokenProperties<
-    DesignToken.Type.Border,
-    DesignToken.Values.Border
-  >;
-  export type Color = TypedTokenProperties<
-    DesignToken.Type.Color,
-    DesignToken.Values.Color
-  >;
-  export type CubicBezier = TypedTokenProperties<
-    DesignToken.Type.CubicBezier,
-    DesignToken.Values.CubicBezier
-  >;
-  export type Dimension = TypedTokenProperties<
-    DesignToken.Type.Dimension,
-    DesignToken.Values.Dimension
-  >;
-  export type Duration = TypedTokenProperties<
-    DesignToken.Type.Duration,
-    DesignToken.Values.Duration
-  >;
-  export type FontFamily = TypedTokenProperties<
-    DesignToken.Type.FontFamily,
-    DesignToken.Values.FontFamily
-  >;
-  export type FontWeight = TypedTokenProperties<
-    DesignToken.Type.FontWeight,
-    DesignToken.Values.FontWeight
-  >;
-  export type Gradient = TypedTokenProperties<
-    DesignToken.Type.Gradient,
-    DesignToken.Values.Gradient
-  >;
-  export type Number = TypedTokenProperties<
-    DesignToken.Type.Number,
-    DesignToken.Values.Number
-  >;
-  export type Shadow = TypedTokenProperties<
-    DesignToken.Type.Shadow,
-    DesignToken.Values.Shadow
-  >;
-
-  export type StrokeStyle = TypedTokenProperties<
-    DesignToken.Type.StrokeStyle,
-    DesignToken.Values.StrokeStyle
-  >;
-
-  export type Transition = TypedTokenProperties<
-    DesignToken.Type.Transition,
-    DesignToken.Values.Transition
-  >;
-  export type Typography = TypedTokenProperties<
-    DesignToken.Type.Typography,
-    DesignToken.Values.Typography
-  >;
-
-  export type Group = {
-    type?: DesignToken.Type;
-  };
-
-  export type Any =
-    | Border
-    | Color
-    | CubicBezier
-    | Dimension
-    | Duration
-    | FontFamily
-    | FontWeight
-    | Gradient
-    | Number
-    | Shadow
-    | StrokeStyle
-    | Transition
-    | Typography;
-
+  /**
+   * @internal
+   */
   export type ValueByToken<T extends DesignToken.Any> =
     T extends DesignToken.Border
       ? DesignToken.Values.Border
@@ -413,4 +343,97 @@ export namespace DesignToken {
       : T extends Typography
       ? DesignToken.Values.Typography
       : never;
+
+  /**
+   * Options properties supported by a DesignToken
+   */
+  export interface OptionalProperties<Type extends DesignToken.Type> {
+    description?: string;
+    type?: Type;
+    extensions?: Record<string, any>;
+  }
+
+  /**
+   * All properties supported by a DesignToken
+   */
+  export interface Properties<
+    Type extends DesignToken.Type,
+    Value extends DesignToken.Values.Any
+  > extends OptionalProperties<Type> {
+    value: Value;
+  }
+
+  export type Border = Properties<
+    DesignToken.Type.Border,
+    DesignToken.Values.Border
+  >;
+  export type Color = Properties<
+    DesignToken.Type.Color,
+    DesignToken.Values.Color
+  >;
+  export type CubicBezier = Properties<
+    DesignToken.Type.CubicBezier,
+    DesignToken.Values.CubicBezier
+  >;
+  export type Dimension = Properties<
+    DesignToken.Type.Dimension,
+    DesignToken.Values.Dimension
+  >;
+  export type Duration = Properties<
+    DesignToken.Type.Duration,
+    DesignToken.Values.Duration
+  >;
+  export type FontFamily = Properties<
+    DesignToken.Type.FontFamily,
+    DesignToken.Values.FontFamily
+  >;
+  export type FontWeight = Properties<
+    DesignToken.Type.FontWeight,
+    DesignToken.Values.FontWeight
+  >;
+  export type Gradient = Properties<
+    DesignToken.Type.Gradient,
+    DesignToken.Values.Gradient
+  >;
+  export type Number = Properties<
+    DesignToken.Type.Number,
+    DesignToken.Values.Number
+  >;
+  export type Shadow = Properties<
+    DesignToken.Type.Shadow,
+    DesignToken.Values.Shadow
+  >;
+
+  export type StrokeStyle = Properties<
+    DesignToken.Type.StrokeStyle,
+    DesignToken.Values.StrokeStyle
+  >;
+
+  export type Transition = Properties<
+    DesignToken.Type.Transition,
+    DesignToken.Values.Transition
+  >;
+  export type Typography = Properties<
+    DesignToken.Type.Typography,
+    DesignToken.Values.Typography
+  >;
+
+  export type Group = {
+    type?: DesignToken.Type;
+  };
+
+  export type Any =
+    | Border
+    | Color
+    | CubicBezier
+    | Dimension
+    | Duration
+    | FontFamily
+    | FontWeight
+    | Gradient
+    | Number
+    | Shadow
+    | StrokeStyle
+    | Transition
+    | Typography;
 }
