@@ -1,16 +1,12 @@
 import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
-/**
- * An object capable of reflecting an {@link Library.Library}
- * to css custom properties
- */
-export interface CSSReflector {
-  /**
-   * The computed CSS for the library.
-   */
-  readonly css: string;
-}
 
+/**
+ * @param library
+ * @returns
+ *
+ * @public
+ */
 export function toCSS(library: Library.Library<any, any>): string {
   return recurseToCss(library.tokens);
 }
@@ -29,6 +25,13 @@ export type CSSPropertiesLibrary<T extends {}> = {
     : never;
 };
 
+/**
+ *
+ * @param library
+ * @returns
+ *
+ * @public
+ */
 export function toProperties<T extends Library.Library<any>>(
   library: T
 ): CSSPropertiesLibrary<T["tokens"]> {
