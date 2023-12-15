@@ -37,7 +37,10 @@ jobs:
       - run: npm run api-report
       - run: npm run docs
       - name: Create Jekyll Config
-        ruh: echo "remote_theme: pages-themes/modernist@v0.2.0 \nplugins:\n - jekyll-remote-theme" > ./docs/_config.yml
+        run: |
+          echo "remote_theme: pages-themes/modernist@v0.2.0" > ./docs/_config.yml
+          echo "plugins:" > ./docs/_config.yml
+          echo "- jekyll-remote-theme" > ./docs/_config.yml
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Build Pages
