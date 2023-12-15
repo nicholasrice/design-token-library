@@ -40,8 +40,11 @@ jobs:
         uses: actions/configure-pages@v3
       - name: Build Pages
         uses: actions/jekyll-build-pages@v1
+        with:
+          source: "./docs"
+          destination: "./_site"
       - name: Upload Artifact
         uses: actions/upload-pages-artifact@v1
         with:
-          path: "docs"
+          path: "./_site"
       - uses: actions/deploy-pages@v3
