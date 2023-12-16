@@ -2,6 +2,10 @@
  * @public
  */
 export namespace DesignToken {
+  /**
+   * An enumeration of all supported types defined
+   * by {@link https://tr.designtokens.org/format/#types}
+   */
   export enum Type {
     Border = "border",
     Color = "color",
@@ -19,13 +23,9 @@ export namespace DesignToken {
   }
 
   /**
-   * An implementation of {@link https://tr.designtokens.org/}
+   * The values supported for each {@link DesignToken.Type | DesignToken type}.
    */
   export namespace Values {
-    /**
-     * @see {@link https://tr.designtokens.org/format/#types}
-     */
-
     /**
      * A six or 8 digit hexadecimal string.
      *
@@ -151,8 +151,9 @@ export namespace DesignToken {
     }
 
     /**
-     * Position values must be a number withing [0, 1].
      * @see {@link https://tr.designtokens.org/format/#gradient}
+     * @remarks
+     * Position values must be a number withing [0, 1].
      */
     export type Gradient = Array<{
       color: Values.Color;
@@ -170,6 +171,9 @@ export namespace DesignToken {
       lineHeight: Values.Number;
     }
 
+    /**
+     * @internal
+     */
     export type Any =
       | Color
       | Dimension
@@ -412,10 +416,20 @@ export namespace DesignToken {
     DesignToken.Values.Typography
   >;
 
+  /**
+   * A group of DesignTokens.
+   */
   export type Group = {
+    /**
+     * If the group has a type, the type is inferred for all descendent design tokens,
+     * unless specified by the token.
+     */
     type?: DesignToken.Type;
   };
 
+  /**
+   * @internal
+   */
   export type Any =
     | Border
     | Color

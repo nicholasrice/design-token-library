@@ -2,9 +2,6 @@ import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
 
 /**
- * @param library
- * @returns
- *
  * @public
  */
 export function toCSS(library: Library.Library<any, any>): string {
@@ -15,6 +12,12 @@ interface CSSPropertyValues {
   readonly var: `var(--${string})`;
   readonly property: `--${string}`;
 }
+
+/**
+ * A collection of {@link @CSSPropertyValues} that mirrors the
+ * structure of the source {@link Library.Library<any> | Library}.
+ * @public
+ */
 export type CSSPropertiesLibrary<T extends {}> = {
   [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
     ? CSSPropertyValues
@@ -26,10 +29,7 @@ export type CSSPropertiesLibrary<T extends {}> = {
 };
 
 /**
- *
- * @param library
- * @returns
- *
+ * Construct an {@link CSSPropertiesLibrary} from a {@link Library.Library<any>}.
  * @public
  */
 export function toProperties<T extends Library.Library<any>>(
