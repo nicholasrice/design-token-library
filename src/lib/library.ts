@@ -1,5 +1,5 @@
 import { DesignToken } from "./design-token.js";
-import { ISubscriptionSubject, ISubscriber, getNotifier } from "./notifier.js";
+import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
 import { IQueue, Queue } from "./queue.js";
 import { empty } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
@@ -82,6 +82,7 @@ export namespace Library {
    */
   export type Token<T extends DesignToken.Any, C extends {}> = {
     set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
+    toString(): string;
     readonly type: DesignToken.TypeByToken<T>;
     readonly extensions: Record<string, any>;
     readonly value: DesignToken.ValueByToken<T>;
@@ -242,10 +243,12 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
     this.tokens = tokens;
   }
   public tokens: Library.TokenLibrary<T, T>;
-  public subscribe(subscriber: any) {
+  public subscribe(subscriber: Library.Subscriber<T>) {
     this.queue.subscribe(subscriber);
   }
-  public unsubscribe = this.queue.unsubscribe;
+  public unsubscribe(subscriber: Library.Subscriber<T>) {
+    this.queue.unsubscribe(subscriber);
+  }
 }
 
 /**
@@ -260,7 +263,7 @@ class LibraryToken<T extends DesignToken.Any>
   #context: Library.Context<any>;
   #raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
   #cached: DesignToken.ValueByToken<T> | typeof empty = empty;
-  #subscriptions: Set<ISubscriptionSubject<any>> = new Set();
+  #subscriptions: Set<INotifier<any>> = new Set();
 
   constructor(
     public readonly name: string,
@@ -285,7 +288,7 @@ class LibraryToken<T extends DesignToken.Any>
     }
 
     this.disconnect();
-    const unregister = Watcher.use(this);
+    const stopWatching = Watcher.use(this);
     const raw = isAlias(this.#raw) ? this.#raw(this.#context) : this.#raw;
     const normalized = isToken(raw) ? raw.value : raw;
 
@@ -294,7 +297,7 @@ class LibraryToken<T extends DesignToken.Any>
       : normalized;
 
     this.#cached = value;
-    unregister();
+    stopWatching();
 
     return value;
   }
@@ -327,10 +330,9 @@ class LibraryToken<T extends DesignToken.Any>
    * Disconnect the token from it's subscriptions
    */
   public disconnect() {
-    const subs = this.#subscriptions;
-    for (const record of subs.values()) {
+    for (const record of this.#subscriptions.values()) {
       record.unsubscribe(this);
-      subs.delete(record);
+      this.#subscriptions.delete(record);
     }
   }
 }

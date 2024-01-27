@@ -1,17 +1,15 @@
-export interface IQueue<T extends {}> {
+import { ISubscribable, Subscribable } from "./notifier.js";
+
+export interface IQueue<T extends {}> extends ISubscribable<ReadonlyArray<T>> {
   add(target: T): void;
-  subscribe(subscriber: IQueueSubscriber<T>): void;
-  unsubscribe(subscriber: IQueueSubscriber<T>): void;
 }
 
-export interface IQueueSubscriber<T> {
-  update(targets: ReadonlyArray<T>): void;
-}
-
-export class Queue<T extends {}> implements IQueue<T> {
+export class Queue<T extends {}>
+  extends Subscribable<ReadonlyArray<T>>
+  implements IQueue<T>
+{
   private targets: Set<T> = new Set();
   private needsQueue: boolean = true;
-  private subscribers: Set<IQueueSubscriber<T>> = new Set();
 
   public add(target: T) {
     this.targets.add(target);
@@ -19,14 +17,6 @@ export class Queue<T extends {}> implements IQueue<T> {
     if (this.needsQueue) {
       this.queue();
     }
-  }
-
-  public subscribe(subscriber: IQueueSubscriber<T>): void {
-    this.subscribers.add(subscriber);
-  }
-
-  public unsubscribe(subscriber: IQueueSubscriber<T>): void {
-    this.subscribers.delete(subscriber);
   }
 
   private queue() {
