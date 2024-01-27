@@ -32,7 +32,7 @@ class Notifier<T = any> extends Subscribable<T> implements INotifier<T> {
   notify(): void {
     const subject = this.#subject;
     for (const value of this.subscribers) {
-      value.update(subject);
+      value.onChange(subject);
     }
   }
 }
@@ -41,7 +41,7 @@ class Notifier<T = any> extends Subscribable<T> implements INotifier<T> {
  * @internal
  */
 export interface ISubscriber<T> {
-  update(target: T): void;
+  onChange(target: T): void;
 }
 
 export interface ISubscribable<T> {

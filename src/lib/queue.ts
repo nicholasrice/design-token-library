@@ -27,7 +27,7 @@ export class Queue<T extends {}>
       this.needsQueue = true;
 
       for (const subscriber of this.subscribers) {
-        subscriber.update(targets);
+        subscriber.onChange(targets);
       }
     });
   }

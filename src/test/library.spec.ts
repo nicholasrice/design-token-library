@@ -389,9 +389,9 @@ Subscription(
     const library = Library.create({
       token: { type: DesignToken.Type.Color, value: "#FFFFFF" },
     });
-    const update = spy();
+    const onChange = spy();
     const subscriber = {
-      update,
+      onChange,
     };
     library.subscribe(subscriber);
 
@@ -400,8 +400,8 @@ Subscription(
     await nextUpdate();
 
     // Assert
-    Assert.is(update.called, true);
-    const args = update.firstCall.args;
+    Assert.is(onChange.called, true);
+    const args = onChange.firstCall.args;
     Assert.is(args.length, 1);
     Assert.ok(Array.isArray(args[0]));
     Assert.is(args[0][0], library.tokens.token);
@@ -416,9 +416,9 @@ Subscription(
       a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
       b: { type: DesignToken.Type.Color, value: "#000000" },
     });
-    const update = spy();
+    const onChange = spy();
     const subscriber = {
-      update,
+      onChange,
     };
     library.subscribe(subscriber);
 
@@ -428,8 +428,8 @@ Subscription(
     await nextUpdate();
 
     // Assert
-    Assert.is(update.calledOnce, true);
-    const args = update.firstCall.args;
+    Assert.is(onChange.calledOnce, true);
+    const args = onChange.firstCall.args;
     Assert.is(args.length, 1);
     Assert.ok(Array.isArray(args[0]));
     Assert.is(args[0][0], library.tokens.a);
@@ -445,9 +445,9 @@ Subscription(
       a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
       b: { type: DesignToken.Type.Color, value: "#000000" },
     });
-    const update = spy();
+    const onChange = spy();
     const subscriber = {
-      update,
+      onChange,
     };
     library.subscribe(subscriber);
 
@@ -456,14 +456,14 @@ Subscription(
     await nextUpdate();
 
     // Assert
-    Assert.is(update.calledOnce, true);
-    Assert.is(update.firstCall.args[0][0], library.tokens.a);
+    Assert.is(onChange.calledOnce, true);
+    Assert.is(onChange.firstCall.args[0][0], library.tokens.a);
 
     // Act
     library.tokens.b.set("#FFFFFF");
     await nextUpdate();
-    Assert.is(update.callCount, 2);
-    Assert.is(update.secondCall.args[0][0], library.tokens.b);
+    Assert.is(onChange.callCount, 2);
+    Assert.is(onChange.secondCall.args[0][0], library.tokens.b);
   }
 );
 

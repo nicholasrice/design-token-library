@@ -15,7 +15,7 @@ export namespace Library {
   }
 
   export interface Subscriber<R extends {}> {
-    update(records: ReadonlyArray<Library.Token<DesignToken.Any, R>>): void;
+    onChange(records: ReadonlyArray<Library.Token<DesignToken.Any, R>>): void;
   }
 
   export interface ChangeRecord {}
@@ -304,10 +304,10 @@ class LibraryToken<T extends DesignToken.Any>
 
   public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
     this.#raw = value;
-    this.update();
+    this.onChange();
   }
 
-  public update(): void {
+  public onChange(): void {
     this.queue.add(this);
 
     // Only react if the token hasn't already been invalidated
