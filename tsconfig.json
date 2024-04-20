@@ -1,13 +1,13 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "ES6",
+    "module": "Node16",
     "strict": true,
     "esModuleInterop": true,
-    "moduleResolution": "NodeNext",
+    "moduleResolution": "Node16",
     "experimentalDecorators": true,
     "rootDir": "./src"
   },
-  "references": [{ "path": "./src/lib" }, { "path": "./src/test" }],
+  "references": [{ "path": "./src/lib" }, { "path": "./src/test", }],
   "files": []
 }
