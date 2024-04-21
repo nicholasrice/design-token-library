@@ -123,7 +123,7 @@ export namespace Library {
   export const create = <T extends {} = any>(
     config: Library.Config<T, T>
   ): Library.Library<T> => {
-    return new LibraryImpl(config);
+    return new LibraryImpl(config, LibraryToken as any); // TODO fix 'as any'
   };
 }
 
@@ -152,13 +152,24 @@ const isAlias = <T extends DesignToken.Any, K extends {}>(
   return typeof value === "function";
 };
 
-const recurseCreate = (
+interface CreateConfig<T> {
   name: string,
   library: Library.TokenLibrary<any, any>,
   config: Library.Config<any>,
   context: Library.TokenLibrary<any, any>,
   typeContext: DesignToken.Type | null,
-  queue: IQueue<Library.Token<DesignToken.Any, any>>
+  queue: IQueue<Library.Token<DesignToken.Any, any>>,
+  tokenCtor: ConstructableDesignToken<any>
+}
+const recurseCreate = (
+  {
+  name,
+  library,
+  config,
+  context,
+  typeContext,
+  queue
+  }: CreateConfig<any>
 ): void => {
   for (const key in config) {
     if (key === "type") {
@@ -173,13 +184,15 @@ const recurseCreate = (
         value: {},
         enumerable: true,
       });
-      recurseCreate(
-        _name,
-        library[key] as any,
-        config[key],
+      recurseCreate({
+        name: _name,
+        library: library[key] as any,
+        config: config[key],
         context,
-        config[key].type || typeContext,
-        queue
+        typeContext: config[key].type || typeContext,
+        queue,
+        tokenCtor: LibraryToken
+      }
       );
       Object.freeze(library[key]);
     } else if (isToken(config[key])) {
@@ -237,10 +250,11 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
 class LibraryImpl<T extends {} = any> implements Library.Library<T> {
   private readonly queue: IQueue<Library.Token<DesignToken.Any, T>> =
     new Queue();
-  constructor(config: Library.Config<T, T>) {
-    const tokens: Library.TokenLibrary<any, any> = {};
-    recurseCreate("", tokens, config, tokens, null, this.queue);
-    this.tokens = tokens;
+  constructor(config: Library.Config<T, T>, tokenCtor: ConstructableDesignToken<DesignToken.Any>) {
+    const library: Library.TokenLibrary<any, any> = {};
+    const conf: CreateConfig<T> = {name: "", library, config, context: library, typeContext: null, queue: this.queue, tokenCtor }
+    recurseCreate(conf);
+    this.tokens = library;
   }
   public tokens: Library.TokenLibrary<T, T>;
   public subscribe(subscriber: Library.Subscriber<T>) {
@@ -249,6 +263,10 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
   public unsubscribe(subscriber: Library.Subscriber<T>) {
     this.queue.unsubscribe(subscriber);
   }
+}
+
+interface ConstructableDesignToken<T extends DesignToken.Any> {
+  new(...args: any[]): T
 }
 
 /**
