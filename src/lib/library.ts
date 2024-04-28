@@ -9,8 +9,26 @@ import { IWatcher, Watcher } from "./watcher.js";
  */
 export namespace Library {
   export interface Library<T extends {}, R extends {} = T> {
-    tokens: TokenLibrary<T, R>;
+    /**
+     * The Design Tokens exposed by the library.
+     */
+    readonly tokens: TokenLibrary<T, R>;
+
+    /**
+     * Configuration matching the present state of the library.
+     */
+    readonly config: Library.Config<T>;
+  
+    /**
+     * Subscribe to token changes
+     * @param subscriber 
+     */
     subscribe(subscriber: Library.Subscriber<R>): void;
+    
+    /**
+     * Unsubscribe from token changes
+     * @param subscriber 
+     */
     unsubscribe(subscriber: Library.Subscriber<R>): void;
   }
 
@@ -88,6 +106,7 @@ export namespace Library {
     readonly value: DesignToken.ValueByToken<T>;
     readonly description: string;
     readonly name: string;
+    readonly config: T;
   };
 
   /**
@@ -292,7 +311,7 @@ class LibraryToken<T extends DesignToken.Any>
     return this.#raw;
   }
 
-  public set raw(value: any) {
+  public set raw(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
     this.#raw = value;
     this.#cached = empty;
     this.queue.add(this);
@@ -334,6 +353,15 @@ class LibraryToken<T extends DesignToken.Any>
     stopWatching();
 
     return value;
+  }
+
+  public get config(): T {
+    return {
+      description: this.description,
+      type: this.type,
+      extensions: this.extensions,
+      value: this.raw
+    } as T;
   }
 
   public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {

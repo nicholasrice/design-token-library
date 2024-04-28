@@ -5,6 +5,7 @@ import { Library } from "../lib/library.js";
 import { DesignToken } from "../lib/design-token.js";
 
 const Description = suite("DesignToken.description");
+const Config = suite("DesignToken.config");
 const Lib = suite("DesignToken.Library");
 const Name = suite("DesignToken.name");
 const Subscription = suite("DesignToken.subscription");
@@ -382,6 +383,76 @@ Value(
   },
 );
 
+Config("A token should make it's config accessible", () => {
+  interface DS {
+    a: DesignToken.Color;
+  }
+  const library = Library.create<DS>({
+    a: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+      description: "Some description",
+      extensions: { "test-extension": "value" },
+    },
+  });
+  const config = library.tokens.a.config;
+
+  Assert.is(config.type, DesignToken.Type.Color, "Config has a type");
+  Assert.is(config.value, "#FFFFFF", "Config has a value");
+  Assert.is(config.description, "Some description");
+  Assert.equal(config.extensions, { "test-extension": "value" });
+});
+Config(
+  "A token with an alias value should expose the alias in the config",
+  () => {
+    interface DS {
+      a: DesignToken.Color;
+      b: DesignToken.Color;
+    }
+    const sourceConf: Library.Config<DS> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (ctx) => ctx.a
+      }
+    }
+    const library = Library.create<DS>(sourceConf);
+    const config = library.tokens.b.config;
+
+    Assert.is(config.value, sourceConf.b.value);
+  },
+);
+Config(
+  "A token config should reflect the latest configuration of the token",
+  () => {
+    interface DS {
+      a: DesignToken.Color;
+      b: DesignToken.Color;
+    }
+    const sourceConf: Library.Config<DS> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (ctx) => ctx.a
+      }
+    }
+    const library = Library.create<DS>(sourceConf);
+    const config = library.tokens.b.config;
+
+    Assert.is(config.value, sourceConf.b.value);
+
+    library.tokens.b.set("#AAAAAA");
+
+    Assert.is(library.tokens.b.config.value, "#AAAAAA");
+  },
+);
+
 Subscription(
   "should notify a subscriber after a token changes with an array of the changed tokens",
   async () => {
@@ -520,6 +591,7 @@ Lib("should be immutable", () => {
 });
 
 Description.run();
+Config.run();
 Lib.run();
 Name.run();
 Subscription.run();
