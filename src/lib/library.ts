@@ -222,7 +222,7 @@ const recurseCreate = ({
 };
 
 const recurseResolve = (value: any, context: Library.Context<any>) => {
-  const r: any = Array.isArray(value) ? [] : {};
+  const resolved: any = Array.isArray(value) ? [] : {};
   for (const key in value) {
     let v = value[key];
 
@@ -234,14 +234,14 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
       v = v.value;
     }
 
-    if (isObject(v)) {
-      r[key] = recurseResolve(v, context);
+    if (isObject(v) || Array.isArray(v)) {
+      resolved[key] = recurseResolve(v, context);
     } else {
-      r[key] = v;
+      resolved[key] = v;
     }
   }
 
-  return r;
+  return resolved;
 };
 
 class LibraryImpl<T extends {} = any> implements Library.Library<T> {
@@ -281,15 +281,23 @@ interface ConstructableDesignToken<T extends DesignToken.Any> {
  * An individual token value in a library
  */
 class LibraryToken<T extends DesignToken.Any>
-  implements
-    Library.Token<any, any>,
-    ISubscriber<Library.Alias<T, any>>,
-    IWatcher
+  implements Library.Token<any, any>, ISubscriber<LibraryToken<T>>, IWatcher
 {
-  #context: Library.Context<any>;
   #raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
+  #context: Library.Context<any>;
   #cached: DesignToken.ValueByToken<T> | typeof empty = empty;
   #subscriptions: Set<INotifier<any>> = new Set();
+
+  public get raw() {
+    return this.#raw;
+  }
+
+  public set raw(value: any) {
+    this.#raw = value;
+    this.#cached = empty;
+    this.queue.add(this);
+    getNotifier(this).notify();
+  }
 
   constructor(
     public readonly name: string,
@@ -329,13 +337,11 @@ class LibraryToken<T extends DesignToken.Any>
   }
 
   public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
-    this.#raw = value;
-    this.onChange();
+    this.raw = value;
   }
 
-  public onChange(): void {
+  public onChange(token: LibraryToken<T>): void {
     this.queue.add(this);
-
     // Only react if the token hasn't already been invalidated
     // This prevents the token notifying multiple times
     // if a combination of it's dependencies change before
