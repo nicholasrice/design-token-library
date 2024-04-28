@@ -69,7 +69,7 @@ Type(
     });
 
     Assert.equal(library.tokens.token.type, DesignToken.Type.Color);
-  }
+  },
 );
 
 Type(
@@ -83,7 +83,7 @@ Type(
     });
 
     Assert.equal(library.tokens.token.type, DesignToken.Type.Color);
-  }
+  },
 );
 
 Type(
@@ -98,7 +98,7 @@ Type(
     });
 
     Assert.equal(library.tokens.token.type, DesignToken.Type.Color);
-  }
+  },
 );
 
 Type(
@@ -107,7 +107,7 @@ Type(
     Assert.throws(() => {
       Library.create({ token: { value: "#FFFFFF " } });
     });
-  }
+  },
 );
 
 Value(
@@ -134,7 +134,7 @@ Value(
       style: "solid",
       width: "2px",
     });
-  }
+  },
 );
 
 Value("should invoke function values with the token library", () => {
@@ -184,7 +184,7 @@ Value(
     const library = Library.create(config);
 
     Assert.equal(library.tokens.anotherToken.value, library.tokens.token.value);
-  }
+  },
 );
 
 Value("reference tokens should support multiple levels of inheritance", () => {
@@ -249,7 +249,7 @@ Value("should support reading alias values from complex values", () => {
   Assert.equal(
     border.style,
     { dashArray: ["12px", "14px"], lineCap: "butt" },
-    "DeepAlias border style should be equal"
+    "DeepAlias border style should be equal",
   );
 });
 
@@ -342,7 +342,7 @@ Value(
 
     library.tokens.a.set("#000000");
     Assert.equal(library.tokens.b.value, "#000000");
-  }
+  },
 );
 
 Value(
@@ -379,7 +379,7 @@ Value(
 
     library.tokens.a.set("#000000");
     Assert.equal(library.tokens.c.value.color, "#000000");
-  }
+  },
 );
 
 Subscription(
@@ -405,7 +405,7 @@ Subscription(
     Assert.is(args.length, 1);
     Assert.ok(Array.isArray(args[0]));
     Assert.is(args[0][0], library.tokens.token);
-  }
+  },
 );
 
 Subscription(
@@ -434,7 +434,7 @@ Subscription(
     Assert.ok(Array.isArray(args[0]));
     Assert.is(args[0][0], library.tokens.a);
     Assert.is(args[0][1], library.tokens.b);
-  }
+  },
 );
 
 Subscription(
@@ -464,7 +464,7 @@ Subscription(
     await nextUpdate();
     Assert.is(onChange.callCount, 2);
     Assert.is(onChange.secondCall.args[0][0], library.tokens.b);
-  }
+  },
 );
 
 Lib("should be immutable", () => {
@@ -486,36 +486,36 @@ Lib("should be immutable", () => {
     () =>
       // @ts-ignore
       (library.tokens.colors = {}),
-    "Assigning a group should throw"
+    "Assigning a group should throw",
   );
   Assert.throws(
     // @ts-ignore
     () => (library.tokens.colors.type = DesignToken.Type.Color),
-    "Assigning the 'type' field of a group should throw"
+    "Assigning the 'type' field of a group should throw",
   );
   Assert.throws(
     // @ts-ignore
     () => (library.tokens.colors.primary = { value: "#FFF000" }),
-    "Assigning a token field should throw"
+    "Assigning a token field should throw",
   );
   Assert.throws(
     // @ts-ignore
     () => (library.tokens.colors.primary.value = "#FFF000"),
-    "Assigning a token 'value' field  should throw"
+    "Assigning a token 'value' field  should throw",
   );
   Assert.throws(
     // @ts-ignore
     () => (library.tokens.colors.primary.type = DesignToken.Type.Border),
-    "Assigning a token 'type' field  should throw"
+    "Assigning a token 'type' field  should throw",
   );
   Assert.throws(
     // @ts-ignore
     () => (library.tokens.colors.primary.extensions = {}),
-    "Assigning a token 'extensions' field  should throw"
+    "Assigning a token 'extensions' field  should throw",
   );
   Assert.not.throws(
     () => (library.tokens.colors.primary.extensions.foo = {}),
-    "Assigning a field of a token's extension field should not throw"
+    "Assigning a field of a token's extension field should not throw",
   );
 });
 

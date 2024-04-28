@@ -30,10 +30,10 @@ export namespace Library {
     [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
       ? Token<T[K], R>
       : K extends "type"
-      ? DesignToken.Type
-      : T[K] extends {}
-      ? TokenLibrary<T[K], R>
-      : never;
+        ? DesignToken.Type
+        : T[K] extends {}
+          ? TokenLibrary<T[K], R>
+          : never;
   };
 
   /**
@@ -42,7 +42,7 @@ export namespace Library {
    * @public
    */
   export type Alias<T extends DesignToken.Any, R extends Context<any>> = (
-    context: R
+    context: R,
   ) => T | DesignToken.ValueByToken<T>;
 
   /**
@@ -53,7 +53,7 @@ export namespace Library {
    */
   export type DeepAlias<
     V extends DesignToken.Values.Any,
-    T extends Context<any>
+    T extends Context<any>,
   > = {
     [K in keyof V]: V[K] extends DesignToken.Values.Any
       ? V[K] | Alias<DesignToken.TokenByValue<V[K]>, T> | DeepAlias<V[K], T>
@@ -69,10 +69,10 @@ export namespace Library {
     [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
       ? Readonly<T[K]>
       : K extends "type"
-      ? DesignToken.Type
-      : T[K] extends {}
-      ? Context<T[K], R>
-      : never;
+        ? DesignToken.Type
+        : T[K] extends {}
+          ? Context<T[K], R>
+          : never;
   };
 
   /**
@@ -99,8 +99,8 @@ export namespace Library {
     [K in keyof T]: T[K] extends DesignToken.Any
       ? ConfigValue<T[K], R>
       : T[K] extends {}
-      ? Config<T[K], R>
-      : never;
+        ? Config<T[K], R>
+        : never;
   };
 
   /**
@@ -121,7 +121,7 @@ export namespace Library {
    * @public
    */
   export const create = <T extends {} = any>(
-    config: Library.Config<T, T>
+    config: Library.Config<T, T>,
   ): Library.Library<T> => {
     return new LibraryImpl(config, LibraryToken as any); // TODO fix 'as any'
   };
@@ -135,42 +135,40 @@ const isObject = <T>(value: T): value is T & {} => {
  * @internal
  */
 const isToken = <T extends DesignToken.Any>(
-  value: T | any
+  value: T | any,
 ): value is DesignToken.Any => {
   return isObject(value) && "value" in value;
 };
 
 const isGroup = (
-  value: DesignToken.Group | any
+  value: DesignToken.Group | any,
 ): value is DesignToken.Group => {
   return isObject(value) && !isToken(value);
 };
 
 const isAlias = <T extends DesignToken.Any, K extends {}>(
-  value: any
+  value: any,
 ): value is Library.Alias<T, K> => {
   return typeof value === "function";
 };
 
 interface CreateConfig<T> {
-  name: string,
-  library: Library.TokenLibrary<any, any>,
-  config: Library.Config<any>,
-  context: Library.TokenLibrary<any, any>,
-  typeContext: DesignToken.Type | null,
-  queue: IQueue<Library.Token<DesignToken.Any, any>>,
-  tokenCtor: ConstructableDesignToken<any>
+  name: string;
+  library: Library.TokenLibrary<any, any>;
+  config: Library.Config<any>;
+  context: Library.TokenLibrary<any, any>;
+  typeContext: DesignToken.Type | null;
+  queue: IQueue<Library.Token<DesignToken.Any, any>>;
+  tokenCtor: ConstructableDesignToken<any>;
 }
-const recurseCreate = (
-  {
+const recurseCreate = ({
   name,
   library,
   config,
   context,
   typeContext,
-  queue
-  }: CreateConfig<any>
-): void => {
+  queue,
+}: CreateConfig<any>): void => {
   for (const key in config) {
     if (key === "type") {
       typeContext = config[key] as any;
@@ -191,15 +189,14 @@ const recurseCreate = (
         context,
         typeContext: config[key].type || typeContext,
         queue,
-        tokenCtor: LibraryToken
-      }
-      );
+        tokenCtor: LibraryToken,
+      });
       Object.freeze(library[key]);
     } else if (isToken(config[key])) {
       const { value, type, description, extensions } = config[key];
       if (!type && !typeContext) {
         throw new Error(
-          `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`
+          `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
         );
       }
       const token = new LibraryToken(
@@ -209,7 +206,7 @@ const recurseCreate = (
         context,
         description || "",
         extensions || {},
-        queue
+        queue,
       );
       Reflect.defineProperty(library, key, {
         get() {
@@ -250,9 +247,20 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
 class LibraryImpl<T extends {} = any> implements Library.Library<T> {
   private readonly queue: IQueue<Library.Token<DesignToken.Any, T>> =
     new Queue();
-  constructor(config: Library.Config<T, T>, tokenCtor: ConstructableDesignToken<DesignToken.Any>) {
+  constructor(
+    config: Library.Config<T, T>,
+    tokenCtor: ConstructableDesignToken<DesignToken.Any>,
+  ) {
     const library: Library.TokenLibrary<any, any> = {};
-    const conf: CreateConfig<T> = {name: "", library, config, context: library, typeContext: null, queue: this.queue, tokenCtor }
+    const conf: CreateConfig<T> = {
+      name: "",
+      library,
+      config,
+      context: library,
+      typeContext: null,
+      queue: this.queue,
+      tokenCtor,
+    };
     recurseCreate(conf);
     this.tokens = library;
   }
@@ -266,7 +274,7 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
 }
 
 interface ConstructableDesignToken<T extends DesignToken.Any> {
-  new(...args: any[]): T
+  new (...args: any[]): T;
 }
 
 /**
@@ -290,7 +298,7 @@ class LibraryToken<T extends DesignToken.Any>
     context: Library.Context<any>,
     public readonly description: string,
     public readonly extensions: Record<string, any>,
-    private queue: IQueue<Library.Token<DesignToken.Any, any>>
+    private queue: IQueue<Library.Token<DesignToken.Any, any>>,
   ) {
     this.#raw = value;
     this.#context = context;

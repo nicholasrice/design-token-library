@@ -214,7 +214,7 @@ toPropertiesSuite(
     Assert.is(properties.b.c.var, "var(--b.c)");
     Assert.is(properties.b.d.property, "--b.d");
     Assert.is(properties.b.d.var, "var(--b.d)");
-  }
+  },
 );
 
 toCssSuite.run();

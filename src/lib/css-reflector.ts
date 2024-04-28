@@ -22,10 +22,10 @@ export type CSSPropertiesLibrary<T extends {}> = {
   [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
     ? CSSPropertyValues
     : K extends "type"
-    ? DesignToken.Type
-    : T[K] extends {}
-    ? CSSPropertiesLibrary<T[K]>
-    : never;
+      ? DesignToken.Type
+      : T[K] extends {}
+        ? CSSPropertiesLibrary<T[K]>
+        : never;
 };
 
 /**
@@ -33,11 +33,11 @@ export type CSSPropertiesLibrary<T extends {}> = {
  * @public
  */
 export function toProperties<T extends Library.Library<any>>(
-  library: T
+  library: T,
 ): CSSPropertiesLibrary<T["tokens"]> {
   const recurse = (
     section: Library.TokenLibrary<any>,
-    properties: CSSPropertiesLibrary<any>
+    properties: CSSPropertiesLibrary<any>,
   ) => {
     for (const key in section) {
       const sectionValue = section[key];
@@ -70,13 +70,13 @@ export function toProperties<T extends Library.Library<any>>(
 }
 
 const isToken = (
-  value: Library.TokenLibrary<any> | Library.Token<any, any>
+  value: Library.TokenLibrary<any> | Library.Token<any, any>,
 ): value is Library.Token<any, any> => {
   return "value" in value;
 };
 
 const recurseToCss = (
-  librarySection: Library.TokenLibrary<any, any>
+  librarySection: Library.TokenLibrary<any, any>,
 ): string => {
   let result = "";
   for (const key in librarySection) {
@@ -130,7 +130,7 @@ type Unpacked<T> = T extends (infer U)[] ? U : T;
 
 const gradientReducer = (
   accumulated: string,
-  value: Unpacked<DesignToken.Values.Gradient>
+  value: Unpacked<DesignToken.Values.Gradient>,
 ): string => {
   return accumulated + `${value.color} ${value.position * 100}%,`;
 };
@@ -143,7 +143,7 @@ const shadowConverter = (value: DesignToken.Values.Shadow): string => {
 };
 
 const strokeStyleConverter = (
-  value: DesignToken.Values.StrokeStyle
+  value: DesignToken.Values.StrokeStyle,
 ): string => {
   // CSS doesn't support customizing dashed borders at the time of authoring.
   return typeof value === "string" ? value : "dashed";

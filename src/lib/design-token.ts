@@ -101,7 +101,7 @@ export namespace DesignToken {
       P1x: Values.Number,
       P1y: Values.Number,
       P2x: Values.Number,
-      P2y: Values.Number
+      P2y: Values.Number,
     ];
 
     /**
@@ -197,30 +197,30 @@ export namespace DesignToken {
     T extends DesignToken.Type.Border
       ? DesignToken.Border
       : T extends DesignToken.Type.Color
-      ? DesignToken.Color
-      : T extends DesignToken.Type.CubicBezier
-      ? DesignToken.CubicBezier
-      : T extends DesignToken.Type.Dimension
-      ? DesignToken.Dimension
-      : T extends DesignToken.Type.Duration
-      ? DesignToken.Duration
-      : T extends DesignToken.Type.FontFamily
-      ? DesignToken.FontFamily
-      : T extends DesignToken.Type.FontWeight
-      ? DesignToken.FontWeight
-      : T extends DesignToken.Type.Gradient
-      ? DesignToken.Gradient
-      : T extends DesignToken.Type.Number
-      ? DesignToken.Number
-      : T extends DesignToken.Type.Shadow
-      ? DesignToken.Shadow
-      : T extends DesignToken.Type.StrokeStyle
-      ? DesignToken.StrokeStyle
-      : T extends DesignToken.Type.Transition
-      ? DesignToken.Transition
-      : T extends DesignToken.Type.Typography
-      ? DesignToken.Typography
-      : never;
+        ? DesignToken.Color
+        : T extends DesignToken.Type.CubicBezier
+          ? DesignToken.CubicBezier
+          : T extends DesignToken.Type.Dimension
+            ? DesignToken.Dimension
+            : T extends DesignToken.Type.Duration
+              ? DesignToken.Duration
+              : T extends DesignToken.Type.FontFamily
+                ? DesignToken.FontFamily
+                : T extends DesignToken.Type.FontWeight
+                  ? DesignToken.FontWeight
+                  : T extends DesignToken.Type.Gradient
+                    ? DesignToken.Gradient
+                    : T extends DesignToken.Type.Number
+                      ? DesignToken.Number
+                      : T extends DesignToken.Type.Shadow
+                        ? DesignToken.Shadow
+                        : T extends DesignToken.Type.StrokeStyle
+                          ? DesignToken.StrokeStyle
+                          : T extends DesignToken.Type.Transition
+                            ? DesignToken.Transition
+                            : T extends DesignToken.Type.Typography
+                              ? DesignToken.Typography
+                              : never;
 
   /**
    * @internal
@@ -229,30 +229,30 @@ export namespace DesignToken {
     T extends DesignToken.Border
       ? DesignToken.Type.Border
       : T extends DesignToken.Color
-      ? DesignToken.Type.Color
-      : T extends DesignToken.CubicBezier
-      ? DesignToken.Type.CubicBezier
-      : T extends DesignToken.Dimension
-      ? DesignToken.Type.Dimension
-      : T extends DesignToken.Duration
-      ? DesignToken.Type.Duration
-      : T extends DesignToken.FontFamily
-      ? DesignToken.Type.FontFamily
-      : T extends DesignToken.FontWeight
-      ? DesignToken.Type.FontWeight
-      : T extends DesignToken.Gradient
-      ? DesignToken.Type.Gradient
-      : T extends DesignToken.Number
-      ? DesignToken.Type.Number
-      : T extends DesignToken.Shadow
-      ? DesignToken.Type.Shadow
-      : T extends DesignToken.StrokeStyle
-      ? DesignToken.Type.StrokeStyle
-      : T extends DesignToken.Transition
-      ? DesignToken.Type.Transition
-      : T extends DesignToken.Typography
-      ? DesignToken.Type.Typography
-      : never;
+        ? DesignToken.Type.Color
+        : T extends DesignToken.CubicBezier
+          ? DesignToken.Type.CubicBezier
+          : T extends DesignToken.Dimension
+            ? DesignToken.Type.Dimension
+            : T extends DesignToken.Duration
+              ? DesignToken.Type.Duration
+              : T extends DesignToken.FontFamily
+                ? DesignToken.Type.FontFamily
+                : T extends DesignToken.FontWeight
+                  ? DesignToken.Type.FontWeight
+                  : T extends DesignToken.Gradient
+                    ? DesignToken.Type.Gradient
+                    : T extends DesignToken.Number
+                      ? DesignToken.Type.Number
+                      : T extends DesignToken.Shadow
+                        ? DesignToken.Type.Shadow
+                        : T extends DesignToken.StrokeStyle
+                          ? DesignToken.Type.StrokeStyle
+                          : T extends DesignToken.Transition
+                            ? DesignToken.Type.Transition
+                            : T extends DesignToken.Typography
+                              ? DesignToken.Type.Typography
+                              : never;
 
   /**
    * @internal
@@ -260,30 +260,30 @@ export namespace DesignToken {
   export type TokenByValue<T> = T extends DesignToken.Values.Border
     ? DesignToken.Border
     : T extends DesignToken.Values.Color
-    ? DesignToken.Color
-    : T extends DesignToken.Values.CubicBezier
-    ? DesignToken.CubicBezier
-    : T extends DesignToken.Values.Dimension
-    ? DesignToken.Dimension
-    : T extends DesignToken.Values.Duration
-    ? DesignToken.Duration
-    : T extends DesignToken.Values.FontFamily
-    ? DesignToken.FontFamily
-    : T extends DesignToken.Values.FontWeight
-    ? DesignToken.FontWeight
-    : T extends DesignToken.Values.Gradient
-    ? DesignToken.Gradient
-    : T extends DesignToken.Values.Number
-    ? DesignToken.Number
-    : T extends DesignToken.Values.Shadow
-    ? DesignToken.Shadow
-    : T extends DesignToken.Values.StrokeStyle
-    ? DesignToken.StrokeStyle
-    : T extends DesignToken.Values.Transition
-    ? DesignToken.Transition
-    : T extends DesignToken.Values.Typography
-    ? DesignToken.Typography
-    : never;
+      ? DesignToken.Color
+      : T extends DesignToken.Values.CubicBezier
+        ? DesignToken.CubicBezier
+        : T extends DesignToken.Values.Dimension
+          ? DesignToken.Dimension
+          : T extends DesignToken.Values.Duration
+            ? DesignToken.Duration
+            : T extends DesignToken.Values.FontFamily
+              ? DesignToken.FontFamily
+              : T extends DesignToken.Values.FontWeight
+                ? DesignToken.FontWeight
+                : T extends DesignToken.Values.Gradient
+                  ? DesignToken.Gradient
+                  : T extends DesignToken.Values.Number
+                    ? DesignToken.Number
+                    : T extends DesignToken.Values.Shadow
+                      ? DesignToken.Shadow
+                      : T extends DesignToken.Values.StrokeStyle
+                        ? DesignToken.StrokeStyle
+                        : T extends DesignToken.Values.Transition
+                          ? DesignToken.Transition
+                          : T extends DesignToken.Values.Typography
+                            ? DesignToken.Typography
+                            : never;
 
   /**
    * @internal
@@ -291,30 +291,30 @@ export namespace DesignToken {
   export type ValueByType<T> = T extends DesignToken.Values.Border
     ? DesignToken.Type.Border
     : T extends DesignToken.Values.Color
-    ? DesignToken.Type.Color
-    : T extends DesignToken.Values.CubicBezier
-    ? DesignToken.Type.CubicBezier
-    : T extends DesignToken.Values.Dimension
-    ? DesignToken.Type.Dimension
-    : T extends DesignToken.Values.Duration
-    ? DesignToken.Type.Duration
-    : T extends DesignToken.Values.FontFamily
-    ? DesignToken.Type.FontFamily
-    : T extends DesignToken.Values.FontWeight
-    ? DesignToken.Type.FontWeight
-    : T extends DesignToken.Values.Gradient
-    ? DesignToken.Type.Gradient
-    : T extends DesignToken.Values.Number
-    ? DesignToken.Type.Number
-    : T extends DesignToken.Values.Shadow
-    ? DesignToken.Type.Shadow
-    : T extends DesignToken.Values.StrokeStyle
-    ? DesignToken.Type.StrokeStyle
-    : T extends DesignToken.Values.Transition
-    ? DesignToken.Type.Transition
-    : T extends DesignToken.Values.Typography
-    ? DesignToken.Type.Typography
-    : never;
+      ? DesignToken.Type.Color
+      : T extends DesignToken.Values.CubicBezier
+        ? DesignToken.Type.CubicBezier
+        : T extends DesignToken.Values.Dimension
+          ? DesignToken.Type.Dimension
+          : T extends DesignToken.Values.Duration
+            ? DesignToken.Type.Duration
+            : T extends DesignToken.Values.FontFamily
+              ? DesignToken.Type.FontFamily
+              : T extends DesignToken.Values.FontWeight
+                ? DesignToken.Type.FontWeight
+                : T extends DesignToken.Values.Gradient
+                  ? DesignToken.Type.Gradient
+                  : T extends DesignToken.Values.Number
+                    ? DesignToken.Type.Number
+                    : T extends DesignToken.Values.Shadow
+                      ? DesignToken.Type.Shadow
+                      : T extends DesignToken.Values.StrokeStyle
+                        ? DesignToken.Type.StrokeStyle
+                        : T extends DesignToken.Values.Transition
+                          ? DesignToken.Type.Transition
+                          : T extends DesignToken.Values.Typography
+                            ? DesignToken.Type.Typography
+                            : never;
 
   /**
    * @internal
@@ -323,37 +323,37 @@ export namespace DesignToken {
     T extends DesignToken.Border
       ? DesignToken.Values.Border
       : T extends Color
-      ? DesignToken.Values.Color
-      : T extends DesignToken.CubicBezier
-      ? DesignToken.Values.CubicBezier
-      : T extends DesignToken.Dimension
-      ? DesignToken.Values.Dimension
-      : T extends DesignToken.Duration
-      ? DesignToken.Values.Duration
-      : T extends DesignToken.FontFamily
-      ? DesignToken.Values.FontFamily
-      : T extends DesignToken.FontWeight
-      ? DesignToken.Values.FontWeight
-      : T extends DesignToken.Gradient
-      ? DesignToken.Values.Gradient
-      : T extends DesignToken.Number
-      ? DesignToken.Values.Number
-      : T extends DesignToken.Shadow
-      ? DesignToken.Values.Shadow
-      : T extends DesignToken.StrokeStyle
-      ? DesignToken.Values.StrokeStyle
-      : T extends DesignToken.Transition
-      ? DesignToken.Values.Transition
-      : T extends Typography
-      ? DesignToken.Values.Typography
-      : never;
+        ? DesignToken.Values.Color
+        : T extends DesignToken.CubicBezier
+          ? DesignToken.Values.CubicBezier
+          : T extends DesignToken.Dimension
+            ? DesignToken.Values.Dimension
+            : T extends DesignToken.Duration
+              ? DesignToken.Values.Duration
+              : T extends DesignToken.FontFamily
+                ? DesignToken.Values.FontFamily
+                : T extends DesignToken.FontWeight
+                  ? DesignToken.Values.FontWeight
+                  : T extends DesignToken.Gradient
+                    ? DesignToken.Values.Gradient
+                    : T extends DesignToken.Number
+                      ? DesignToken.Values.Number
+                      : T extends DesignToken.Shadow
+                        ? DesignToken.Values.Shadow
+                        : T extends DesignToken.StrokeStyle
+                          ? DesignToken.Values.StrokeStyle
+                          : T extends DesignToken.Transition
+                            ? DesignToken.Values.Transition
+                            : T extends Typography
+                              ? DesignToken.Values.Typography
+                              : never;
 
   /**
    * All properties supported by a DesignToken
    */
   export interface Properties<
     Type extends DesignToken.Type,
-    Value extends DesignToken.Values.Any
+    Value extends DesignToken.Values.Any,
   > {
     description?: string;
     type?: Type;
