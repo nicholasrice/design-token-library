@@ -43,7 +43,8 @@ export function toProperties<T extends Library.Library<any>>(
       const sectionValue = section[key];
 
       if (isToken(sectionValue)) {
-        const property = `--${sectionValue.name}`;
+        // TODO add a strategy for name conversion
+        const property = `--${sectionValue.name.replaceAll(".", "-")}`;
         const propertyValue = Object.freeze({
           var: `var(${property})`,
           property,

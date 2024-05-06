@@ -210,10 +210,10 @@ toPropertiesSuite(
     const properties = toProperties(library);
     Assert.is(properties.a.property, "--a");
     Assert.is(properties.a.var, "var(--a)");
-    Assert.is(properties.b.c.property, "--b.c");
-    Assert.is(properties.b.c.var, "var(--b.c)");
-    Assert.is(properties.b.d.property, "--b.d");
-    Assert.is(properties.b.d.var, "var(--b.d)");
+    Assert.is(properties.b.c.property, "--b-c");
+    Assert.is(properties.b.c.var, "var(--b-c)");
+    Assert.is(properties.b.d.property, "--b-d");
+    Assert.is(properties.b.d.var, "var(--b-d)");
   }
 );
 
