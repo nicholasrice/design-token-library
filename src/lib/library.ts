@@ -264,19 +264,30 @@ class LibraryToken<T extends DesignToken.Any>
   #raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
   #cached: DesignToken.ValueByToken<T> | typeof empty = empty;
   #subscriptions: Set<INotifier<any>> = new Set();
+  #type: DesignToken.TypeByToken<T>;
+  #extensions: Record<string, any>;
 
   constructor(
     public readonly name: string,
     value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
-    public readonly type: DesignToken.TypeByToken<T>,
+    type: DesignToken.TypeByToken<T>,
     context: Library.Context<any>,
     public readonly description: string,
-    public readonly extensions: Record<string, any>,
+    extensions: Record<string, any>,
     private queue: IQueue<Library.Token<DesignToken.Any, any>>
   ) {
     this.#raw = value;
     this.#context = context;
-    Object.freeze(this);
+    this.#type = type;
+    this.#extensions = extensions;
+  }
+
+  public get type() {
+    return this.#type;
+  }
+
+  public get extensions() {
+    return this.#extensions;
   }
 
   /**
