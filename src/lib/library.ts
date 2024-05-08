@@ -18,8 +18,6 @@ export namespace Library {
     onChange(records: ReadonlyArray<Library.Token<DesignToken.Any, R>>): void;
   }
 
-  export interface ChangeRecord {}
-
   /**
    * Defines a token library that can be interacted with
    * to mutate token values.
