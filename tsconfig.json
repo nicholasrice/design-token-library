@@ -6,8 +6,9 @@
     "esModuleInterop": true,
     "moduleResolution": "Node16",
     "experimentalDecorators": true,
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "sourceMap": true
   },
-  "references": [{ "path": "./src/lib" }, { "path": "./src/test", }],
+  "references": [{ "path": "./src/lib" }, { "path": "./src/test" }],
   "files": []
 }
