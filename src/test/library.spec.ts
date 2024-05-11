@@ -3,9 +3,14 @@ import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import { Library } from "../lib/library.js";
 import { DesignToken } from "../lib/design-token.js";
+interface ABTheme {
+  a: DesignToken.Color;
+  b: DesignToken.Color;
+}
 
 const Description = suite("DesignToken.description");
 const Lib = suite("DesignToken.Library");
+const Extend = suite("DesignToken.Library.Extend");
 const Name = suite("DesignToken.name");
 const Subscription = suite("DesignToken.subscription");
 const Type = suite("DesignToken.type");
@@ -519,8 +524,157 @@ Lib("should be immutable", () => {
   );
 });
 
+Extend(
+  "An extended library should have the same token metadata as the source library",
+  async () => {
+    interface Theme {
+      a: DesignToken.Color;
+      b: DesignToken.Color;
+    }
+
+    const config: Library.Config<Theme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+        description: "description",
+        extensions: {
+          e: "e",
+        },
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+    };
+    const source = Library.create(config);
+    const extended = source.extend({});
+
+    Assert.is(extended.tokens.a.type, DesignToken.Type.Color);
+    Assert.is(extended.tokens.a.description, "description");
+    Assert.equal(extended.tokens.a.extensions, { e: "e" });
+  }
+);
+Extend(
+  "An extending library should use the extended library if no config value is set for the extending library",
+  () => {
+    const config: Library.Config<ABTheme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+    };
+    const source = Library.create(config);
+    const extended = source.extend({});
+
+    Assert.is(extended.tokens.a.value, "#FFFFFF");
+    Assert.is(extended.tokens.b.value, "#FFFFFF");
+  }
+);
+Extend(
+  "An extending library should use the extending if a config value is set for the extending library",
+  () => {
+    const config: Library.Config<ABTheme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+    };
+    const source = Library.create(config);
+    const extended = source.extend({
+      b: {
+        value: "#000000",
+      },
+    });
+
+    Assert.is(extended.tokens.b.value, "#000000");
+  }
+);
+
+Extend(
+  "An extending library should update its value for a token that isn't configured when the source changes",
+  async () => {
+    interface Theme {
+      a: DesignToken.Color;
+      b: DesignToken.Color;
+    }
+
+    const config: Library.Config<Theme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+    };
+    const source = Library.create(config);
+    const extended = source.extend({});
+
+    Assert.is(extended.tokens.a.value, "#FFFFFF");
+    Assert.is(extended.tokens.b.value, "#FFFFFF");
+
+    source.tokens.a.set("#111111");
+
+    Assert.is(
+      extended.tokens.a.value,
+      "#111111",
+      "Extended token 'a' is #111111"
+    );
+    Assert.is(
+      extended.tokens.b.value,
+      "#111111",
+      "Extended token 'b' is #111111"
+    );
+  }
+);
+Extend(
+  "An extending library should notify for tokens not configured by the extending library",
+  async () => {
+    const config: Library.Config<ABTheme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+    };
+    const source = Library.create(config);
+    const extending = source.extend({});
+    const onChange = spy();
+    const subscriber: Library.Subscriber<ABTheme> = {
+      onChange,
+    };
+
+    extending.subscribe(subscriber);
+
+    extending.tokens.b.value; // b needs to be accessed to set up watchers
+    source.tokens.a.set("#111111");
+    await nextUpdate();
+    Assert.ok(onChange.calledOnce);
+    Assert.is(
+      onChange.firstCall.args[0].length,
+      2,
+      "Called with both a and b tokens"
+    );
+    Assert.is(onChange.firstCall.args[0][0], extending.tokens.a, "a notified");
+    Assert.is(onChange.firstCall.args[0][1], extending.tokens.b, "b notified");
+  }
+);
+
 Description.run();
 Lib.run();
+Extend.run();
 Name.run();
 Subscription.run();
 Type.run();
