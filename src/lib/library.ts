@@ -12,6 +12,7 @@ export namespace Library {
     tokens: TokenLibrary<T, R>;
     subscribe(subscriber: Library.Subscriber<R>): void;
     unsubscribe(subscriber: Library.Subscriber<R>): void;
+    extend(config: any): Library<T, R>; // TODO should not be any
   }
 
   export interface Subscriber<R extends {}> {
@@ -121,7 +122,7 @@ export namespace Library {
   export const create = <T extends {} = any>(
     config: Library.Config<T, T>
   ): Library.Library<T> => {
-    return new LibraryImpl(config);
+    return LibraryImpl.create(config);
   };
 }
 
@@ -209,6 +210,112 @@ const recurseCreate = (
   }
 };
 
+const recurseExtend = (
+  name: string,
+  sourceTokens: Library.TokenLibrary<any, any>,
+  extendedTokens: Library.TokenLibrary<any, any>,
+  config: Library.Config<any>, // TODO allow new config options
+  context: Library.TokenLibrary<any, any>,
+  typeContext: DesignToken.Type | null,
+  queue: IQueue<Library.Token<DesignToken.Any, any>>
+): void => {
+  const keys = new Set(Object.keys(sourceTokens).concat(Object.keys(config))); // Remove duplicate keys
+
+  for (const key of keys) {
+    const sourceHasKey = key in sourceTokens;
+    const configHasKey = key in config;
+    const _name = name.length === 0 ? key : `${name}.${key}`;
+    const keyIsGroup = isGroup(sourceTokens[key]);
+    const keyIsToken = isToken(sourceTokens[key]);
+
+    if (key === "type") {
+      typeContext = sourceTokens[key] as any;
+      continue;
+    }
+
+    if (keyIsGroup) {
+      Reflect.defineProperty(
+        extendedTokens,
+        key,
+        Object.create(sourceTokens[key])
+      );
+      if (sourceHasKey) {
+        recurseExtend(
+          _name,
+          sourceTokens[key] as any,
+          extendedTokens[key] as any,
+          config[key] || {},
+          context,
+          (sourceTokens.type || typeContext) as any,
+          queue
+        );
+      } else if (configHasKey) {
+        // This will always be the case
+        recurseCreate(
+          _name,
+          sourceTokens[key] as any,
+          extendedTokens[key],
+          context,
+          (sourceTokens.type || typeContext) as any,
+          queue
+        );
+      }
+    } else if (keyIsToken) {
+      const token = extendToken(
+        sourceTokens[key] as Library.Token<any, any>,
+        context,
+        queue,
+        config[key]
+      );
+
+      Reflect.defineProperty(extendedTokens, key, {
+        get() {
+          // Token access needs to be tracked because an alias token
+          // is a function that returns a token
+          Watcher.track(token);
+          return token;
+        },
+        enumerable: true,
+      });
+    }
+  }
+};
+
+function extendToken(
+  token: Library.Token<any, any>,
+  context: Library.Context<any>,
+  queue: IQueue<any>,
+  value?: any
+) {
+  const extendingToken = Object.create(token);
+  extendingToken.context = context;
+  extendingToken.cached = empty;
+  extendingToken.watchContext = extendingToken;
+  extendingToken.queue = queue;
+
+  if (value !== undefined) {
+    extendingToken.raw = value;
+  } else {
+    // Subscribe to changes
+    // spy on set, unsubscribe when set
+    const subscriber: ISubscriber<Library.Token<any, any>> = {
+      onChange() {
+        extendingToken.onChange();
+      },
+    };
+    // token.value;
+    getNotifier(token).subscribe(subscriber);
+    const set = extendingToken.set;
+    extendingToken.set = (value: any) => {
+      getNotifier(token).unsubscribe(subscriber);
+      set.call(extendingToken, value);
+      extendingToken.set = set;
+    };
+  }
+
+  return extendingToken;
+}
+
 const recurseResolve = (value: any, context: Library.Context<any>) => {
   const r: any = Array.isArray(value) ? [] : {};
   for (const key in value) {
@@ -233,19 +340,32 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
 };
 
 class LibraryImpl<T extends {} = any> implements Library.Library<T> {
-  private readonly queue: IQueue<Library.Token<DesignToken.Any, T>> =
-    new Queue();
-  constructor(config: Library.Config<T, T>) {
-    const tokens: Library.TokenLibrary<any, any> = {};
-    recurseCreate("", tokens, config, tokens, null, this.queue);
-    this.tokens = tokens;
-  }
-  public tokens: Library.TokenLibrary<T, T>;
+  constructor(
+    public readonly tokens: Library.TokenLibrary<T>,
+    private readonly queue: IQueue<Library.Token<DesignToken.Any, T>>
+  ) {}
   public subscribe(subscriber: Library.Subscriber<T>) {
     this.queue.subscribe(subscriber);
   }
   public unsubscribe(subscriber: Library.Subscriber<T>) {
     this.queue.unsubscribe(subscriber);
+  }
+
+  public extend(config: Library.Config<any>) {
+    // TODO should not type Library.Config<any>
+    const queue = new Queue();
+    const tokens: Library.TokenLibrary<any> = {};
+    recurseExtend("", this.tokens, tokens, config, tokens, null, queue);
+
+    return new LibraryImpl(tokens, queue);
+  }
+
+  public static create<T extends {}>(config: Library.Config<T, T>) {
+    const queue = new Queue();
+    const tokens: Library.TokenLibrary<any> = {};
+    recurseCreate("", tokens, config, tokens, null, queue);
+
+    return new LibraryImpl(tokens, queue);
   }
 }
 
@@ -258,90 +378,83 @@ class LibraryToken<T extends DesignToken.Any>
     ISubscriber<Library.Alias<T, any>>,
     IWatcher
 {
-  #context: Library.Context<any>;
-  #raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
-  #cached: DesignToken.ValueByToken<T> | typeof empty = empty;
-  #subscriptions: Set<INotifier<any>> = new Set();
-  #type: DesignToken.TypeByToken<T>;
-  #extensions: Record<string, any>;
+  private raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
+  private cached: DesignToken.ValueByToken<T> | typeof empty = empty;
+  private subscriptions: Set<INotifier<any>> = new Set();
 
   constructor(
     public readonly name: string,
     value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
-    type: DesignToken.TypeByToken<T>,
-    context: Library.Context<any>,
-    public readonly description: string,
-    extensions: Record<string, any>,
+    private readonly _type: DesignToken.TypeByToken<T>,
+    private readonly context: Library.Context<any>,
+    private readonly _description: string,
+    private readonly _extensions: Record<string, any>,
     private queue: IQueue<Library.Token<DesignToken.Any, any>>
   ) {
-    this.#raw = value;
-    this.#context = context;
-    this.#type = type;
-    this.#extensions = extensions;
+    this.raw = value;
+    this.context = context;
   }
 
   public get type() {
-    return this.#type;
+    return this._type;
+  }
+
+  public get description() {
+    return this._description;
   }
 
   public get extensions() {
-    return this.#extensions;
+    return this._extensions;
   }
 
   /**
    * Gets the token value
    */
   public get value(): T["value"] {
-    if (this.#cached !== empty) {
-      return this.#cached;
+    if (this.cached !== empty) {
+      return this.cached;
     }
 
     this.disconnect();
     const stopWatching = Watcher.use(this);
-    const raw = isAlias(this.#raw) ? this.#raw(this.#context) : this.#raw;
+    const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
     const normalized = isToken(raw) ? raw.value : raw;
 
     const value = isObject(normalized)
-      ? recurseResolve(normalized, this.#context)
+      ? recurseResolve(normalized, this.context)
       : normalized;
 
-    this.#cached = value;
+    this.cached = value;
     stopWatching();
 
     return value;
   }
 
   public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
-    this.#raw = value;
+    this.raw = value;
     this.onChange();
   }
 
   public onChange(): void {
     this.queue.add(this);
 
-    // Only react if the token hasn't already been invalidated
-    // This prevents the token notifying multiple times
-    // if a combination of it's dependencies change before
-    // the value is re-calculated
-    if (this.#cached !== empty) {
-      this.#cached = empty;
-      getNotifier(this).notify();
-    }
+    this.cached = empty;
+    getNotifier(this).notify();
   }
 
   public watch(source: Object): void {
     const notifier = getNotifier(source);
     notifier.subscribe(this);
-    this.#subscriptions.add(notifier);
+    this.subscriptions.add(notifier);
   }
 
   /**
    * Disconnect the token from it's subscriptions
    */
   public disconnect() {
-    for (const record of this.#subscriptions.values()) {
+    for (const record of this.subscriptions.values()) {
       record.unsubscribe(this);
-      this.#subscriptions.delete(record);
+      this.subscriptions.delete(record);
     }
   }
 }
