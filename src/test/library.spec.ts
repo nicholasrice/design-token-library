@@ -671,6 +671,36 @@ Extend(
     Assert.is(onChange.firstCall.args[0][1], extending.tokens.b, "b notified");
   }
 );
+Extend(
+  "An extending library should not notify for tokens that are configured by the extending library",
+  async () => {
+    const config: Library.Config<ABTheme> = {
+      a: {
+        type: DesignToken.Type.Color,
+        value: "#FFFFFF",
+      },
+      b: {
+        type: DesignToken.Type.Color,
+        value: (context) => context.a,
+      },
+    };
+    const source = Library.create(config);
+    const extending = source.extend({ a: "#FFFFFF", b: "#000000" });
+    const onChange = spy();
+    const subscriber: Library.Subscriber<ABTheme> = {
+      onChange,
+    };
+
+    extending.subscribe(subscriber);
+
+    extending.tokens.b.value; // b needs to be accessed to set up watchers
+    extending.tokens.a.value;
+    source.tokens.a.set("#111111");
+
+    await nextUpdate();
+    Assert.is(onChange.calledOnce, false);
+  }
+);
 
 Description.run();
 Lib.run();
