@@ -19,10 +19,11 @@ jobs:
       - run: npm run build
       - run: npm run api-report
       - run: npm run docs:api-reference
-      - run: cd doc-site
       - name: Install dependencies
+        working-directory: ./doc-site
         run: npm ci
       - name: Build website
+        working-directory: ./doc-site
         run: npm run build
 
       - name: Upload Build Artifact
