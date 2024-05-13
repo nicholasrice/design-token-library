@@ -35,7 +35,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run api-report
-      - run: npm run docs
+      - run: npm run docs:api-report
       - name: Setup Pages
         uses: actions/configure-pages@v3
       - name: Build Pages

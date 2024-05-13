@@ -18,7 +18,7 @@
     "test": "npx uvu dist/test .spec.js$",
     "report-size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
     "api-report": "npx api-extractor run --local --verbose",
-    "docs": "npx api-documenter markdown --input-folder temp --output-folder docs"
+    "docs:api-reference": "npx api-documenter markdown --input-folder temp --output-folder doc-site/docs/api-reference"
   },
   "repository": {
     "type": "git",
