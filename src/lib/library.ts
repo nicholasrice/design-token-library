@@ -1,7 +1,7 @@
 import { DesignToken } from "./design-token.js";
 import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
 import { IQueue, Queue } from "./queue.js";
-import { empty } from "./utilities.js";
+import { DeepPartial, empty } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
 /**
@@ -12,7 +12,9 @@ export namespace Library {
     tokens: TokenLibrary<T, R>;
     subscribe(subscriber: Library.Subscriber<R>): void;
     unsubscribe(subscriber: Library.Subscriber<R>): void;
-    extend(config: any): Library<T, R>; // TODO should not be any
+    extend<K extends {} = any>(
+      config: DeepPartial<T> & Config<K, R & K>
+    ): Library<T & K, R & K>; // TODO should not be any
   }
 
   export interface Subscriber<R extends {}> {
@@ -225,8 +227,8 @@ const recurseExtend = (
     const sourceHasKey = key in sourceTokens;
     const configHasKey = key in config;
     const _name = name.length === 0 ? key : `${name}.${key}`;
-    const keyIsGroup = isGroup(sourceTokens[key]);
-    const keyIsToken = isToken(sourceTokens[key]);
+    const keyIsGroup = isGroup(sourceTokens[key]) || isGroup(config[key]);
+    const keyIsToken = isToken(sourceTokens[key]) || isToken(config[key]);
 
     if (key === "type") {
       typeContext = sourceTokens[key] as any;
@@ -261,13 +263,23 @@ const recurseExtend = (
         );
       }
     } else if (keyIsToken) {
-      const token = extendToken(
-        sourceTokens[key] as Library.Token<any, any>,
-        context,
-        queue,
-        config[key]
-      );
-
+      const token =
+        sourceTokens[key] !== undefined
+          ? extendToken(
+              sourceTokens[key] as Library.Token<any, any>,
+              context,
+              queue,
+              config[key]
+            )
+          : new LibraryToken(
+              _name,
+              config[key].value,
+              config[key].type || typeContext,
+              context,
+              config[key].description || "",
+              config[key].extensions || {},
+              queue
+            );
       Reflect.defineProperty(extendedTokens, key, {
         get() {
           // Token access needs to be tracked because an alias token

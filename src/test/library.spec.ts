@@ -3,6 +3,7 @@ import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import { Library } from "../lib/library.js";
 import { DesignToken } from "../lib/design-token.js";
+
 interface ABTheme {
   a: DesignToken.Color;
   b: DesignToken.Color;
@@ -685,7 +686,10 @@ Extend(
       },
     };
     const source = Library.create(config);
-    const extending = source.extend({ a: "#FFFFFF", b: "#000000" });
+    const extending = source.extend({
+      a: { value: "#000000" },
+      b: { value: "#000000" },
+    });
     const onChange = spy();
     const subscriber: Library.Subscriber<ABTheme> = {
       onChange,
@@ -701,6 +705,29 @@ Extend(
     Assert.is(onChange.calledOnce, false);
   }
 );
+Extend("Should allow adding new tokens to an extending library", async () => {
+  const config: Library.Config<ABTheme> = {
+    a: {
+      type: DesignToken.Type.Color,
+      value: "#FFFFFF",
+    },
+    b: {
+      type: DesignToken.Type.Color,
+      value: (context) => context.a,
+    },
+  };
+  interface Extending {
+    c: DesignToken.Color;
+  }
+  const source = Library.create(config);
+  const extending = source.extend<Extending>({
+    a: { type: DesignToken.Type.Color, value: "#000000" },
+    c: { type: DesignToken.Type.Color, value: "#111111" },
+  });
+
+  Assert.is(extending.tokens.a.value, "#000000");
+  Assert.is(extending.tokens.c.value, "#111111");
+});
 
 Description.run();
 Lib.run();
