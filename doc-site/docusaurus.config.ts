@@ -34,11 +34,13 @@ const config: Config = {
       "classic",
       {
         docs: {
+          routeBasePath: "/",
           sidebarPath: "./sidebars.ts",
         },
         theme: {
           customCss: "./src/css/custom.css",
         },
+        blog: false,
       } satisfies Preset.Options,
     ],
   ],
@@ -57,7 +59,7 @@ const config: Config = {
           sidebarId: "apiSidebar",
           position: "left",
           label: "API Reference",
-          to: "docs/api-reference/design-token-library",
+          to: "api-reference/design-token-library",
         },
         {
           href: "https://github.com/nicholasrice/design-token-library",
