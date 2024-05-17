@@ -5,7 +5,7 @@ sidebar_position: 1
 
 # Intro
 
-`design-token-library` is a TypeScript library for managing Design Tokens. It's interface is based off of the [Design Token Community Group (DTCG)](https://www.designtokens.org/), and aims to be a lightweight, type-safe, polymorphic library that can be used in any JavaScript runtime.
+`design-token-library` is a TypeScript library for managing Design Tokens. It's interface is based off of the [Design Token Community Group (DTCG)](https://www.designtokens.org/), and aims to be a lightweight and type-safe library with core behavior that can be used in any JavaScript runtime.
 
 `design-token-library` supports:
 
