@@ -144,7 +144,7 @@ library.subscribe(subscriber);
 library.tokens.foreground.set("#878787");
 ```
 
-Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will notify itself to subscribers even if it's dependencies change:
+Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
 
 ```ts
 const library = Library.create({
