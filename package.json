@@ -24,8 +24,8 @@
     "type": "git",
     "url": "git+https://github.com/nicholasrice/design-token-library.git"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "https://github.com/nicholasrice",
+  "license": "MIT",
   "bugs": {
     "url": "https://github.com/nicholasrice/design-token-library/issues"
   },
