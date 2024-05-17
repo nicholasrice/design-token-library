@@ -1,6 +1,6 @@
 {
   "name": "design-token-library",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A library for managing design tokens",
   "type": "module",
   "main": "./dist/lib/index.js",
