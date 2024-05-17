@@ -64,6 +64,7 @@ const config: Config = {
         {
           href: "https://github.com/nicholasrice/design-token-library",
           position: "right",
+          label: "Github",
         },
       ],
     },
