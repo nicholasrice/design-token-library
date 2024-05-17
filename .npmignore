@@ -1,6 +1,9 @@
-dist/test
-docs
-tsconfig.json
-src
+.github
 .vscode
 api-extractor.json
+dist/test
+doc-site
+src
+temp
+tsconfig.json
+tsconfig.tsbuildinfo
