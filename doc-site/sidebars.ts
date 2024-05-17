@@ -16,6 +16,7 @@ const sidebars: SidebarsConfig = {
   // But you can create a sidebar manually
   tutorialSidebar: [
     "intro",
+    "getting-started",
     // {
     //   type: "category",
     //   label: "API Reference",
