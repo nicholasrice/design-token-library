@@ -150,7 +150,9 @@ Value("should invoke function values with the token library", () => {
     anotherToken: DesignToken.Color;
   }
 
-  const value = spy((context: Library.Context<Theme>) => context.token);
+  const watched = spy((context: Library.Context<Theme>) => context.token);
+  const value = Library.derive(watched);
+
   const config: Library.Config<Theme> = {
     token: {
       type: DesignToken.Type.Color,
@@ -166,8 +168,8 @@ Value("should invoke function values with the token library", () => {
   // Act
   const anotherTokenValue = library.tokens.anotherToken.value;
 
-  Assert.equal(value.calledOnce, true);
-  Assert.equal(value.firstCall.args[0], library.tokens);
+  Assert.equal(watched.calledOnce, true);
+  Assert.equal(watched.firstCall.args[0], library.tokens);
 });
 
 Value(
@@ -184,7 +186,7 @@ Value(
       },
       anotherToken: {
         type: DesignToken.Type.Color,
-        value: (theme: Theme) => theme.token,
+        value: Library.derive((theme) => theme.token),
       },
     };
     const library = Library.create(config);
@@ -206,11 +208,11 @@ Value("reference tokens should support multiple levels of inheritance", () => {
     },
     secondaryToken: {
       type: DesignToken.Type.Color,
-      value: (theme) => theme.token,
+      value: Library.derive((theme) => theme.token),
     },
     tertiaryToken: {
       type: DesignToken.Type.Color,
-      value: (theme) => theme.secondaryToken,
+      value: Library.derive((theme) => theme.secondaryToken),
     },
   };
   const library = Library.create(config);
@@ -237,10 +239,10 @@ Value("should support reading alias values from complex values", () => {
     border: {
       type: DesignToken.Type.Border,
       value: {
-        color: (context) => context.color,
+        color: Library.derive((context) => context.color),
         width: "3px",
         style: {
-          dashArray: [(context) => context.dimension, "14px"],
+          dashArray: [Library.derive((context) => context.dimension), "14px"],
           lineCap: "butt",
         },
       },
@@ -295,7 +297,11 @@ Value("should support setting a token alias", () => {
   };
 
   const library = Library.create(config);
-  library.tokens.secondaryToken.set((theme) => theme.token.value);
+  library.tokens.secondaryToken.set(
+    Library.derive<DesignToken.Color, Library.Context<Theme>>(
+      (theme) => theme.token.value
+    )
+  );
 
   Assert.equal(library.tokens.secondaryToken.value, library.tokens.token.value);
 });
@@ -318,7 +324,9 @@ Value("should support setting a value alias", () => {
   };
 
   const library = Library.create(config);
-  library.tokens.secondaryToken.set(() => "#FF0000");
+  library.tokens.secondaryToken.set(
+    Library.derive<DesignToken.Color, Library.Config<Theme>>(() => "#FF0000")
+  );
 
   Assert.equal(library.tokens.secondaryToken.value, "#FF0000");
 });
@@ -338,7 +346,7 @@ Value(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
     };
 
@@ -367,13 +375,13 @@ Value(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
       c: {
         type: DesignToken.Type.Border,
         value: {
           style: "solid",
-          color: (context) => context.b,
+          color: Library.derive((context) => context.b),
           width: "2px",
         },
       },
@@ -544,7 +552,7 @@ Extend(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
     };
     const source = Library.create(config);
@@ -565,7 +573,7 @@ Extend(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
     };
     const source = Library.create(config);
@@ -585,7 +593,7 @@ Extend(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
     };
     const source = Library.create(config);
@@ -614,7 +622,7 @@ Extend(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
     };
     const source = Library.create(config);
@@ -647,7 +655,7 @@ Extend(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
     };
     const source = Library.create(config);
@@ -682,7 +690,7 @@ Extend(
       },
       b: {
         type: DesignToken.Type.Color,
-        value: (context) => context.a,
+        value: Library.derive((context) => context.a),
       },
     };
     const source = Library.create(config);
@@ -713,7 +721,7 @@ Extend("Should allow adding new tokens to an extending library", async () => {
     },
     b: {
       type: DesignToken.Type.Color,
-      value: (context) => context.a,
+      value: Library.derive((context) => context.a),
     },
   };
   interface Extending {

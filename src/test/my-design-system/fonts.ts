@@ -13,7 +13,9 @@ export interface Fonts {
 
 export const fonts: Library.Config<Fonts, Theme> = {
   body: { value: ["foo", "bar"] },
-  heading: { value: ["bat", (theme) => theme.fonts.body] },
+  heading: {
+    value: ["bat", Library.derive((theme) => theme.fonts.body)],
+  },
   weights: {
     normal: { value: "normal" },
     heavy: { value: "heavy" },

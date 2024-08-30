@@ -12,18 +12,18 @@ export const borders: Library.Config<Borders, Theme> = {
   type: DesignToken.Type.Border,
   accentThin: {
     value: {
-      color: function (theme) {
+      color: Library.derive(function (theme) {
         return theme.colors.accent;
-      },
+      }),
       style: "dashed",
-      width(theme) {
+      width: Library.derive((theme) => {
         return theme.dimensions.border;
-      },
+      }),
     },
   },
   neutralThin: {
-    value: function (theme): DesignToken.Border {
+    value: Library.derive(function (theme): DesignToken.Border {
       return theme.borders.accentThin;
-    },
+    }),
   },
 };

@@ -37,14 +37,37 @@ export namespace Library {
       : never;
   };
 
+  export const DerivedSymbol = Symbol.for("design-token-library::derived");
+
   /**
    * A token value that serves as an alias to another token value
    *
    * @public
    */
-  export type Alias<T extends DesignToken.Any, R extends Context<any>> = (
-    context: R
-  ) => T | DesignToken.ValueByToken<T>;
+  export type DerivedSource<
+    T extends DesignToken.Any,
+    R extends Context<any>
+  > = (context: R) => T | DesignToken.ValueByToken<T>;
+  export type Alias<
+    T extends DesignToken.Any,
+    R extends Context<any>
+  > = DerivedSource<T, R> & { [DerivedSymbol]: typeof DerivedSymbol };
+
+  export function derive<T extends DesignToken.Any, R extends Context<any>>(
+    value: DerivedSource<T, R>
+  ): Alias<T, R> {
+    if (isAlias<T, R>(value)) {
+      return value;
+    }
+
+    Reflect.defineProperty(value, DerivedSymbol, {
+      value: DerivedSymbol,
+      enumerable: false,
+      configurable: false,
+    });
+
+    return value as Alias<T, R>;
+  }
 
   /**
    * An {@link (Library:namespace).Alias} that supports complex token value types
@@ -150,7 +173,11 @@ const isGroup = (
 const isAlias = <T extends DesignToken.Any, K extends {}>(
   value: any
 ): value is Library.Alias<T, K> => {
-  return typeof value === "function";
+  try {
+    return Reflect.get(value, Library.DerivedSymbol) === Library.DerivedSymbol;
+  } catch (e) {
+    return false;
+  }
 };
 
 const recurseCreate = (
