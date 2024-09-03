@@ -62,8 +62,6 @@ export namespace Library {
 
     Reflect.defineProperty(value, DerivedSymbol, {
       value: DerivedSymbol,
-      enumerable: false,
-      configurable: false,
     });
 
     return value as Derived<T, R>;
