@@ -40,7 +40,7 @@ export namespace Library {
   export const DerivedSymbol = Symbol.for("design-token-library::derived");
 
   /**
-   * A token value that serves as an alias to another token value
+   * A token value that derives a value from context
    *
    * @public
    */
@@ -56,7 +56,7 @@ export namespace Library {
   export function derive<T extends DesignToken.Any, R extends Context<any>>(
     value: DerivedSource<T, R>
   ): Derived<T, R> {
-    if (isAlias<T, R>(value)) {
+    if (isDerived<T, R>(value)) {
       return value;
     }
 
@@ -70,7 +70,7 @@ export namespace Library {
   }
 
   /**
-   * An {@link (Library:namespace).Alias} that supports complex token value types
+   * An {@link (Library:namespace).Derived} that supports complex token value types
    * such as {@link DesignToken.Border}
    *
    * @public
@@ -85,7 +85,7 @@ export namespace Library {
   };
 
   /**
-   * Context object provided to {@link (Library:namespace).Alias} values at runtime
+   * Context object provided to {@link (Library:namespace).Derived} values at runtime
    *
    * @public
    */
@@ -170,7 +170,7 @@ const isGroup = (
   return isObject(value) && !isToken(value);
 };
 
-const isAlias = <T extends DesignToken.Any, K extends {}>(
+const isDerived = <T extends DesignToken.Any, K extends {}>(
   value: any
 ): value is Library.Derived<T, K> => {
   try {
@@ -228,8 +228,8 @@ const recurseCreate = (
       );
       Reflect.defineProperty(library, key, {
         get() {
-          // Token access needs to be tracked because an alias token
-          // is a function that returns a token
+          // Token access needs to be tracked because derived values
+          // are a function that returns a token
           Watcher.track(token);
           return token;
         },
@@ -309,7 +309,7 @@ const recurseExtend = (
             );
       Reflect.defineProperty(extendedTokens, key, {
         get() {
-          // Token access needs to be tracked because an alias token
+          // Token access needs to be tracked because a derived value
           // is a function that returns a token
           Watcher.track(token);
           return token;
@@ -360,7 +360,7 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
   for (const key in value) {
     let v = value[key];
 
-    if (isAlias(v)) {
+    if (isDerived(v)) {
       v = v(context);
     }
 
@@ -456,7 +456,7 @@ class LibraryToken<T extends DesignToken.Any>
 
     this.disconnect();
     const stopWatching = Watcher.use(this);
-    const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
+    const raw = isDerived(this.raw) ? this.raw(this.context) : this.raw;
     const normalized = isToken(raw) ? raw.value : raw;
 
     const value = isObject(normalized)

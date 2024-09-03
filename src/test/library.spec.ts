@@ -220,7 +220,7 @@ Value("reference tokens should support multiple levels of inheritance", () => {
   Assert.equal(library.tokens.tertiaryToken.value, library.tokens.token.value);
 });
 
-Value("should support reading alias values from complex values", () => {
+Value("should support reading derived values from complex values", () => {
   interface Theme {
     color: DesignToken.Color;
     dimension: DesignToken.Dimension;
@@ -252,12 +252,12 @@ Value("should support reading alias values from complex values", () => {
   const library = Library.create(config);
   const border = library.tokens.border.value;
 
-  Assert.equal(border.color, "#FF0000", "color alias should be equal");
+  Assert.equal(border.color, "#FF0000", "derived color should be equal");
   Assert.equal(border.width, "3px", "dimension value should be equal");
   Assert.equal(
     border.style,
     { dashArray: ["12px", "14px"], lineCap: "butt" },
-    "DeepAlias border style should be equal"
+    "DeepDerived border style should be equal"
   );
 });
 
@@ -279,7 +279,7 @@ Value("should support setting a static value", () => {
   Assert.equal(library.tokens.token.value, value);
 });
 
-Value("should support setting a token alias", () => {
+Value("should support setting a derived token", () => {
   interface Theme {
     token: DesignToken.Color;
     secondaryToken: DesignToken.Color;
@@ -306,7 +306,7 @@ Value("should support setting a token alias", () => {
   Assert.equal(library.tokens.secondaryToken.value, library.tokens.token.value);
 });
 
-Value("should support setting a value alias", () => {
+Value("should support setting a derived value", () => {
   interface Theme {
     token: DesignToken.Color;
     secondaryToken: DesignToken.Color;
@@ -332,7 +332,7 @@ Value("should support setting a value alias", () => {
 });
 
 Value(
-  "should update the value of a token assigned an alias after the alias value changes",
+  "should update the value of a token assigned an derived fn after the derived fn value changes",
   () => {
     interface Theme {
       a: DesignToken.Color;
@@ -360,7 +360,7 @@ Value(
 );
 
 Value(
-  "should update the value of a token assigned a value alias after the alias value changes",
+  "should update the value of a token assigned a derived value after the derived value changes",
   () => {
     interface Theme {
       a: DesignToken.Color;
