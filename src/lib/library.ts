@@ -48,14 +48,14 @@ export namespace Library {
     T extends DesignToken.Any,
     R extends Context<any>
   > = (context: R) => T | DesignToken.ValueByToken<T>;
-  export type Alias<
+  export type Derived<
     T extends DesignToken.Any,
     R extends Context<any>
   > = DerivedSource<T, R> & { [DerivedSymbol]: typeof DerivedSymbol };
 
   export function derive<T extends DesignToken.Any, R extends Context<any>>(
     value: DerivedSource<T, R>
-  ): Alias<T, R> {
+  ): Derived<T, R> {
     if (isAlias<T, R>(value)) {
       return value;
     }
@@ -66,7 +66,7 @@ export namespace Library {
       configurable: false,
     });
 
-    return value as Alias<T, R>;
+    return value as Derived<T, R>;
   }
 
   /**
@@ -75,12 +75,12 @@ export namespace Library {
    *
    * @public
    */
-  export type DeepAlias<
+  export type DeepDerived<
     V extends DesignToken.Values.Any,
     T extends Context<any>
   > = {
     [K in keyof V]: V[K] extends DesignToken.Values.Any
-      ? V[K] | Alias<DesignToken.TokenByValue<V[K]>, T> | DeepAlias<V[K], T>
+      ? V[K] | Derived<DesignToken.TokenByValue<V[K]>, T> | DeepDerived<V[K], T>
       : never;
   };
 
@@ -105,7 +105,7 @@ export namespace Library {
    * @public
    */
   export type Token<T extends DesignToken.Any, C extends {}> = {
-    set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
+    set(value: DesignToken.ValueByToken<T> | Derived<T, C>): void;
     toString(): string;
     readonly type: DesignToken.TypeByToken<T>;
     readonly extensions: Record<string, any>;
@@ -137,8 +137,8 @@ export namespace Library {
     // in Library.create is untyped, it cannot be inferred, so use T | ...
     | (Omit<T, "value"> & {
         value:
-          | Library.Alias<T, Context<R>>
-          | Library.DeepAlias<DesignToken.ValueByToken<T>, Context<R>>;
+          | Library.Derived<T, Context<R>>
+          | Library.DeepDerived<DesignToken.ValueByToken<T>, Context<R>>;
       });
 
   /**
@@ -172,7 +172,7 @@ const isGroup = (
 
 const isAlias = <T extends DesignToken.Any, K extends {}>(
   value: any
-): value is Library.Alias<T, K> => {
+): value is Library.Derived<T, K> => {
   try {
     return Reflect.get(value, Library.DerivedSymbol) === Library.DerivedSymbol;
   } catch (e) {
@@ -414,16 +414,16 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
 class LibraryToken<T extends DesignToken.Any>
   implements
     Library.Token<any, any>,
-    ISubscriber<Library.Alias<T, any>>,
+    ISubscriber<Library.Derived<T, any>>,
     IWatcher
 {
-  private raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
+  private raw: DesignToken.ValueByToken<T> | Library.Derived<T, any>;
   private cached: DesignToken.ValueByToken<T> | typeof empty = empty;
   private subscriptions: Set<INotifier<any>> = new Set();
 
   constructor(
     public readonly name: string,
-    value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
+    value: DesignToken.ValueByToken<T> | Library.Derived<T, any>,
     private readonly _type: DesignToken.TypeByToken<T>,
     private readonly context: Library.Context<any>,
     private readonly _description: string,
@@ -469,7 +469,7 @@ class LibraryToken<T extends DesignToken.Any>
     return value;
   }
 
-  public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
+  public set(value: DesignToken.ValueByToken<T> | Library.Derived<T, any>) {
     this.raw = value;
     this.onChange();
   }
