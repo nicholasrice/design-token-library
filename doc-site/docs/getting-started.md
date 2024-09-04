@@ -74,13 +74,13 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
 
 ### Tokens
 
-Each token in the library must have a `value` property, and groups must not have a value. Tokens can be assigned three types of values: **static**, **alias**, and **computed**.
+Each token in the library must have a `value` property, and groups must not have a value. Tokens can be assigned three types of values: **static**, **alias**, and **derived**.
 
 ```ts
 interface Colors {
   static: DesignToken.Color;
   alias: DesignToken.Color;
-  computed: DesignToken.Color;
+  derived: DesignToken.Color;
 }
 
 const config: Library.Config<Colors> = {
@@ -92,7 +92,7 @@ const config: Library.Config<Colors> = {
     type: DesignToken.Type.Color,
     value: (tokens) => tokens.static, // alias to the 'static' token
   },
-  computed: {
+  derived: {
     type: DesignToken.Type.Color,
     // Operate on the value of the 'alias' token
     value: (tokens) => darken(tokens.alias.value, 0.3),
@@ -106,7 +106,7 @@ In alignment with the [DTCG Group](https://design-tokens.github.io/community-gro
 
 ## Creating a Library
 
-With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling alias and computed values with those changes.
+With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling alias and derived values with those changes.
 
 ```ts
 const library = Library.create(myLibraryConfig);
@@ -144,7 +144,7 @@ library.subscribe(subscriber);
 library.tokens.foreground.set("#878787");
 ```
 
-Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
+Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a derived token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
 
 ```ts
 const library = Library.create({
