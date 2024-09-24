@@ -10,6 +10,7 @@ export namespace DesignToken {
     Border = "border",
     Color = "color",
     CubicBezier = "cubicBezier",
+    Custom = "custom",
     Dimension = "dimension",
     Duration = "duration",
     FontFamily = "fontFamily",
@@ -193,38 +194,6 @@ export namespace DesignToken {
   /**
    * @internal
    */
-  export type TokenByType<T extends DesignToken.Type> =
-    T extends DesignToken.Type.Border
-      ? DesignToken.Border
-      : T extends DesignToken.Type.Color
-      ? DesignToken.Color
-      : T extends DesignToken.Type.CubicBezier
-      ? DesignToken.CubicBezier
-      : T extends DesignToken.Type.Dimension
-      ? DesignToken.Dimension
-      : T extends DesignToken.Type.Duration
-      ? DesignToken.Duration
-      : T extends DesignToken.Type.FontFamily
-      ? DesignToken.FontFamily
-      : T extends DesignToken.Type.FontWeight
-      ? DesignToken.FontWeight
-      : T extends DesignToken.Type.Gradient
-      ? DesignToken.Gradient
-      : T extends DesignToken.Type.Number
-      ? DesignToken.Number
-      : T extends DesignToken.Type.Shadow
-      ? DesignToken.Shadow
-      : T extends DesignToken.Type.StrokeStyle
-      ? DesignToken.StrokeStyle
-      : T extends DesignToken.Type.Transition
-      ? DesignToken.Transition
-      : T extends DesignToken.Type.Typography
-      ? DesignToken.Typography
-      : never;
-
-  /**
-   * @internal
-   */
   export type TypeByToken<T extends DesignToken.Any> =
     T extends DesignToken.Border
       ? DesignToken.Type.Border
@@ -252,6 +221,8 @@ export namespace DesignToken {
       ? DesignToken.Type.Transition
       : T extends DesignToken.Typography
       ? DesignToken.Type.Typography
+      : T extends DesignToken.Custom<any>
+      ? DesignToken.Type.Custom
       : never;
 
   /**
@@ -283,38 +254,7 @@ export namespace DesignToken {
     ? DesignToken.Transition
     : T extends DesignToken.Values.Typography
     ? DesignToken.Typography
-    : never;
-
-  /**
-   * @internal
-   */
-  export type ValueByType<T> = T extends DesignToken.Values.Border
-    ? DesignToken.Type.Border
-    : T extends DesignToken.Values.Color
-    ? DesignToken.Type.Color
-    : T extends DesignToken.Values.CubicBezier
-    ? DesignToken.Type.CubicBezier
-    : T extends DesignToken.Values.Dimension
-    ? DesignToken.Type.Dimension
-    : T extends DesignToken.Values.Duration
-    ? DesignToken.Type.Duration
-    : T extends DesignToken.Values.FontFamily
-    ? DesignToken.Type.FontFamily
-    : T extends DesignToken.Values.FontWeight
-    ? DesignToken.Type.FontWeight
-    : T extends DesignToken.Values.Gradient
-    ? DesignToken.Type.Gradient
-    : T extends DesignToken.Values.Number
-    ? DesignToken.Type.Number
-    : T extends DesignToken.Values.Shadow
-    ? DesignToken.Type.Shadow
-    : T extends DesignToken.Values.StrokeStyle
-    ? DesignToken.Type.StrokeStyle
-    : T extends DesignToken.Values.Transition
-    ? DesignToken.Type.Transition
-    : T extends DesignToken.Values.Typography
-    ? DesignToken.Type.Typography
-    : never;
+    : DesignToken.Custom<T>;
 
   /**
    * @internal
@@ -346,15 +286,14 @@ export namespace DesignToken {
       ? DesignToken.Values.Transition
       : T extends Typography
       ? DesignToken.Values.Typography
+      : T extends Custom<infer K>
+      ? K
       : never;
 
   /**
    * All properties supported by a DesignToken
    */
-  export interface Properties<
-    Type extends DesignToken.Type,
-    Value extends DesignToken.Values.Any
-  > {
+  export interface Properties<Type extends DesignToken.Type, Value> {
     description?: string;
     type?: Type;
     extensions?: Record<string, any>;
@@ -373,6 +312,7 @@ export namespace DesignToken {
     DesignToken.Type.CubicBezier,
     DesignToken.Values.CubicBezier
   >;
+  export type Custom<T> = Properties<DesignToken.Type.Custom, T>;
   export type Dimension = Properties<
     DesignToken.Type.Dimension,
     DesignToken.Values.Dimension
@@ -434,6 +374,7 @@ export namespace DesignToken {
     | Border
     | Color
     | CubicBezier
+    | Custom<any>
     | Dimension
     | Duration
     | FontFamily
