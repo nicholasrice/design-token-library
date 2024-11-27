@@ -388,6 +388,43 @@ Value(
   }
 );
 
+Value("Should support retrieving custom values", () => {
+  interface CustomType {
+    static: string;
+    alias: string;
+  }
+  interface Theme {
+    a: DesignToken.Custom<CustomType>;
+    b: DesignToken.Custom<number>;
+    c: DesignToken.Custom<string>;
+  }
+
+  const config: Library.Config<Theme> = {
+    a: {
+      type: DesignToken.Type.Custom,
+      value: {
+        static: "test",
+        alias: (ctx) => ctx.a.value.static,
+      },
+    },
+    b: {
+      type: DesignToken.Type.Custom,
+      value: (ctx) => 12,
+    },
+    c: {
+      type: DesignToken.Type.Custom,
+      value: (ctx) => ctx.b.value.toString(),
+    },
+  };
+
+  const lib = Library.create(config);
+
+  Assert.equal(lib.tokens.a.value.static, "test");
+  Assert.equal(lib.tokens.a.value.alias, "test");
+  Assert.equal(lib.tokens.b.value, 12);
+  Assert.equal(lib.tokens.c.value, "12");
+});
+
 Subscription(
   "should notify a subscriber after a token changes with an array of the changed tokens",
   async () => {

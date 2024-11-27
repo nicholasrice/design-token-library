@@ -328,27 +328,47 @@ function extendToken(
   return extendingToken;
 }
 
-const recurseResolve = (value: any, context: Library.Context<any>) => {
+interface RecurseResolver<T, K extends [] | Record<string, unknown>> {
+  readonly ref: K;
+  resolve(): T;
+}
+
+/**
+ * Implement factory instead of pure recursive resolution
+ * so that we can cache the ref reference prior to resolving key values.
+ * That strategy allows alias functions to access properties on the token object
+ * for custom types without encountering callstack overflow errors.
+ */
+const makeResolver = (
+  value: any,
+  context: Library.Context<any>
+): RecurseResolver<any, any> => {
   const r: any = Array.isArray(value) ? [] : {};
-  for (const key in value) {
-    let v = value[key];
 
-    if (isAlias(v)) {
-      v = v(context);
-    }
+  return {
+    ref: r,
+    resolve() {
+      for (const key in value) {
+        let v = value[key];
 
-    if (isToken(v)) {
-      v = v.value;
-    }
+        if (isAlias(v)) {
+          v = v(context);
+        }
 
-    if (isObject(v)) {
-      r[key] = recurseResolve(v, context);
-    } else {
-      r[key] = v;
-    }
-  }
+        if (isToken(v)) {
+          v = v.value;
+        }
 
-  return r;
+        if (isObject(v)) {
+          const resolver = makeResolver(v, context);
+          r[key] = resolver.ref;
+          resolver.resolve();
+        } else {
+          r[key] = v;
+        }
+      }
+    },
+  };
 };
 
 class LibraryImpl<T extends {} = any> implements Library.Library<T> {
@@ -432,9 +452,18 @@ class LibraryToken<T extends DesignToken.Any>
     const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
     const normalized = isToken(raw) ? raw.value : raw;
 
-    const value = isObject(normalized)
-      ? recurseResolve(normalized, this.context)
-      : normalized;
+    let value;
+    if (isObject(normalized)) {
+      const resolver = makeResolver(normalized, this.context);
+      value = resolver.ref;
+      this.cached = value;
+      resolver.resolve();
+    } else {
+      value = normalized;
+    }
+    // const value = isObject(normalized)
+    //   ? recurseResolve(normalized, this.context)
+    //   : normalized;
 
     this.cached = value;
     stopWatching();

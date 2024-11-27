@@ -6,6 +6,7 @@ export interface Custom {
   type: DesignToken.Type.Custom;
   a: DesignToken.Custom<{ a: number; b: string }>;
   b: DesignToken.Custom<{ a: DesignToken.Values.Color; b: [string, string] }>;
+  c: DesignToken.Custom<{ a: number; b: string }>;
 }
 
 export const custom: Library.Config<Custom, Theme> = {
@@ -17,6 +18,11 @@ export const custom: Library.Config<Custom, Theme> = {
   b: {
     value(ctx) {
       return { a: ctx.colors.accent.value, b: ["hello", "world"] };
+    },
+  },
+  c: {
+    value(ctx) {
+      return ctx.custom.a;
     },
   },
 };

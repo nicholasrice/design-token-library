@@ -148,6 +148,7 @@ toCssSuite("should convert Gradient", () => {
   };
 
   const library = Library.create(config);
+  debugger;
   const result = toCSS(library);
 
   Assert.is(result, "--token:#FFFFFF 0%,#AAAAAA 50%,#000000 100%;");
