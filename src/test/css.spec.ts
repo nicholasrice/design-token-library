@@ -8,213 +8,213 @@ const toCssSuite = suite("toCss");
 const toPropertiesSuite = suite("toProperties");
 
 interface Config<T extends DesignToken.Any> {
-  token: T;
+    token: T;
 }
 
 toCssSuite("should convert Border", () => {
-  const config: Config<DesignToken.Border> = {
-    token: {
-      type: DesignToken.Type.Border,
-      value: { color: "#FFFFFF", style: "dashed", width: "2px" },
-    },
-  };
-  const library = Library.create(config);
-  const result = toCSS(library);
+    const config: Config<DesignToken.Border> = {
+        token: {
+            type: DesignToken.Type.Border,
+            value: { color: "#FFFFFF", style: "dashed", width: "2px" },
+        },
+    };
+    const library = Library.create(config);
+    const result = toCSS(library);
 
-  Assert.is(result, "--token:2px dashed #FFFFFF;");
+    Assert.is(result, "--token:2px dashed #FFFFFF;");
 });
 toCssSuite("should convert Color", () => {
-  const config: Config<DesignToken.Color> = {
-    token: {
-      type: DesignToken.Type.Color,
-      value: "#FF0000",
-    },
-  };
-  const library = Library.create(config);
-  const result = toCSS(library);
+    const config: Config<DesignToken.Color> = {
+        token: {
+            type: DesignToken.Type.Color,
+            value: "#FF0000",
+        },
+    };
+    const library = Library.create(config);
+    const result = toCSS(library);
 
-  Assert.is(result, "--token:#FF0000;");
+    Assert.is(result, "--token:#FF0000;");
 });
 toCssSuite("should convert CubicBezier", () => {
-  const config: Config<DesignToken.CubicBezier> = {
-    token: {
-      type: DesignToken.Type.CubicBezier,
-      value: [0, 0.5, 0.9, 0.7],
-    },
-  };
-  const library = Library.create(config);
-  const result = toCSS(library);
+    const config: Config<DesignToken.CubicBezier> = {
+        token: {
+            type: DesignToken.Type.CubicBezier,
+            value: [0, 0.5, 0.9, 0.7],
+        },
+    };
+    const library = Library.create(config);
+    const result = toCSS(library);
 
-  Assert.is(result, "--token:0 0.5 0.9 0.7;");
+    Assert.is(result, "--token:0 0.5 0.9 0.7;");
 });
 toCssSuite("should convert Dimension", () => {
-  const config: Config<DesignToken.Dimension> = {
-    token: {
-      type: DesignToken.Type.Dimension,
-      value: "2px",
-    },
-  };
-  const library = Library.create(config);
-  const result = toCSS(library);
+    const config: Config<DesignToken.Dimension> = {
+        token: {
+            type: DesignToken.Type.Dimension,
+            value: "2px",
+        },
+    };
+    const library = Library.create(config);
+    const result = toCSS(library);
 
-  Assert.is(result, "--token:2px;");
+    Assert.is(result, "--token:2px;");
 });
 toCssSuite("should convert Duration", () => {
-  const config: Config<DesignToken.Duration> = {
-    token: {
-      type: DesignToken.Type.Duration,
-      value: "100ms",
-    },
-  };
-  const library = Library.create(config);
-  const result = toCSS(library);
+    const config: Config<DesignToken.Duration> = {
+        token: {
+            type: DesignToken.Type.Duration,
+            value: "100ms",
+        },
+    };
+    const library = Library.create(config);
+    const result = toCSS(library);
 
-  Assert.is(result, "--token:100ms;");
+    Assert.is(result, "--token:100ms;");
 });
 toCssSuite("should convert single FontFamily", () => {
-  const config: Config<DesignToken.FontFamily> = {
-    token: {
-      type: DesignToken.Type.FontFamily,
-      value: "Comic Sans",
-    },
-  };
-  const library = Library.create(config);
-  const result = toCSS(library);
+    const config: Config<DesignToken.FontFamily> = {
+        token: {
+            type: DesignToken.Type.FontFamily,
+            value: "Comic Sans",
+        },
+    };
+    const library = Library.create(config);
+    const result = toCSS(library);
 
-  Assert.is(result, '--token:"Comic Sans";');
+    Assert.is(result, '--token:"Comic Sans";');
 });
 toCssSuite("should convert multiple FontFamily", () => {
-  const config: Config<DesignToken.FontFamily> = {
-    token: {
-      type: DesignToken.Type.FontFamily,
-      value: ["Comic Sans", "Courier New", "serif"],
-    },
-  };
-  const library = Library.create(config);
-  const result = toCSS(library);
+    const config: Config<DesignToken.FontFamily> = {
+        token: {
+            type: DesignToken.Type.FontFamily,
+            value: ["Comic Sans", "Courier New", "serif"],
+        },
+    };
+    const library = Library.create(config);
+    const result = toCSS(library);
 
-  Assert.is(result, '--token:"Comic Sans","Courier New",serif;');
+    Assert.is(result, '--token:"Comic Sans","Courier New",serif;');
 });
 toCssSuite("should fix malformed FontFamily", () => {
-  const config: Config<DesignToken.FontFamily> = {
-    token: {
-      type: DesignToken.Type.FontFamily,
-      // prettier-ignore
-      value: ['"Comic Sans', 'Courier New"', '\'serif', 'system\''],
-    },
-  };
-
-  const library = Library.create(config);
-  const result = toCSS(library);
-
-  Assert.is(result, '--token:"Comic Sans","Courier New",serif,system;');
-});
-toCssSuite("should convert keyword FontWeight", () => {
-  const config: Config<DesignToken.FontWeight> = {
-    token: {
-      type: DesignToken.Type.FontWeight,
-      value: "heavy",
-    },
-  };
-
-  const library = Library.create(config);
-  const result = toCSS(library);
-
-  Assert.is(result, "--token:heavy;");
-});
-toCssSuite("should convert numerical FontWeight", () => {
-  const config: Config<DesignToken.FontWeight> = {
-    token: {
-      type: DesignToken.Type.FontWeight,
-      value: 400,
-    },
-  };
-
-  const library = Library.create(config);
-  const result = toCSS(library);
-
-  Assert.is(result, "--token:400;");
-});
-toCssSuite("should convert Gradient", () => {
-  const config: Config<DesignToken.Gradient> = {
-    token: {
-      type: DesignToken.Type.Gradient,
-      value: [
-        { color: "#FFFFFF", position: 0 },
-        { color: "#AAAAAA", position: 0.5 },
-        { color: "#000000", position: 1 },
-      ],
-    },
-  };
-
-  const library = Library.create(config);
-  const result = toCSS(library);
-
-  Assert.is(result, "--token:#FFFFFF 0%,#AAAAAA 50%,#000000 100%;");
-});
-toCssSuite("should convert Number", () => {
-  const config: Config<DesignToken.Number> = {
-    token: {
-      type: DesignToken.Type.Number,
-      value: 12,
-    },
-  };
-
-  const library = Library.create(config);
-  const result = toCSS(library);
-
-  Assert.is(result, "--token:12;");
-});
-toCssSuite("should convert .ShadowGradient", () => {
-  const config: Config<DesignToken.Shadow> = {
-    token: {
-      type: DesignToken.Type.Shadow,
-      value: {
-        color: "#FFFFFF",
-        blur: "2px",
-        offsetX: "0px",
-        offsetY: "1px",
-        spread: "3px",
-      },
-    },
-  };
-
-  const library = Library.create(config);
-  const result = toCSS(library);
-
-  Assert.is(result, "--token:0px 1px 2px 3px #FFFFFF;");
-});
-
-toPropertiesSuite(
-  "should convert a library to CSS custom property names and var names",
-  () => {
-    interface Theme {
-      a: DesignToken.Color;
-      b: {
-        c: DesignToken.Border;
-        d: DesignToken.Dimension;
-      };
-    }
-    const config: Library.Config<Theme> = {
-      a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
-      b: {
-        c: {
-          type: DesignToken.Type.Border,
-          value: { color: "#FFF", style: "solid", width: "2px" },
+    const config: Config<DesignToken.FontFamily> = {
+        token: {
+            type: DesignToken.Type.FontFamily,
+            // prettier-ignore
+            value: ['"Comic Sans', 'Courier New"', '\'serif', 'system\''],
         },
-        d: { type: DesignToken.Type.Dimension, value: "4px" },
-      },
     };
 
     const library = Library.create(config);
-    const properties = toProperties(library);
-    Assert.is(properties.a.property, "--a");
-    Assert.is(properties.a.var, "var(--a)");
-    Assert.is(properties.b.c.property, "--b-c");
-    Assert.is(properties.b.c.var, "var(--b-c)");
-    Assert.is(properties.b.d.property, "--b-d");
-    Assert.is(properties.b.d.var, "var(--b-d)");
-  }
+    const result = toCSS(library);
+
+    Assert.is(result, '--token:"Comic Sans","Courier New",serif,system;');
+});
+toCssSuite("should convert keyword FontWeight", () => {
+    const config: Config<DesignToken.FontWeight> = {
+        token: {
+            type: DesignToken.Type.FontWeight,
+            value: "heavy",
+        },
+    };
+
+    const library = Library.create(config);
+    const result = toCSS(library);
+
+    Assert.is(result, "--token:heavy;");
+});
+toCssSuite("should convert numerical FontWeight", () => {
+    const config: Config<DesignToken.FontWeight> = {
+        token: {
+            type: DesignToken.Type.FontWeight,
+            value: 400,
+        },
+    };
+
+    const library = Library.create(config);
+    const result = toCSS(library);
+
+    Assert.is(result, "--token:400;");
+});
+toCssSuite("should convert Gradient", () => {
+    const config: Config<DesignToken.Gradient> = {
+        token: {
+            type: DesignToken.Type.Gradient,
+            value: [
+                { color: "#FFFFFF", position: 0 },
+                { color: "#AAAAAA", position: 0.5 },
+                { color: "#000000", position: 1 },
+            ],
+        },
+    };
+
+    const library = Library.create(config);
+    const result = toCSS(library);
+
+    Assert.is(result, "--token:#FFFFFF 0%,#AAAAAA 50%,#000000 100%;");
+});
+toCssSuite("should convert Number", () => {
+    const config: Config<DesignToken.Number> = {
+        token: {
+            type: DesignToken.Type.Number,
+            value: 12,
+        },
+    };
+
+    const library = Library.create(config);
+    const result = toCSS(library);
+
+    Assert.is(result, "--token:12;");
+});
+toCssSuite("should convert .ShadowGradient", () => {
+    const config: Config<DesignToken.Shadow> = {
+        token: {
+            type: DesignToken.Type.Shadow,
+            value: {
+                color: "#FFFFFF",
+                blur: "2px",
+                offsetX: "0px",
+                offsetY: "1px",
+                spread: "3px",
+            },
+        },
+    };
+
+    const library = Library.create(config);
+    const result = toCSS(library);
+
+    Assert.is(result, "--token:0px 1px 2px 3px #FFFFFF;");
+});
+
+toPropertiesSuite(
+    "should convert a library to CSS custom property names and var names",
+    () => {
+        interface Theme {
+            a: DesignToken.Color;
+            b: {
+                c: DesignToken.Border;
+                d: DesignToken.Dimension;
+            };
+        }
+        const config: Library.Config<Theme> = {
+            a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
+            b: {
+                c: {
+                    type: DesignToken.Type.Border,
+                    value: { color: "#FFF", style: "solid", width: "2px" },
+                },
+                d: { type: DesignToken.Type.Dimension, value: "4px" },
+            },
+        };
+
+        const library = Library.create(config);
+        const properties = toProperties(library);
+        Assert.is(properties.a.property, "--a");
+        Assert.is(properties.a.var, "var(--a)");
+        Assert.is(properties.b.c.property, "--b-c");
+        Assert.is(properties.b.c.var, "var(--b-c)");
+        Assert.is(properties.b.d.property, "--b-d");
+        Assert.is(properties.b.d.var, "var(--b-d)");
+    },
 );
 
 toCssSuite.run();

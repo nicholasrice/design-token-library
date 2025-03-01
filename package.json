@@ -1,43 +1,45 @@
 {
-  "name": "design-token-library",
-  "version": "0.1.0",
-  "description": "A library for managing design tokens",
-  "type": "module",
-  "main": "./dist/lib/index.js",
-  "exports": {
-    ".": {
-      "types": "./dist/lib/index.d.ts",
-      "default": "./dist/lib/index.js"
+    "name": "design-token-library",
+    "version": "0.1.0",
+    "description": "A library for managing design tokens",
+    "type": "module",
+    "main": "./dist/lib/index.js",
+    "exports": {
+        ".": {
+            "types": "./dist/lib/index.d.ts",
+            "default": "./dist/lib/index.js"
+        }
+    },
+    "types": "./dist/lib/index.d.ts",
+    "scripts": {
+        "build": "tsc -b",
+        "watch": "tsc -b -w",
+        "watch:test": "watchlist dist/test -- npm test",
+        "test": "npx uvu dist/test .spec.js$",
+        "report-size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
+        "api-report": "npx api-extractor run --local --verbose",
+        "docs:api-reference": "npx api-documenter markdown --input-folder temp --output-folder doc-site/docs/api-reference",
+        "prettier": "npx prettier ./src --write"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/nicholasrice/design-token-library.git"
+    },
+    "author": "https://github.com/nicholasrice",
+    "license": "MIT",
+    "bugs": {
+        "url": "https://github.com/nicholasrice/design-token-library/issues"
+    },
+    "homepage": "https://github.com/nicholasrice/design-token-library#readme",
+    "devDependencies": {
+        "@microsoft/api-documenter": "^7.23.12",
+        "@microsoft/api-extractor": "^7.38.3",
+        "@types/sinon": "^17.0.1",
+        "esbuild": "0.19.8",
+        "prettier": "^3.5.2",
+        "sinon": "^17.0.1",
+        "typescript": "^5.4.5",
+        "uvu": "^0.5.6",
+        "watchlist": "^0.3.1"
     }
-  },
-  "types": "./dist/lib/index.d.ts",
-  "scripts": {
-    "build": "tsc -b",
-    "watch": "tsc -b -w",
-    "watch:test": "watchlist dist/test -- npm test",
-    "test": "npx uvu dist/test .spec.js$",
-    "report-size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
-    "api-report": "npx api-extractor run --local --verbose",
-    "docs:api-reference": "npx api-documenter markdown --input-folder temp --output-folder doc-site/docs/api-reference"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/nicholasrice/design-token-library.git"
-  },
-  "author": "https://github.com/nicholasrice",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/nicholasrice/design-token-library/issues"
-  },
-  "homepage": "https://github.com/nicholasrice/design-token-library#readme",
-  "devDependencies": {
-    "@microsoft/api-documenter": "^7.23.12",
-    "@microsoft/api-extractor": "^7.38.3",
-    "@types/sinon": "^17.0.1",
-    "esbuild": "0.19.8",
-    "sinon": "^17.0.1",
-    "typescript": "^5.4.5",
-    "uvu": "^0.5.6",
-    "watchlist": "^0.3.1"
-  }
 }
