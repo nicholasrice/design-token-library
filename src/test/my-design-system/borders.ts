@@ -3,14 +3,13 @@ import { Library } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
 
 export interface Borders {
-    type: DesignToken.Type.Border;
     accentThin: DesignToken.Border;
     neutralThin: DesignToken.Border;
 }
 
 export const borders: Library.Config<Borders, Theme> = {
-    type: DesignToken.Type.Border,
     accentThin: {
+        type: DesignToken.Type.Border,
         value: {
             color: function (theme) {
                 return theme.colors.accent;
@@ -22,6 +21,7 @@ export const borders: Library.Config<Borders, Theme> = {
         },
     },
     neutralThin: {
+        type: DesignToken.Type.Border,
         value: function (theme): DesignToken.Border {
             return theme.borders.accentThin;
         },

@@ -356,7 +356,7 @@ export namespace DesignToken {
         Value extends DesignToken.Values.Any,
     > {
         description?: string;
-        type?: Type;
+        type: Type;
         extensions?: Record<string, any>;
         value: Value;
     }
@@ -421,8 +421,9 @@ export namespace DesignToken {
      */
     export type Group = {
         /**
-         * If the group has a type, the type is inferred for all descendent design tokens,
-         * unless specified by the token.
+         * A group of tokens. It reserves the 'type' field to align with {@link https://tr.designtokens.org/format/#group}
+         * However, unlike {@link https://tr.designtokens.org/}, `design-token-library` does not infer token types so
+         * this can safely be omitted
          */
         type?: DesignToken.Type;
     };

@@ -12,10 +12,22 @@ export interface Fonts {
 }
 
 export const fonts: Library.Config<Fonts, Theme> = {
-    body: { value: ["foo", "bar"] },
-    heading: { value: ["bat", (theme) => theme.fonts.body] },
+    body: {
+        type: DesignToken.Type.FontFamily,
+        value: ["foo", "bar"],
+    },
+    heading: {
+        type: DesignToken.Type.FontFamily,
+        value: ["bat", (theme) => theme.fonts.body],
+    },
     weights: {
-        normal: { value: "normal" },
-        heavy: { value: "heavy" },
+        normal: {
+            type: DesignToken.Type.FontWeight,
+            value: "normal",
+        },
+        heavy: {
+            type: DesignToken.Type.FontWeight,
+            value: "heavy",
+        },
     },
 };

@@ -163,12 +163,12 @@ const recurseCreate = (
     library: Library.TokenLibrary<any, any>,
     config: Library.Config<any>,
     context: Library.TokenLibrary<any, any>,
-    typeContext: DesignToken.Type | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
     for (const key in config) {
         if (key === "type") {
-            typeContext = config[key] as any;
+            // When not a token and 'type' exists, the object is a group
+            // and further processing of the object can be skipped.
             continue;
         }
 
@@ -184,13 +184,12 @@ const recurseCreate = (
                 library[key] as any,
                 config[key],
                 context,
-                config[key].type || typeContext,
                 queue,
             );
             Object.freeze(library[key]);
         } else if (isToken(config[key])) {
             const { value, type, description, extensions } = config[key];
-            if (!type && !typeContext) {
+            if (!type) {
                 throw new Error(
                     `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
                 );
@@ -198,7 +197,7 @@ const recurseCreate = (
             const token = new LibraryToken(
                 _name,
                 value,
-                type || typeContext,
+                type,
                 context,
                 description || "",
                 extensions || {},
@@ -223,7 +222,6 @@ const recurseExtend = (
     extendedTokens: Library.TokenLibrary<any, any>,
     config: Library.Config<any>, // TODO allow new config options
     context: Library.TokenLibrary<any, any>,
-    typeContext: DesignToken.Type | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
     const keys = new Set(Object.keys(sourceTokens).concat(Object.keys(config))); // Remove duplicate keys
@@ -236,7 +234,6 @@ const recurseExtend = (
         const keyIsToken = isToken(sourceTokens[key]) || isToken(config[key]);
 
         if (key === "type") {
-            typeContext = sourceTokens[key] as any;
             continue;
         }
 
@@ -253,7 +250,6 @@ const recurseExtend = (
                     extendedTokens[key] as any,
                     config[key] || {},
                     context,
-                    (sourceTokens.type || typeContext) as any,
                     queue,
                 );
             } else if (configHasKey) {
@@ -263,7 +259,6 @@ const recurseExtend = (
                     sourceTokens[key] as any,
                     extendedTokens[key],
                     context,
-                    (sourceTokens.type || typeContext) as any,
                     queue,
                 );
             }
@@ -279,7 +274,7 @@ const recurseExtend = (
                     : new LibraryToken(
                           _name,
                           config[key].value,
-                          config[key].type || typeContext,
+                          config[key].type,
                           context,
                           config[key].description || "",
                           config[key].extensions || {},
@@ -372,7 +367,7 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
         // TODO should not type Library.Config<any>
         const queue = new Queue();
         const tokens: Library.TokenLibrary<any> = {};
-        recurseExtend("", this.tokens, tokens, config, tokens, null, queue);
+        recurseExtend("", this.tokens, tokens, config, tokens, queue);
 
         return new LibraryImpl(tokens, queue);
     }
@@ -380,7 +375,7 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
     public static create<T extends {}>(config: Library.Config<T, T>) {
         const queue = new Queue();
         const tokens: Library.TokenLibrary<any> = {};
-        recurseCreate("", tokens, config, tokens, null, queue);
+        recurseCreate("", tokens, config, tokens, queue);
 
         return new LibraryImpl(tokens, queue);
     }

@@ -79,20 +79,6 @@ Type(
 );
 
 Type(
-    "A token should inherit it's group's type when it does not define a type ",
-    () => {
-        const library = Library.create({
-            type: DesignToken.Type.Color,
-            token: {
-                value: "#FFFFFF",
-            },
-        });
-
-        Assert.equal(library.tokens.token.type, DesignToken.Type.Color);
-    },
-);
-
-Type(
     "A token should override it's group's type when a type is explicitly assigned",
     () => {
         const library = Library.create({
@@ -485,11 +471,12 @@ Subscription(
 Lib("should be immutable", () => {
     const library = Library.create({
         colors: {
-            type: DesignToken.Type.Color,
             primary: {
+                type: DesignToken.Type.Color,
                 value: "#FFFFFF",
             },
             secondary: {
+                type: DesignToken.Type.Color,
                 value: "#000000",
             },
         },
@@ -600,6 +587,7 @@ Extend(
         const source = Library.create(config);
         const extended = source.extend({
             b: {
+                type: DesignToken.Type.Color,
                 value: "#000000",
             },
         });
@@ -704,8 +692,8 @@ Extend(
         };
         const source = Library.create(config);
         const extending = source.extend({
-            a: { value: "#000000" },
-            b: { value: "#000000" },
+            a: { type: DesignToken.Type.Color, value: "#000000" },
+            b: { type: DesignToken.Type.Color, value: "#000000" },
         });
         const onChange = spy();
         const subscriber: Library.Subscriber<ABTheme> = {
