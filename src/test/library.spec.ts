@@ -746,6 +746,41 @@ Extend("Should allow adding new tokens to an extending library", async () => {
     Assert.is(extending.tokens.c.value, "#111111");
 });
 
+Extend(
+    "should extend tokens nested inside groups, inheriting and overriding",
+    () => {
+        interface Theme {
+            group: {
+                kept: DesignToken.Color;
+                overridden: DesignToken.Color;
+            };
+        }
+        const config: Library.Config<Theme> = {
+            group: {
+                kept: { type: DesignToken.Type.Color, value: "#AAAAAA" },
+                overridden: { type: DesignToken.Type.Color, value: "#BBBBBB" },
+            },
+        };
+        const source = Library.create(config);
+        const extended = source.extend({
+            group: { overridden: { value: "#CCCCCC" } },
+        } as any);
+
+        Assert.is(
+            (extended.tokens.group as any).kept.value,
+            "#AAAAAA",
+            "unconfigured nested token inherits from source",
+        );
+        Assert.is(
+            (extended.tokens.group as any).overridden.value,
+            "#CCCCCC",
+            "configured nested token is overridden",
+        );
+        // Source is untouched.
+        Assert.is(source.tokens.group.overridden.value, "#BBBBBB");
+    },
+);
+
 Description.run();
 Lib.run();
 Extend.run();

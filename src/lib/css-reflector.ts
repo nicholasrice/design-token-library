@@ -94,7 +94,7 @@ const recurseToCss = (
             }
             result += `--${tokenOrGroup.name}:${value};`;
         } else {
-            result = recurseToCss(tokenOrGroup);
+            result += recurseToCss(tokenOrGroup);
         }
     }
 

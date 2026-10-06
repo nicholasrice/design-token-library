@@ -217,5 +217,30 @@ toPropertiesSuite(
     },
 );
 
+toCssSuite(
+    "should emit tokens from all sibling groups, not just the last",
+    () => {
+        interface Theme {
+            groupA: { one: DesignToken.Color };
+            groupB: { two: DesignToken.Color };
+        }
+        const config: Library.Config<Theme> = {
+            groupA: { one: { type: DesignToken.Type.Color, value: "#111111" } },
+            groupB: { two: { type: DesignToken.Type.Color, value: "#222222" } },
+        };
+        const library = Library.create(config);
+        const result = toCSS(library);
+
+        Assert.ok(
+            result.includes("--groupA.one:#111111;"),
+            `expected groupA token in output, got: ${result}`,
+        );
+        Assert.ok(
+            result.includes("--groupB.two:#222222;"),
+            `expected groupB token in output, got: ${result}`,
+        );
+    },
+);
+
 toCssSuite.run();
 toPropertiesSuite.run();

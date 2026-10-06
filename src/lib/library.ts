@@ -241,11 +241,12 @@ const recurseExtend = (
         }
 
         if (keyIsGroup) {
-            Reflect.defineProperty(
-                extendedTokens,
-                key,
-                Object.create(sourceTokens[key]),
-            );
+            // Inherit the source group via the prototype chain so unconfigured
+            // descendants resolve to the source, while overrides shadow them.
+            Reflect.defineProperty(extendedTokens, key, {
+                value: Object.create(sourceHasKey ? sourceTokens[key] : {}),
+                enumerable: true,
+            });
             if (sourceHasKey) {
                 recurseExtend(
                     _name,
