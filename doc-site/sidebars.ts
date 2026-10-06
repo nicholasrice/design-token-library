@@ -17,6 +17,7 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     "intro",
     "getting-started",
+    "custom-types",
     // {
     //   type: "category",
     //   label: "API Reference",

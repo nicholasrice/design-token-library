@@ -14,6 +14,7 @@ sidebar_position: 1
 3. Lazy value evaluation
 4. Change subscription
 5. Library extension
+6. Custom token types
 
 ## Installation
 

@@ -191,162 +191,131 @@ export namespace DesignToken {
     }
 
     /**
-     * @internal
+     * The single source of truth mapping each {@link DesignToken.Type} to its
+     * token interface and value type. Every mapper below is derived from this
+     * registry, so a type is added in exactly one place.
+     *
+     * @remarks
+     * This is the extension point for custom (non-DTCG) token types. It is an
+     * `interface` so a consumer can register a type through declaration
+     * merging, without editing this library:
+     *
+     * ```ts
+     * interface FontStyleToken {
+     *   type?: "fontStyle";
+     *   description?: string;
+     *   extensions?: Record<string, any>;
+     *   value: "regular" | "italic";
+     * }
+     *
+     * declare module "design-token-library" {
+     *   namespace DesignToken {
+     *     interface TypeDefinitions {
+     *       fontStyle: { value: FontStyleToken["value"]; token: FontStyleToken };
+     *     }
+     *   }
+     * }
+     * ```
+     *
+     * The key is the string used as the token's `type`. Declare the token
+     * interface directly: {@link DesignToken.Properties} stays constrained to
+     * the DTCG types. Give the token a distinct `type` literal so tokens remain
+     * distinguishable from one another.
+     *
+     * Looking up a token type from a *value* (used for aliases nested inside
+     * composite values) finds the registered types whose value type can hold it
+     * and keeps the narrowest, so a color maps to `Color` rather than
+     * `FontFamily`. Registered custom types take part automatically.
+     *
+     * @public
      */
-    export type TokenByType<T extends DesignToken.Type> =
-        T extends DesignToken.Type.Border
-            ? DesignToken.Border
-            : T extends DesignToken.Type.Color
-              ? DesignToken.Color
-              : T extends DesignToken.Type.CubicBezier
-                ? DesignToken.CubicBezier
-                : T extends DesignToken.Type.Dimension
-                  ? DesignToken.Dimension
-                  : T extends DesignToken.Type.Duration
-                    ? DesignToken.Duration
-                    : T extends DesignToken.Type.FontFamily
-                      ? DesignToken.FontFamily
-                      : T extends DesignToken.Type.FontWeight
-                        ? DesignToken.FontWeight
-                        : T extends DesignToken.Type.Gradient
-                          ? DesignToken.Gradient
-                          : T extends DesignToken.Type.Number
-                            ? DesignToken.Number
-                            : T extends DesignToken.Type.Shadow
-                              ? DesignToken.Shadow
-                              : T extends DesignToken.Type.StrokeStyle
-                                ? DesignToken.StrokeStyle
-                                : T extends DesignToken.Type.Transition
-                                  ? DesignToken.Transition
-                                  : T extends DesignToken.Type.Typography
-                                    ? DesignToken.Typography
-                                    : never;
+    export interface TypeDefinitions {
+        [Type.Border]: { value: Values.Border; token: Border };
+        [Type.Color]: { value: Values.Color; token: Color };
+        [Type.CubicBezier]: { value: Values.CubicBezier; token: CubicBezier };
+        [Type.Dimension]: { value: Values.Dimension; token: Dimension };
+        [Type.Duration]: { value: Values.Duration; token: Duration };
+        [Type.FontFamily]: { value: Values.FontFamily; token: FontFamily };
+        [Type.FontWeight]: { value: Values.FontWeight; token: FontWeight };
+        [Type.Gradient]: { value: Values.Gradient; token: Gradient };
+        [Type.Number]: { value: Values.Number; token: Number };
+        [Type.Shadow]: { value: Values.Shadow; token: Shadow };
+        [Type.StrokeStyle]: { value: Values.StrokeStyle; token: StrokeStyle };
+        [Type.Transition]: { value: Values.Transition; token: Transition };
+        [Type.Typography]: { value: Values.Typography; token: Typography };
+    }
+
+    /**
+     * The registered types whose value type can hold `V`.
+     *
+     * Value types overlap (every `Color` is also a `FontFamily`), so more than
+     * one type usually matches. `V` is wrapped so a union such as `FontWeight`
+     * is matched as a whole instead of member by member.
+     */
+    type HoldsValue<V> = {
+        [K in keyof TypeDefinitions]: [V] extends [TypeDefinitions[K]["value"]]
+            ? K
+            : never;
+    }[keyof TypeDefinitions];
+
+    /**
+     * The types in `All` that hold a value type no other type in `All` holds
+     * more narrowly: `Color` over `FontFamily` for a color, `Number` over
+     * `FontWeight` for a number. Independent of declaration order.
+     */
+    type Narrowest<
+        All extends keyof TypeDefinitions,
+        K extends keyof TypeDefinitions = All,
+    > = K extends any
+        ? [StrictlyNarrower<K, All>] extends [never]
+            ? K
+            : never
+        : never;
+
+    /**
+     * The types in `All` whose value type is strictly narrower than that of `K`.
+     */
+    type StrictlyNarrower<
+        K extends keyof TypeDefinitions,
+        All extends keyof TypeDefinitions,
+    > = All extends any
+        ? [TypeDefinitions[All]["value"]] extends [TypeDefinitions[K]["value"]]
+            ? [TypeDefinitions[K]["value"]] extends [
+                  TypeDefinitions[All]["value"],
+              ]
+                ? never
+                : All
+            : never
+        : never;
 
     /**
      * @internal
      */
-    export type TypeByToken<T extends DesignToken.Any> =
-        T extends DesignToken.Border
-            ? DesignToken.Type.Border
-            : T extends DesignToken.Color
-              ? DesignToken.Type.Color
-              : T extends DesignToken.CubicBezier
-                ? DesignToken.Type.CubicBezier
-                : T extends DesignToken.Dimension
-                  ? DesignToken.Type.Dimension
-                  : T extends DesignToken.Duration
-                    ? DesignToken.Type.Duration
-                    : T extends DesignToken.FontFamily
-                      ? DesignToken.Type.FontFamily
-                      : T extends DesignToken.FontWeight
-                        ? DesignToken.Type.FontWeight
-                        : T extends DesignToken.Gradient
-                          ? DesignToken.Type.Gradient
-                          : T extends DesignToken.Number
-                            ? DesignToken.Type.Number
-                            : T extends DesignToken.Shadow
-                              ? DesignToken.Type.Shadow
-                              : T extends DesignToken.StrokeStyle
-                                ? DesignToken.Type.StrokeStyle
-                                : T extends DesignToken.Transition
-                                  ? DesignToken.Type.Transition
-                                  : T extends DesignToken.Typography
-                                    ? DesignToken.Type.Typography
-                                    : never;
+    export type TypeByToken<T extends DesignToken.Any> = T extends any
+        ? {
+              [K in keyof TypeDefinitions]: T extends TypeDefinitions[K]["token"]
+                  ? K
+                  : never;
+          }[keyof TypeDefinitions]
+        : never;
 
     /**
      * @internal
      */
-    export type TokenByValue<T> = T extends DesignToken.Values.Border
-        ? DesignToken.Border
-        : T extends DesignToken.Values.Color
-          ? DesignToken.Color
-          : T extends DesignToken.Values.CubicBezier
-            ? DesignToken.CubicBezier
-            : T extends DesignToken.Values.Dimension
-              ? DesignToken.Dimension
-              : T extends DesignToken.Values.Duration
-                ? DesignToken.Duration
-                : T extends DesignToken.Values.FontFamily
-                  ? DesignToken.FontFamily
-                  : T extends DesignToken.Values.FontWeight
-                    ? DesignToken.FontWeight
-                    : T extends DesignToken.Values.Gradient
-                      ? DesignToken.Gradient
-                      : T extends DesignToken.Values.Number
-                        ? DesignToken.Number
-                        : T extends DesignToken.Values.Shadow
-                          ? DesignToken.Shadow
-                          : T extends DesignToken.Values.StrokeStyle
-                            ? DesignToken.StrokeStyle
-                            : T extends DesignToken.Values.Transition
-                              ? DesignToken.Transition
-                              : T extends DesignToken.Values.Typography
-                                ? DesignToken.Typography
-                                : never;
+    export type TokenByValue<V> = TypeDefinitions[Narrowest<
+        HoldsValue<V>
+    >]["token"];
 
     /**
      * @internal
      */
-    export type ValueByType<T> = T extends DesignToken.Values.Border
-        ? DesignToken.Type.Border
-        : T extends DesignToken.Values.Color
-          ? DesignToken.Type.Color
-          : T extends DesignToken.Values.CubicBezier
-            ? DesignToken.Type.CubicBezier
-            : T extends DesignToken.Values.Dimension
-              ? DesignToken.Type.Dimension
-              : T extends DesignToken.Values.Duration
-                ? DesignToken.Type.Duration
-                : T extends DesignToken.Values.FontFamily
-                  ? DesignToken.Type.FontFamily
-                  : T extends DesignToken.Values.FontWeight
-                    ? DesignToken.Type.FontWeight
-                    : T extends DesignToken.Values.Gradient
-                      ? DesignToken.Type.Gradient
-                      : T extends DesignToken.Values.Number
-                        ? DesignToken.Type.Number
-                        : T extends DesignToken.Values.Shadow
-                          ? DesignToken.Type.Shadow
-                          : T extends DesignToken.Values.StrokeStyle
-                            ? DesignToken.Type.StrokeStyle
-                            : T extends DesignToken.Values.Transition
-                              ? DesignToken.Type.Transition
-                              : T extends DesignToken.Values.Typography
-                                ? DesignToken.Type.Typography
-                                : never;
-
-    /**
-     * @internal
-     */
-    export type ValueByToken<T extends DesignToken.Any> =
-        T extends DesignToken.Border
-            ? DesignToken.Values.Border
-            : T extends Color
-              ? DesignToken.Values.Color
-              : T extends DesignToken.CubicBezier
-                ? DesignToken.Values.CubicBezier
-                : T extends DesignToken.Dimension
-                  ? DesignToken.Values.Dimension
-                  : T extends DesignToken.Duration
-                    ? DesignToken.Values.Duration
-                    : T extends DesignToken.FontFamily
-                      ? DesignToken.Values.FontFamily
-                      : T extends DesignToken.FontWeight
-                        ? DesignToken.Values.FontWeight
-                        : T extends DesignToken.Gradient
-                          ? DesignToken.Values.Gradient
-                          : T extends DesignToken.Number
-                            ? DesignToken.Values.Number
-                            : T extends DesignToken.Shadow
-                              ? DesignToken.Values.Shadow
-                              : T extends DesignToken.StrokeStyle
-                                ? DesignToken.Values.StrokeStyle
-                                : T extends DesignToken.Transition
-                                  ? DesignToken.Values.Transition
-                                  : T extends Typography
-                                    ? DesignToken.Values.Typography
-                                    : never;
+    export type ValueByToken<T extends DesignToken.Any> = T extends any
+        ? {
+              [K in keyof TypeDefinitions]: T extends TypeDefinitions[K]["token"]
+                  ? TypeDefinitions[K]["value"]
+                  : never;
+          }[keyof TypeDefinitions]
+        : never;
 
     /**
      * All properties supported by a DesignToken
@@ -424,24 +393,11 @@ export namespace DesignToken {
          * If the group has a type, the type is inferred for all descendent design tokens,
          * unless specified by the token.
          */
-        type?: DesignToken.Type;
+        type?: keyof DesignToken.TypeDefinitions;
     };
 
     /**
      * @internal
      */
-    export type Any =
-        | Border
-        | Color
-        | CubicBezier
-        | Dimension
-        | Duration
-        | FontFamily
-        | FontWeight
-        | Gradient
-        | Number
-        | Shadow
-        | StrokeStyle
-        | Transition
-        | Typography;
+    export type Any = TypeDefinitions[keyof TypeDefinitions]["token"];
 }

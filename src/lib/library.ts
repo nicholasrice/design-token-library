@@ -54,16 +54,15 @@ export namespace Library {
      *
      * @public
      */
-    export type DeepAlias<
-        V extends DesignToken.Values.Any,
-        T extends Context<any>,
-    > = {
+    export type DeepAlias<V, T extends Context<any>> = {
         [K in keyof V]: V[K] extends DesignToken.Values.Any
             ?
                   | V[K]
                   | Alias<DesignToken.TokenByValue<V[K]>, T>
                   | DeepAlias<V[K], T>
-            : never;
+            : // Not a DTCG value (e.g. a field of a custom type): it cannot be
+              // an alias, but it must remain assignable.
+              V[K];
     };
 
     /**
