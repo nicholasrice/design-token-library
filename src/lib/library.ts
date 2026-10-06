@@ -1,6 +1,16 @@
 import { DesignToken } from "./design-token.js";
 import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
 import { IQueue, Queue } from "./queue.js";
+import {
+    RecipeRegistry,
+    recipes as defaultRecipes,
+    isRecipe,
+    resolveProps,
+    validateDeclaration,
+    validateKeys,
+    type Recipe,
+    type RecipeDeclaration,
+} from "./recipe.js";
 import { DeepPartial, empty } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
@@ -104,7 +114,7 @@ export namespace Library {
         [K in keyof T]: T[K] extends DesignToken.Any
             ? ConfigValue<T[K], R>
             : T[K] extends {}
-              ? Config<T[K], R>
+              ? Config<T[K], R> | RecipeDeclaration
               : never;
     };
 
@@ -120,15 +130,31 @@ export namespace Library {
               value:
                   | Library.Alias<T, Context<R>>
                   | Library.DeepAlias<DesignToken.ValueByToken<T>, Context<R>>;
-          });
+          })
+        // A value recipe produces this token (e.g. a palette) declaratively.
+        | RecipeDeclaration;
+
+    /**
+     * Options accepted by {@link Library.create}.
+     *
+     * @public
+     */
+    export interface CreateOptions {
+        /**
+         * The {@link RecipeRegistry} used to resolve recipe declarations.
+         * Defaults to the global {@link recipes} registry.
+         */
+        recipes?: RecipeRegistry;
+    }
 
     /**
      * @public
      */
     export const create = <T extends {} = any>(
         config: Library.Config<T, T>,
+        options: Library.CreateOptions = {},
     ): Library.Library<T> => {
-        return LibraryImpl.create(config);
+        return LibraryImpl.create(config, options.recipes ?? defaultRecipes);
     };
 }
 
@@ -163,6 +189,7 @@ const recurseCreate = (
     config: Library.Config<any>,
     context: Library.TokenLibrary<any, any>,
     typeContext: DesignToken.Type | null,
+    registry: RecipeRegistry,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
     for (const key in config) {
@@ -173,7 +200,17 @@ const recurseCreate = (
 
         const _name = name.length === 0 ? key : `${name}.${key}`;
 
-        if (isGroup(config[key])) {
+        if (isRecipe(config[key])) {
+            expandRecipe(
+                _name,
+                key,
+                library,
+                config[key] as any,
+                context,
+                registry,
+                queue,
+            );
+        } else if (isGroup(config[key])) {
             Reflect.defineProperty(library, key, {
                 value: {},
                 enumerable: true,
@@ -184,6 +221,7 @@ const recurseCreate = (
                 config[key],
                 context,
                 config[key].type || typeContext,
+                registry,
                 queue,
             );
             Object.freeze(library[key]);
@@ -223,6 +261,7 @@ const recurseExtend = (
     config: Library.Config<any>, // TODO allow new config options
     context: Library.TokenLibrary<any, any>,
     typeContext: DesignToken.Type | null,
+    registry: RecipeRegistry,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
     const keys = new Set(Object.keys(sourceTokens).concat(Object.keys(config))); // Remove duplicate keys
@@ -231,13 +270,51 @@ const recurseExtend = (
         const sourceHasKey = key in sourceTokens;
         const configHasKey = key in config;
         const _name = name.length === 0 ? key : `${name}.${key}`;
-        const keyIsGroup = isGroup(sourceTokens[key]) || isGroup(config[key]);
-        const keyIsToken = isToken(sourceTokens[key]) || isToken(config[key]);
 
         if (key === "type") {
             typeContext = sourceTokens[key] as any;
             continue;
         }
+
+        // Recipes are re-expanded in the extension so they resolve their
+        // references against the extended library. An override layers its params
+        // over the source declaration; a group recipe with no override is
+        // re-expanded unchanged so it still follows inputs overridden in the
+        // extension. (A value recipe's token already re-evaluates against the
+        // extended context, so it takes the ordinary token path below.)
+        const sourceValue = sourceTokens[key];
+        const sourceDecl = isObject(sourceValue)
+            ? recipeDeclarations.get(sourceValue)
+            : undefined;
+        const override = isRecipe(config[key])
+            ? (config[key] as RecipeDeclaration)
+            : undefined;
+        const rebindsGroup =
+            sourceDecl !== undefined && !override && !isToken(sourceValue);
+
+        if (override || rebindsGroup) {
+            const decl: RecipeDeclaration = sourceDecl
+                ? {
+                      ...sourceDecl,
+                      ...override,
+                      $with: { ...sourceDecl.$with, ...override?.$with },
+                  }
+                : override!;
+
+            expandRecipe(
+                _name,
+                key,
+                extendedTokens,
+                decl,
+                context,
+                registry,
+                queue,
+            );
+            continue;
+        }
+
+        const keyIsGroup = isGroup(sourceTokens[key]) || isGroup(config[key]);
+        const keyIsToken = isToken(sourceTokens[key]) || isToken(config[key]);
 
         if (keyIsGroup) {
             // Inherit the source group via the prototype chain so unconfigured
@@ -254,6 +331,7 @@ const recurseExtend = (
                     config[key] || {},
                     context,
                     (sourceTokens.type || typeContext) as any,
+                    registry,
                     queue,
                 );
             } else if (configHasKey) {
@@ -264,6 +342,7 @@ const recurseExtend = (
                     extendedTokens[key],
                     context,
                     (sourceTokens.type || typeContext) as any,
+                    registry,
                     queue,
                 );
             }
@@ -356,9 +435,252 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
     return r;
 };
 
+/**
+ * The declaration each recipe-produced node (a generated group, or a value
+ * recipe's token) was created from, so that
+ * {@link (Library:namespace).Library.extend} can layer override params on top
+ * of the source recipe's params.
+ */
+const recipeDeclarations = new WeakMap<object, RecipeDeclaration>();
+
+/**
+ * Expands a {@link RecipeDeclaration} into a frozen group of generated
+ * {@link RecipeToken | tokens} and attaches it to the token tree.
+ */
+const expandRecipe = (
+    name: string,
+    key: string,
+    library: Library.TokenLibrary<any, any>,
+    decl: RecipeDeclaration,
+    context: Library.Context<any>,
+    registry: RecipeRegistry,
+    queue: IQueue<Library.Token<DesignToken.Any, any>>,
+): void => {
+    const recipe = registry.get(decl.$recipe);
+
+    if (!recipe) {
+        throw new Error(
+            `No recipe named "${decl.$recipe}" is registered. Register it before creating the library.`,
+        );
+    }
+
+    validateDeclaration(decl, name, recipe);
+    const props = decl.$with ?? {};
+
+    if (!recipe.keys) {
+        // A value recipe produces one token. It is an ordinary LibraryToken
+        // whose value is an alias over the recipe, so caching, dependency
+        // tracking, aliasing, set() and extend() all behave as for any token.
+        const token = new LibraryToken<any>(
+            name,
+            ((ctx: Library.Context<any>) =>
+                recipe.create(resolveProps(props, ctx, recipe.name))) as any,
+            recipe.type as any,
+            context,
+            decl.$description ?? "",
+            decl.$extensions ?? {},
+            queue,
+        );
+        recipeDeclarations.set(token, decl);
+        Reflect.defineProperty(library, key, {
+            get() {
+                Watcher.track(token);
+                return token;
+            },
+            enumerable: true,
+        });
+        return;
+    }
+
+    // The shape of a group recipe is fixed at creation time, derived from
+    // literal params. A single node computes the full output; one facade per key
+    // reads its slice and recomputes reactively when the recipe's inputs change.
+    const keys = recipe.keys(props);
+
+    if (keys.length === 0) {
+        throw new Error(
+            `Recipe "${recipe.name}" produced no keys for "${name}". Keys must derive from literal params, not references.`,
+        );
+    }
+
+    validateKeys(keys, name, recipe);
+    const node = new RecipeNode(recipe, props, context);
+    const group: Record<string, any> = {};
+
+    for (const genKey of keys) {
+        const token = new RecipeToken(
+            `${name}.${genKey}`,
+            node,
+            genKey,
+            recipe.type,
+            queue,
+        );
+        Reflect.defineProperty(group, genKey, {
+            get() {
+                // Mirror LibraryToken: token access must be tracked so a token
+                // that aliases a generated token subscribes to it.
+                Watcher.track(token);
+                return token;
+            },
+            enumerable: true,
+        });
+    }
+
+    recipeDeclarations.set(group, decl);
+    Reflect.defineProperty(library, key, {
+        value: group,
+        enumerable: true,
+    });
+    Object.freeze(group);
+};
+
+/**
+ * A single reactive cell that computes a recipe's full output once per
+ * invalidation and caches it. It is not addressable in the token tree (it is
+ * never added to the change queue); the generated {@link RecipeToken} facades
+ * read slices of its output.
+ */
+class RecipeNode implements IWatcher, ISubscriber<any> {
+    private cached: any = empty;
+    private subscriptions: Set<INotifier<any>> = new Set();
+
+    constructor(
+        private readonly recipe: Recipe,
+        private readonly rawProps: any,
+        private readonly context: Library.Context<any>,
+    ) {}
+
+    /**
+     * The recipe's full output object, memoized. References in the params are
+     * resolved against the context tree inside this node's watcher scope, so
+     * the node subscribes to every input token it reads.
+     */
+    public get output(): any {
+        if (this.cached !== empty) {
+            return this.cached;
+        }
+
+        this.disconnect();
+        const stopWatching = Watcher.use(this);
+        const props = resolveProps(
+            this.rawProps,
+            this.context,
+            this.recipe.name,
+        );
+        const raw = this.recipe.create(props);
+        // Allow operator output leaves to themselves be aliases/tokens.
+        const value = isObject(raw) ? recurseResolve(raw, this.context) : raw;
+        this.cached = value;
+        stopWatching();
+
+        return value;
+    }
+
+    public get(key: string): any {
+        // Subscribe the active watcher (a reading facade) to this node.
+        Watcher.track(this);
+        return this.output[key];
+    }
+
+    public onChange(): void {
+        this.cached = empty;
+        getNotifier(this).notify();
+    }
+
+    public watch(source: Object): void {
+        const notifier = getNotifier(source);
+        notifier.subscribe(this);
+        this.subscriptions.add(notifier);
+    }
+
+    public disconnect(): void {
+        for (const record of this.subscriptions.values()) {
+            record.unsubscribe(this);
+            this.subscriptions.delete(record);
+        }
+    }
+}
+
+/**
+ * A generated token produced by a recipe. It is a real, addressable token in
+ * the tree: it can be aliased, flows through CSS reflection, and participates
+ * in change notification. Its value is a slice of its {@link RecipeNode}'s
+ * output and is read-only (override via {@link (Library:namespace).Library.extend}).
+ */
+class RecipeToken
+    implements Library.Token<any, any>, ISubscriber<any>, IWatcher
+{
+    private cached: any = empty;
+    private subscriptions: Set<INotifier<any>> = new Set();
+
+    constructor(
+        public readonly name: string,
+        private readonly node: RecipeNode,
+        private readonly key: string,
+        private readonly _type: string,
+        private readonly queue: IQueue<Library.Token<DesignToken.Any, any>>,
+    ) {}
+
+    public get type(): any {
+        return this._type;
+    }
+
+    public get description(): string {
+        return "";
+    }
+
+    public get extensions(): Record<string, any> {
+        return {};
+    }
+
+    public get value(): any {
+        if (this.cached !== empty) {
+            return this.cached;
+        }
+
+        this.disconnect();
+        const stopWatching = Watcher.use(this);
+        const value = this.node.get(this.key);
+        this.cached = value;
+        stopWatching();
+
+        return value;
+    }
+
+    public set(): void {
+        throw new Error(
+            `Token "${this.name}" is generated by a recipe and is read-only. Override the recipe's params via Library.extend() instead.`,
+        );
+    }
+
+    public toString(): string {
+        return String(this.value);
+    }
+
+    public onChange(): void {
+        this.queue.add(this);
+        this.cached = empty;
+        getNotifier(this).notify();
+    }
+
+    public watch(source: Object): void {
+        const notifier = getNotifier(source);
+        notifier.subscribe(this);
+        this.subscriptions.add(notifier);
+    }
+
+    public disconnect(): void {
+        for (const record of this.subscriptions.values()) {
+            record.unsubscribe(this);
+            this.subscriptions.delete(record);
+        }
+    }
+}
+
 class LibraryImpl<T extends {} = any> implements Library.Library<T> {
     constructor(
         public readonly tokens: Library.TokenLibrary<T>,
+        private readonly registry: RecipeRegistry,
         private readonly queue: IQueue<Library.Token<DesignToken.Any, T>>,
     ) {}
     public subscribe(subscriber: Library.Subscriber<T>) {
@@ -372,17 +694,29 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
         // TODO should not type Library.Config<any>
         const queue = new Queue();
         const tokens: Library.TokenLibrary<any> = {};
-        recurseExtend("", this.tokens, tokens, config, tokens, null, queue);
+        recurseExtend(
+            "",
+            this.tokens,
+            tokens,
+            config,
+            tokens,
+            null,
+            this.registry,
+            queue,
+        );
 
-        return new LibraryImpl(tokens, queue);
+        return new LibraryImpl(tokens, this.registry, queue);
     }
 
-    public static create<T extends {}>(config: Library.Config<T, T>) {
+    public static create<T extends {}>(
+        config: Library.Config<T, T>,
+        registry: RecipeRegistry,
+    ) {
         const queue = new Queue();
         const tokens: Library.TokenLibrary<any> = {};
-        recurseCreate("", tokens, config, tokens, null, queue);
+        recurseCreate("", tokens, config, tokens, null, registry, queue);
 
-        return new LibraryImpl(tokens, queue);
+        return new LibraryImpl(tokens, registry, queue);
     }
 }
 

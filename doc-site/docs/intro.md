@@ -15,6 +15,7 @@ sidebar_position: 1
 4. Change subscription
 5. Library extension
 6. Custom token types
+7. Recipes (algorithmic tokens that expand into a subtree of tokens)
 
 ## Installation
 

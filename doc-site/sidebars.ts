@@ -18,6 +18,7 @@ const sidebars: SidebarsConfig = {
     "intro",
     "getting-started",
     "custom-types",
+    "recipes",
     // {
     //   type: "category",
     //   label: "API Reference",
