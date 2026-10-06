@@ -1,8 +1,10 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { spy } from "sinon";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
+import type { FontStyleToken } from "./my-design-system/custom-types.js";
 
 const toCssSuite = suite("toCss");
 const toPropertiesSuite = suite("toProperties");
@@ -241,6 +243,109 @@ toCssSuite(
         );
     },
 );
+
+toCssSuite("should omit tokens rejected by the filter", () => {
+    interface Theme {
+        a: DesignToken.Color;
+        b: DesignToken.Color;
+    }
+    const library = Library.create<Theme>({
+        a: { type: DesignToken.Type.Color, value: "#111111" },
+        b: { type: DesignToken.Type.Color, value: "#222222" },
+    });
+
+    Assert.is(
+        toCSS(library, { filter: (token) => token.name !== "b" }),
+        "--a:#111111;",
+    );
+});
+
+toCssSuite("should not resolve tokens rejected by the filter", () => {
+    const read = spy(() => "#000000" as const);
+    const library = Library.create({
+        a: { type: DesignToken.Type.Color, value: "#111111" },
+        b: { type: DesignToken.Type.Color, value: read },
+    } as Library.Config<{ a: DesignToken.Color; b: DesignToken.Color }>);
+
+    toCSS(library, { filter: (token) => token.name === "a" });
+    Assert.is(read.callCount, 0);
+});
+
+toCssSuite("should serialize a custom type with a provided converter", () => {
+    const library = Library.create<{ style: FontStyleToken }>({
+        style: { type: "fontStyle", value: "regular" },
+    });
+
+    Assert.is(toCSS(library), "--style:regular;", "no converter, raw value");
+    Assert.is(
+        toCSS(library, {
+            converters: {
+                fontStyle: (value) => (value === "regular" ? "normal" : value),
+            },
+        }),
+        "--style:normal;",
+    );
+});
+
+toCssSuite("should prefer a provided converter over a built-in one", () => {
+    const library = Library.create<Config<DesignToken.Color>>({
+        token: { type: DesignToken.Type.Color, value: "#FF0000" },
+    });
+
+    Assert.is(
+        toCSS(library, {
+            converters: { color: (value: string) => value.toLowerCase() },
+        }),
+        "--token:#ff0000;",
+    );
+});
+
+toCssSuite("should name custom properties with a provided function", () => {
+    interface Theme {
+        group: { a: DesignToken.Color };
+    }
+    const library = Library.create<Theme>({
+        group: { a: { type: DesignToken.Type.Color, value: "#111111" } },
+    });
+
+    Assert.is(toCSS(library), "--group.a:#111111;", "default is unchanged");
+    Assert.is(
+        toCSS(library, { name: (token) => token.name.replaceAll(".", "-") }),
+        "--group-a:#111111;",
+    );
+});
+
+toPropertiesSuite("should omit tokens rejected by the filter", () => {
+    interface Theme {
+        a: DesignToken.Color;
+        b: DesignToken.Color;
+    }
+    const library = Library.create<Theme>({
+        a: { type: DesignToken.Type.Color, value: "#111111" },
+        b: { type: DesignToken.Type.Color, value: "#222222" },
+    });
+    const properties = toProperties(library, {
+        filter: (token) => token.name !== "b",
+    }) as any;
+
+    Assert.is(properties.a.property, "--a");
+    Assert.is(properties.b, undefined);
+});
+
+toPropertiesSuite("should name properties with a provided function", () => {
+    interface Theme {
+        group: { a: DesignToken.Color };
+    }
+    const library = Library.create<Theme>({
+        group: { a: { type: DesignToken.Type.Color, value: "#111111" } },
+    });
+    const properties = toProperties(library, {
+        name: (token) => `brand-${token.name.replaceAll(".", "_")}`,
+    });
+
+    Assert.is(properties.group.a.property, "--brand-group_a");
+    Assert.is(properties.group.a.var, "var(--brand-group_a)");
+});
 
 toCssSuite.run();
 toPropertiesSuite.run();

@@ -72,3 +72,27 @@ A token value is cloned each time it is resolved. A function inside a value is
 treated as an alias and is called, and a class instance becomes a plain object,
 so its methods are lost. Keep values as objects, arrays and primitives, and share
 behavior as exported helper functions that take the value.
+
+## CSS output
+
+`toCSS` and `toProperties` accept options so custom types and project naming can
+be handled without changing the library.
+
+```ts
+toCSS(library, {
+    // Serialize a custom type. Takes precedence over a built-in converter.
+    converters: {
+        fontStyle: (value) => (value === "regular" ? "normal" : value),
+    },
+    // Leave tokens out. Runs before the token is resolved.
+    filter: (token) => !token.name.startsWith("internal."),
+    // Name the custom property, without the leading `--`.
+    name: (token) => token.name.replaceAll(".", "-"),
+});
+
+toProperties(library, { filter, name });
+```
+
+A custom type with no converter is written with its default string conversion.
+`toCSS` uses the token's name as-is and `toProperties` replaces `.` with `-`, so
+pass the same `name` function to both to keep the property names aligned.

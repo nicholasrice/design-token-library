@@ -2,10 +2,54 @@ import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
 
 /**
+ * Options that control which tokens are reflected to CSS custom properties and
+ * what those properties are named.
+ *
  * @public
  */
-export function toCSS(library: Library.Library<any, any>): string {
-    return recurseToCss(library.tokens);
+export interface CSSPropertiesOptions {
+    /**
+     * Return `false` to omit a token from the output. The filter runs before a
+     * token's value is read, so omitted tokens are never resolved.
+     */
+    filter?(token: Library.Token<any, any>): boolean;
+
+    /**
+     * Derives a token's custom property name, without the leading `--`.
+     *
+     * @remarks
+     * Defaults to the token's name with `.` replaced by `-` for
+     * {@link toProperties}, and to the token's name as-is for {@link toCSS}.
+     * Pass the same function to both to keep the names aligned.
+     */
+    name?(token: Library.Token<any, any>): string;
+}
+
+/**
+ * Options accepted by {@link toCSS}.
+ *
+ * @public
+ */
+export interface CSSOptions extends CSSPropertiesOptions {
+    /**
+     * Converts token values to CSS, keyed by token type. A converter takes
+     * precedence over the built-in converter for the same type, and is how a
+     * custom token type is serialized.
+     */
+    converters?: Record<
+        string,
+        (value: any, token: Library.Token<any, any>) => string
+    >;
+}
+
+/**
+ * @public
+ */
+export function toCSS(
+    library: Library.Library<any, any>,
+    options: CSSOptions = {},
+): string {
+    return recurseToCss(library.tokens, options);
 }
 
 interface CSSPropertyValues {
@@ -34,6 +78,7 @@ export type CSSPropertiesLibrary<T extends {}> = {
  */
 export function toProperties<T extends Library.Library<any>>(
     library: T,
+    options: CSSPropertiesOptions = {},
 ): CSSPropertiesLibrary<T["tokens"]> {
     const recurse = (
         section: Library.TokenLibrary<any>,
@@ -43,8 +88,15 @@ export function toProperties<T extends Library.Library<any>>(
             const sectionValue = section[key];
 
             if (isToken(sectionValue)) {
-                // TODO add a strategy for name conversion
-                const property = `--${sectionValue.name.replaceAll(".", "-")}`;
+                if (options.filter && !options.filter(sectionValue)) {
+                    continue;
+                }
+
+                const property = `--${
+                    options.name
+                        ? options.name(sectionValue)
+                        : sectionValue.name.replaceAll(".", "-")
+                }`;
                 const propertyValue = Object.freeze({
                     var: `var(${property})`,
                     property,
@@ -78,27 +130,57 @@ const isToken = (
 
 const recurseToCss = (
     librarySection: Library.TokenLibrary<any, any>,
+    options: CSSOptions,
 ): string => {
     let result = "";
     for (const key in librarySection) {
         const tokenOrGroup = librarySection[key];
 
         if (isToken(tokenOrGroup)) {
-            let value = tokenOrGroup.value;
-
-            if (
-                tokenOrGroup.type !== undefined &&
-                Reflect.has(TokenConverters, tokenOrGroup.type)
-            ) {
-                value = Reflect.get(TokenConverters, tokenOrGroup.type)(value);
+            if (options.filter && !options.filter(tokenOrGroup)) {
+                continue;
             }
-            result += `--${tokenOrGroup.name}:${value};`;
+
+            let value = tokenOrGroup.value;
+            const converter = findConverter(tokenOrGroup, options);
+
+            if (converter) {
+                value = converter(value, tokenOrGroup);
+            }
+
+            const name = options.name
+                ? options.name(tokenOrGroup)
+                : tokenOrGroup.name;
+            result += `--${name}:${value};`;
         } else {
-            result += recurseToCss(tokenOrGroup);
+            result += recurseToCss(tokenOrGroup, options);
         }
     }
 
     return result;
+};
+
+/**
+ * Provided converters win over the built-in ones. Own-property checks keep a
+ * token type such as "toString" from resolving to an inherited method.
+ */
+const findConverter = (
+    token: Library.Token<any, any>,
+    options: CSSOptions,
+): ((value: any, token: Library.Token<any, any>) => string) | undefined => {
+    const type: string | undefined = token.type;
+
+    if (type === undefined) {
+        return undefined;
+    }
+
+    if (options.converters && Object.hasOwn(options.converters, type)) {
+        return options.converters[type];
+    }
+
+    return Reflect.has(TokenConverters, type)
+        ? Reflect.get(TokenConverters, type)
+        : undefined;
 };
 
 const joiner = <T extends []>(value: T): string => {
