@@ -1,6 +1,7 @@
 import { DesignToken } from "../../lib/design-token.js";
 import { Library } from "../../lib/library.js";
 import { Recipe, RecipeRegistry } from "../../lib/recipe.js";
+import { hex } from "../values.js";
 
 /**
  * A palette is an ordered list of colors. It is plain data, so it can be cloned,
@@ -30,26 +31,36 @@ declare module "../../lib/design-token.js" {
     }
 }
 
-const channels = (color: string): number[] =>
-    [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16));
+// Steps are whole sRGB bytes, so a palette is stable under hex round-trips.
+const quantize = (value: number): number => Math.round(value * 255) / 255;
 
-const toHex = (values: number[]): DesignToken.Values.Color =>
-    `#${values
-        .map((v) => Math.round(v).toString(16).padStart(2, "0"))
-        .join("")
-        .toUpperCase()}`;
+const channels = (color: DesignToken.Values.Color): number[] =>
+    color.components.map(Number);
 
-const mix = (a: string, b: string, t: number): DesignToken.Values.Color => {
+const mix = (
+    a: DesignToken.Values.Color,
+    b: DesignToken.Values.Color,
+    t: number,
+): DesignToken.Values.Color => {
     const from = channels(a);
     const to = channels(b);
 
-    return toHex(from.map((v, i) => v + (to[i] - v) * t));
+    return {
+        colorSpace: "srgb",
+        components: from.map((v, i) => quantize(v + (to[i] - v) * t)),
+    };
 };
+
+const BLACK = hex("#000000");
+const WHITE = hex("#FFFFFF");
 
 /**
  * The index of the palette color nearest to `color` (by RGB distance).
  */
-export function closestIndexOf(palette: PaletteValue, color: string): number {
+export function closestIndexOf(
+    palette: PaletteValue,
+    color: DesignToken.Values.Color,
+): number {
     const target = channels(color);
     let closest = 0;
     let closestDistance = Infinity;
@@ -86,8 +97,8 @@ export const createPalette: Recipe<PaletteProps, PaletteValue> = {
             const t = steps === 1 ? 0.5 : i / (steps - 1);
 
             return t < 0.5
-                ? mix("#000000", base, t * 2)
-                : mix(base, "#FFFFFF", (t - 0.5) * 2);
+                ? mix(BLACK, base, t * 2)
+                : mix(base, WHITE, (t - 0.5) * 2);
         });
     },
 };
@@ -104,7 +115,10 @@ export interface StatesProps {
  * A group recipe (has `keys`): consumes a palette value and produces a fixed set
  * of interactive-state colors, using the {@link closestIndexOf} helper.
  */
-export const createStates: Recipe<StatesProps, Record<StateKey, string>> = {
+export const createStates: Recipe<
+    StatesProps,
+    Record<StateKey, DesignToken.Values.Color>
+> = {
     name: "createStates",
     type: DesignToken.Type.Color,
     keys: () => [...stateKeys],
@@ -145,7 +159,7 @@ export const paletteTheme: Library.Config<PaletteTheme> = {
             stepCount: { $type: DesignToken.Type.Number, $value: 5 },
         },
         neutral: {
-            base: { $type: DesignToken.Type.Color, $value: "#787878" },
+            base: { $type: DesignToken.Type.Color, $value: hex("#787878") },
             palette: {
                 $type: "palette",
                 $value: {
@@ -158,7 +172,7 @@ export const paletteTheme: Library.Config<PaletteTheme> = {
             },
         },
         accent: {
-            base: { $type: DesignToken.Type.Color, $value: "#09AEF6" },
+            base: { $type: DesignToken.Type.Color, $value: hex("#09AEF6") },
             palette: {
                 $type: "palette",
                 $value: {

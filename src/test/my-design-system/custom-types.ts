@@ -1,3 +1,4 @@
+import type { DesignToken } from "../../lib/design-token.js";
 /**
  * Custom (non-DTCG) token types, registered through declaration merging into
  * `DesignToken.TypeDefinitions`. Token interfaces are declared directly:
@@ -24,7 +25,7 @@ export interface BooleanToken {
  */
 export interface BadgeValue {
     visible: boolean;
-    color: `#${string}`;
+    color: DesignToken.Values.Color;
 }
 
 export interface BadgeToken {

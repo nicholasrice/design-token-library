@@ -3,6 +3,7 @@ import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import { Library } from "../lib/library.js";
 import { DesignToken } from "../lib/design-token.js";
+import { hex, px } from "./values.js";
 
 interface ABTheme {
     a: DesignToken.Color;
@@ -29,7 +30,7 @@ Description("should exist in the library when defined on the token", () => {
     const library = Library.create({
         token: {
             $type: DesignToken.Type.Color,
-            $value: "#FFFFFF",
+            $value: hex("#FFFFFF"),
             $description: "Hello world",
         },
     });
@@ -41,12 +42,12 @@ Name("should be the object name path delimited by '.' chars", () => {
     const library = Library.create({
         token: {
             $type: DesignToken.Type.Color,
-            $value: "#FFFFFF",
+            $value: hex("#FFFFFF"),
         },
         colors: {
             primary: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
         },
     });
@@ -59,7 +60,7 @@ Name("should be case sensitive", () => {
     const library = Library.create({
         tOkEn: {
             $type: DesignToken.Type.Color,
-            $value: "#FFFFFF",
+            $value: hex("#FFFFFF"),
         },
     });
 
@@ -72,7 +73,7 @@ Type(
         const library = Library.create({
             token: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
         });
 
@@ -86,7 +87,7 @@ Type(
         const library = Library.create({
             $type: DesignToken.Type.Color,
             token: {
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
         });
 
@@ -101,7 +102,7 @@ Type(
             $type: DesignToken.Type.Border,
             token: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
         });
 
@@ -124,23 +125,23 @@ Value(
         const library = Library.create({
             token: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             anotherToken: {
                 $type: DesignToken.Type.Border,
                 $value: {
-                    color: "#FFFFFF",
+                    color: hex("#FFFFFF"),
                     style: "solid",
-                    width: "2px",
+                    width: px(2),
                 },
             },
         });
 
-        Assert.equal(library.tokens.token.$value, "#FFFFFF");
+        Assert.equal(library.tokens.token.$value, hex("#FFFFFF"));
         Assert.equal(library.tokens.anotherToken.$value, {
-            color: "#FFFFFF",
+            color: hex("#FFFFFF"),
             style: "solid",
-            width: "2px",
+            width: px(2),
         });
     },
 );
@@ -156,7 +157,7 @@ Value("should invoke function values with the token library", () => {
     const config: Library.Config<Theme> = {
         token: {
             $type: DesignToken.Type.Color,
-            $value: "#FF0000",
+            $value: hex("#FF0000"),
         },
         anotherToken: {
             $type: DesignToken.Type.Color,
@@ -182,7 +183,7 @@ Value(
         const config: Library.Config<Theme> = {
             token: {
                 $type: DesignToken.Type.Color,
-                $value: "#FF0000",
+                $value: hex("#FF0000"),
             },
             anotherToken: {
                 $type: DesignToken.Type.Color,
@@ -207,7 +208,7 @@ Value("reference tokens should support multiple levels of inheritance", () => {
     const config: Library.Config<Theme> = {
         token: {
             $type: DesignToken.Type.Color,
-            $value: "#FF0000",
+            $value: hex("#FF0000"),
         },
         secondaryToken: {
             $type: DesignToken.Type.Color,
@@ -236,19 +237,19 @@ Value("should support reading alias values from complex values", () => {
     const config: Library.Config<Theme> = {
         color: {
             $type: DesignToken.Type.Color,
-            $value: "#FF0000",
+            $value: hex("#FF0000"),
         },
         dimension: {
             $type: DesignToken.Type.Dimension,
-            $value: "12px",
+            $value: px(12),
         },
         border: {
             $type: DesignToken.Type.Border,
             $value: {
                 color: (context) => context.color,
-                width: "3px",
+                width: px(3),
                 style: {
-                    dashArray: [(context) => context.dimension, "14px"],
+                    dashArray: [(context) => context.dimension, px(14)],
                     lineCap: "butt",
                 },
             },
@@ -258,11 +259,11 @@ Value("should support reading alias values from complex values", () => {
     const library = Library.create(config);
     const border = library.tokens.border.$value;
 
-    Assert.equal(border.color, "#FF0000", "color alias should be equal");
-    Assert.equal(border.width, "3px", "dimension value should be equal");
+    Assert.equal(border.color, hex("#FF0000"), "color alias should be equal");
+    Assert.equal(border.width, px(3), "dimension value should be equal");
     Assert.equal(
         border.style,
-        { dashArray: ["12px", "14px"], lineCap: "butt" },
+        { dashArray: [px(12), px(14)], lineCap: "butt" },
         "DeepAlias border style should be equal",
     );
 });
@@ -275,11 +276,11 @@ Value("should support setting a static value", () => {
     const config: Library.Config<Library> = {
         token: {
             $type: DesignToken.Type.Color,
-            $value: "#FFFFFF",
+            $value: hex("#FFFFFF"),
         },
     };
     const library = Library.create(config);
-    const value: DesignToken.Values.Color = "#000000";
+    const value: DesignToken.Values.Color = hex("#000000");
     library.tokens.token.set(value);
 
     Assert.equal(library.tokens.token.$value, value);
@@ -294,11 +295,11 @@ Value("should support setting a token alias", () => {
     const config: Library.Config<Theme> = {
         token: {
             $type: DesignToken.Type.Color,
-            $value: "#FFFFFF",
+            $value: hex("#FFFFFF"),
         },
         secondaryToken: {
             $type: DesignToken.Type.Color,
-            $value: "#000000",
+            $value: hex("#000000"),
         },
     };
 
@@ -320,18 +321,18 @@ Value("should support setting a value alias", () => {
     const config: Library.Config<Theme> = {
         token: {
             $type: DesignToken.Type.Color,
-            $value: "#FFFFFF",
+            $value: hex("#FFFFFF"),
         },
         secondaryToken: {
             $type: DesignToken.Type.Color,
-            $value: "#000000",
+            $value: hex("#000000"),
         },
     };
 
     const library = Library.create(config);
-    library.tokens.secondaryToken.set(() => "#FF0000");
+    library.tokens.secondaryToken.set(() => hex("#FF0000"));
 
-    Assert.equal(library.tokens.secondaryToken.$value, "#FF0000");
+    Assert.equal(library.tokens.secondaryToken.$value, hex("#FF0000"));
 });
 
 Value(
@@ -345,7 +346,7 @@ Value(
         const config: Library.Config<Theme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             b: {
                 $type: DesignToken.Type.Color,
@@ -355,10 +356,10 @@ Value(
 
         const library = Library.create(config);
 
-        Assert.equal(library.tokens.b.$value, "#FFFFFF");
+        Assert.equal(library.tokens.b.$value, hex("#FFFFFF"));
 
-        library.tokens.a.set("#000000");
-        Assert.equal(library.tokens.b.$value, "#000000");
+        library.tokens.a.set(hex("#000000"));
+        Assert.equal(library.tokens.b.$value, hex("#000000"));
     },
 );
 
@@ -374,7 +375,7 @@ Value(
         const config: Library.Config<Theme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             b: {
                 $type: DesignToken.Type.Color,
@@ -385,17 +386,17 @@ Value(
                 $value: {
                     style: "solid",
                     color: (context) => context.b,
-                    width: "2px",
+                    width: px(2),
                 },
             },
         };
 
         const library = Library.create(config);
 
-        Assert.equal(library.tokens.c.$value.color, "#FFFFFF");
+        Assert.equal(library.tokens.c.$value.color, hex("#FFFFFF"));
 
-        library.tokens.a.set("#000000");
-        Assert.equal(library.tokens.c.$value.color, "#000000");
+        library.tokens.a.set(hex("#000000"));
+        Assert.equal(library.tokens.c.$value.color, hex("#000000"));
     },
 );
 
@@ -404,7 +405,7 @@ Subscription(
     async () => {
         // Arrange
         const library = Library.create({
-            token: { $type: DesignToken.Type.Color, $value: "#FFFFFF" },
+            token: { $type: DesignToken.Type.Color, $value: hex("#FFFFFF") },
         });
         const onChange = spy();
         const subscriber = {
@@ -413,7 +414,7 @@ Subscription(
         library.subscribe(subscriber);
 
         // Act
-        library.tokens.token.set("#000000");
+        library.tokens.token.set(hex("#000000"));
         await nextUpdate();
 
         // Assert
@@ -430,8 +431,8 @@ Subscription(
     async () => {
         // Arrange
         const library = Library.create({
-            a: { $type: DesignToken.Type.Color, $value: "#FFFFFF" },
-            b: { $type: DesignToken.Type.Color, $value: "#000000" },
+            a: { $type: DesignToken.Type.Color, $value: hex("#FFFFFF") },
+            b: { $type: DesignToken.Type.Color, $value: hex("#000000") },
         });
         const onChange = spy();
         const subscriber = {
@@ -440,8 +441,8 @@ Subscription(
         library.subscribe(subscriber);
 
         // Act
-        library.tokens.a.set("#000000");
-        library.tokens.b.set("#FFFFFF");
+        library.tokens.a.set(hex("#000000"));
+        library.tokens.b.set(hex("#FFFFFF"));
         await nextUpdate();
 
         // Assert
@@ -459,8 +460,8 @@ Subscription(
     async () => {
         // Arrange
         const library = Library.create({
-            a: { $type: DesignToken.Type.Color, $value: "#FFFFFF" },
-            b: { $type: DesignToken.Type.Color, $value: "#000000" },
+            a: { $type: DesignToken.Type.Color, $value: hex("#FFFFFF") },
+            b: { $type: DesignToken.Type.Color, $value: hex("#000000") },
         });
         const onChange = spy();
         const subscriber = {
@@ -469,7 +470,7 @@ Subscription(
         library.subscribe(subscriber);
 
         // Act
-        library.tokens.a.set("#000000");
+        library.tokens.a.set(hex("#000000"));
         await nextUpdate();
 
         // Assert
@@ -477,7 +478,7 @@ Subscription(
         Assert.is(onChange.firstCall.args[0][0], library.tokens.a);
 
         // Act
-        library.tokens.b.set("#FFFFFF");
+        library.tokens.b.set(hex("#FFFFFF"));
         await nextUpdate();
         Assert.is(onChange.callCount, 2);
         Assert.is(onChange.secondCall.args[0][0], library.tokens.b);
@@ -489,10 +490,10 @@ Lib("should be immutable", () => {
         colors: {
             $type: DesignToken.Type.Color,
             primary: {
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             secondary: {
-                $value: "#000000",
+                $value: hex("#000000"),
             },
         },
     });
@@ -512,12 +513,12 @@ Lib("should be immutable", () => {
     );
     Assert.throws(
         // @ts-ignore
-        () => (library.tokens.colors.primary = { $value: "#FFF000" }),
+        () => (library.tokens.colors.primary = { $value: hex("#FFF000") }),
         "Assigning a token field should throw",
     );
     Assert.throws(
         // @ts-ignore
-        () => (library.tokens.colors.primary.$value = "#FFF000"),
+        () => (library.tokens.colors.primary.$value = hex("#FFF000")),
         "Assigning a token 'value' field  should throw",
     );
     Assert.throws(
@@ -547,7 +548,7 @@ Extend(
         const config: Library.Config<Theme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
                 $description: "description",
                 $extensions: {
                     e: "e",
@@ -572,7 +573,7 @@ Extend(
         const config: Library.Config<ABTheme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             b: {
                 $type: DesignToken.Type.Color,
@@ -582,8 +583,8 @@ Extend(
         const source = Library.create(config);
         const extended = source.extend({});
 
-        Assert.is(extended.tokens.a.$value, "#FFFFFF");
-        Assert.is(extended.tokens.b.$value, "#FFFFFF");
+        Assert.equal(extended.tokens.a.$value, hex("#FFFFFF"));
+        Assert.equal(extended.tokens.b.$value, hex("#FFFFFF"));
     },
 );
 Extend(
@@ -592,7 +593,7 @@ Extend(
         const config: Library.Config<ABTheme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             b: {
                 $type: DesignToken.Type.Color,
@@ -602,11 +603,11 @@ Extend(
         const source = Library.create(config);
         const extended = source.extend({
             b: {
-                $value: "#000000",
+                $value: hex("#000000"),
             },
         });
 
-        Assert.is(extended.tokens.b.$value, "#000000");
+        Assert.equal(extended.tokens.b.$value, hex("#000000"));
     },
 );
 
@@ -621,7 +622,7 @@ Extend(
         const config: Library.Config<Theme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             b: {
                 $type: DesignToken.Type.Color,
@@ -631,19 +632,19 @@ Extend(
         const source = Library.create(config);
         const extended = source.extend({});
 
-        Assert.is(extended.tokens.a.$value, "#FFFFFF");
-        Assert.is(extended.tokens.b.$value, "#FFFFFF");
+        Assert.equal(extended.tokens.a.$value, hex("#FFFFFF"));
+        Assert.equal(extended.tokens.b.$value, hex("#FFFFFF"));
 
-        source.tokens.a.set("#111111");
+        source.tokens.a.set(hex("#111111"));
 
-        Assert.is(
+        Assert.equal(
             extended.tokens.a.$value,
-            "#111111",
+            hex("#111111"),
             "Extended token 'a' is #111111",
         );
-        Assert.is(
+        Assert.equal(
             extended.tokens.b.$value,
-            "#111111",
+            hex("#111111"),
             "Extended token 'b' is #111111",
         );
     },
@@ -654,7 +655,7 @@ Extend(
         const config: Library.Config<ABTheme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             b: {
                 $type: DesignToken.Type.Color,
@@ -671,7 +672,7 @@ Extend(
         extending.subscribe(subscriber);
 
         extending.tokens.b.$value; // b needs to be accessed to set up watchers
-        source.tokens.a.set("#111111");
+        source.tokens.a.set(hex("#111111"));
         await nextUpdate();
         Assert.ok(onChange.calledOnce);
         Assert.is(
@@ -697,7 +698,7 @@ Extend(
         const config: Library.Config<ABTheme> = {
             a: {
                 $type: DesignToken.Type.Color,
-                $value: "#FFFFFF",
+                $value: hex("#FFFFFF"),
             },
             b: {
                 $type: DesignToken.Type.Color,
@@ -706,8 +707,8 @@ Extend(
         };
         const source = Library.create(config);
         const extending = source.extend({
-            a: { $value: "#000000" },
-            b: { $value: "#000000" },
+            a: { $value: hex("#000000") },
+            b: { $value: hex("#000000") },
         });
         const onChange = spy();
         const subscriber: Library.Subscriber<ABTheme> = {
@@ -718,7 +719,7 @@ Extend(
 
         extending.tokens.b.$value; // b needs to be accessed to set up watchers
         extending.tokens.a.$value;
-        source.tokens.a.set("#111111");
+        source.tokens.a.set(hex("#111111"));
 
         await nextUpdate();
         Assert.is(onChange.calledOnce, false);
@@ -728,7 +729,7 @@ Extend("Should allow adding new tokens to an extending library", async () => {
     const config: Library.Config<ABTheme> = {
         a: {
             $type: DesignToken.Type.Color,
-            $value: "#FFFFFF",
+            $value: hex("#FFFFFF"),
         },
         b: {
             $type: DesignToken.Type.Color,
@@ -740,12 +741,12 @@ Extend("Should allow adding new tokens to an extending library", async () => {
     }
     const source = Library.create(config);
     const extending = source.extend<Extending>({
-        a: { $type: DesignToken.Type.Color, $value: "#000000" },
-        c: { $type: DesignToken.Type.Color, $value: "#111111" },
+        a: { $type: DesignToken.Type.Color, $value: hex("#000000") },
+        c: { $type: DesignToken.Type.Color, $value: hex("#111111") },
     });
 
-    Assert.is(extending.tokens.a.$value, "#000000");
-    Assert.is(extending.tokens.c.$value, "#111111");
+    Assert.equal(extending.tokens.a.$value, hex("#000000"));
+    Assert.equal(extending.tokens.c.$value, hex("#111111"));
 });
 
 Extend(
@@ -759,51 +760,51 @@ Extend(
         }
         const config: Library.Config<Theme> = {
             group: {
-                kept: { $type: DesignToken.Type.Color, $value: "#AAAAAA" },
+                kept: { $type: DesignToken.Type.Color, $value: hex("#AAAAAA") },
                 overridden: {
                     $type: DesignToken.Type.Color,
-                    $value: "#BBBBBB",
+                    $value: hex("#BBBBBB"),
                 },
             },
         };
         const source = Library.create(config);
         const extended = source.extend({
-            group: { overridden: { $value: "#CCCCCC" } },
+            group: { overridden: { $value: hex("#CCCCCC") } },
         } as any);
 
-        Assert.is(
+        Assert.equal(
             (extended.tokens.group as any).kept.$value,
-            "#AAAAAA",
+            hex("#AAAAAA"),
             "unconfigured nested token inherits from source",
         );
-        Assert.is(
+        Assert.equal(
             (extended.tokens.group as any).overridden.$value,
-            "#CCCCCC",
+            hex("#CCCCCC"),
             "configured nested token is overridden",
         );
         // Source is untouched.
-        Assert.is(source.tokens.group.overridden.$value, "#BBBBBB");
+        Assert.equal(source.tokens.group.overridden.$value, hex("#BBBBBB"));
     },
 );
 
 Format("a string reference resolves to the referenced token's value", () => {
     const library = make({
         $type: "color",
-        base: { $value: "#FF0000" },
+        base: { $value: hex("#FF0000") },
         alias: { $value: "{base}" },
         chained: { $value: "{alias}" },
     });
 
-    Assert.is(library.tokens.chained.$value, "#FF0000");
+    Assert.equal(library.tokens.chained.$value, hex("#FF0000"));
 
-    library.tokens.base.set("#00FF00");
-    Assert.is(library.tokens.chained.$value, "#00FF00");
+    library.tokens.base.set(hex("#00FF00"));
+    Assert.equal(library.tokens.chained.$value, hex("#00FF00"));
 });
 
 Format("a reference inside a composite value resolves", () => {
     const library = make({
-        color: { $type: "color", $value: "#FF0000" },
-        width: { $type: "dimension", $value: "1px" },
+        color: { $type: "color", $value: hex("#FF0000") },
+        width: { $type: "dimension", $value: px(1) },
         border: {
             $type: "border",
             $value: { color: "{color}", width: "{width}", style: "solid" },
@@ -811,8 +812,8 @@ Format("a reference inside a composite value resolves", () => {
     });
 
     Assert.equal(library.tokens.border.$value, {
-        color: "#FF0000",
-        width: "1px",
+        color: hex("#FF0000"),
+        width: px(1),
         style: "solid",
     });
 });
@@ -820,7 +821,7 @@ Format("a reference inside a composite value resolves", () => {
 Format("a reference to a group is rejected", () => {
     const library = make({
         $type: "color",
-        group: { a: { $value: "#FF0000" } },
+        group: { a: { $value: hex("#FF0000") } },
         alias: { $value: "{group}" },
     });
 
@@ -866,7 +867,7 @@ Format("a group carries its own description, extensions and type", () => {
             $description: "Brand colors",
             $extensions: { vendor: 1 },
             $deprecated: "old",
-            a: { $value: "#FF0000" },
+            a: { $value: hex("#FF0000") },
         },
     });
 
@@ -880,9 +881,9 @@ Format("a group carries its own description, extensions and type", () => {
 Format("a token reports whether it is deprecated", () => {
     const library = make({
         $type: "color",
-        a: { $value: "#FF0000" },
-        b: { $value: "#FF0000", $deprecated: true },
-        c: { $value: "#FF0000", $deprecated: "use a" },
+        a: { $value: hex("#FF0000") },
+        b: { $value: hex("#FF0000"), $deprecated: true },
+        c: { $value: hex("#FF0000"), $deprecated: "use a" },
     });
 
     Assert.is(library.tokens.a.$deprecated, false);
@@ -894,14 +895,14 @@ Format("$root is a token in its group", () => {
     const library = make({
         accent: {
             $type: "color",
-            $root: { $value: "#0000FF" },
-            light: { $value: "#8888FF" },
+            $root: { $value: hex("#0000FF") },
+            light: { $value: hex("#8888FF") },
         },
         alias: { $type: "color", $value: "{accent.$root}" },
     });
 
     Assert.is(library.tokens.accent.$root.name, "accent.$root");
-    Assert.is(library.tokens.alias.$value, "#0000FF");
+    Assert.equal(library.tokens.alias.$value, hex("#0000FF"));
     Assert.equal(Object.keys(library.tokens.accent), ["$root", "light"]);
 });
 
@@ -909,7 +910,7 @@ Format("a token cannot also have children", () => {
     Assert.throws(
         () =>
             make({
-                t: { $type: "color", $value: "#FF0000", child: {} },
+                t: { $type: "color", $value: hex("#FF0000"), child: {} },
             }),
         /has a \$value, so it is a token and cannot have a child "child"/,
     );
@@ -917,9 +918,11 @@ Format("a token cannot also have children", () => {
 
 Format("an extension keeps the source group's type for new tokens", () => {
     const source = make({
-        group: { $type: "color", a: { $value: "#FF0000" } },
+        group: { $type: "color", a: { $value: hex("#FF0000") } },
     });
-    const extended = source.extend({ group: { b: { $value: "#00FF00" } } });
+    const extended = source.extend({
+        group: { b: { $value: hex("#00FF00") } },
+    });
 
     Assert.is(extended.tokens.group.b.$type, "color");
     Assert.is(extended.tokens.group.a.$type, "color");
@@ -927,10 +930,10 @@ Format("an extension keeps the source group's type for new tokens", () => {
 
 Format("an extension can restate a token's description", () => {
     const source = make({
-        a: { $type: "color", $value: "#FF0000", $description: "one" },
+        a: { $type: "color", $value: hex("#FF0000"), $description: "one" },
     });
     const extended = source.extend({
-        a: { $value: "#00FF00", $description: "two" },
+        a: { $value: hex("#00FF00"), $description: "two" },
     });
 
     Assert.is(extended.tokens.a.$description, "two");

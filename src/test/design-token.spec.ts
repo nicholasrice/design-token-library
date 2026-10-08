@@ -8,6 +8,7 @@ import type {
     FontStyleToken,
     FontStyleValue,
 } from "./my-design-system/custom-types.js";
+import { hex } from "./values.js";
 
 /**
  * Compile-time assertions for the registry-derived type mappers, in particular
@@ -134,7 +135,7 @@ CustomTypes(
             badge: BadgeToken;
         }
         const library = Library.create<Theme>({
-            accent: { $type: DesignToken.Type.Color, $value: "#FFFFFF" },
+            accent: { $type: DesignToken.Type.Color, $value: hex("#FFFFFF") },
             badge: {
                 $type: "badge",
                 // `visible` is not a DTCG value; `color` is, so it can alias.
@@ -144,13 +145,13 @@ CustomTypes(
 
         Assert.equal(library.tokens.badge.$value, {
             visible: true,
-            color: "#FFFFFF",
+            color: hex("#FFFFFF"),
         });
 
-        library.tokens.accent.set("#000000");
+        library.tokens.accent.set(hex("#000000"));
         Assert.equal(library.tokens.badge.$value, {
             visible: true,
-            color: "#000000",
+            color: hex("#000000"),
         });
     },
 );

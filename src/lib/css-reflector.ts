@@ -22,6 +22,9 @@ export interface CSSPropertiesOptions {
      * Defaults to the token's name with `.` replaced by `-` for
      * {@link toProperties}, and to the token's name as-is for {@link toCSS}.
      * Pass the same function to both to keep the names aligned.
+     *
+     * A group's `$root` token is named for the group: `color.accent.$root`
+     * becomes `color.accent`.
      */
     name?(token: Library.Token<any, any>): string;
 }
@@ -98,7 +101,7 @@ export function toProperties<T extends Library.Library<any>>(
                 const property = `--${
                     options.name
                         ? options.name(sectionValue)
-                        : sectionValue.name.replaceAll(".", "-")
+                        : nameOf(sectionValue).replaceAll(".", "-")
                 }`;
                 const propertyValue = Object.freeze({
                     var: `var(${property})`,
@@ -125,6 +128,21 @@ export function toProperties<T extends Library.Library<any>>(
     return properties;
 }
 
+/**
+ * `$` cannot begin a CSS identifier, so a `$root` token takes its group's name.
+ */
+const nameOf = (token: Library.Token<any, any>): string => {
+    return token.name.replace(/(^|\.)\$root$/, "") || "root";
+};
+
+const needsJSON = (value: unknown): boolean => {
+    return (
+        typeof value === "object" &&
+        value !== null &&
+        (!Array.isArray(value) || value.some((v) => typeof v === "object"))
+    );
+};
+
 const recurseToCss = (
     librarySection: Library.TokenLibrary<any, any>,
     options: CSSOptions,
@@ -143,11 +161,15 @@ const recurseToCss = (
 
             if (converter) {
                 value = converter(value, tokenOrGroup);
+            } else if (needsJSON(value)) {
+                // A custom type with no converter: show the value rather than
+                // "[object Object]". Provide a converter for valid CSS.
+                value = JSON.stringify(value);
             }
 
             const name = options.name
                 ? options.name(tokenOrGroup)
-                : tokenOrGroup.name;
+                : nameOf(tokenOrGroup);
             result += `--${name}:${value};`;
         } else {
             result += recurseToCss(tokenOrGroup, options);
@@ -183,11 +205,70 @@ const findConverter = (
 const joiner = <T extends []>(value: T): string => {
     return value.join(" ");
 };
+
+const dimensionConverter = (value: DesignToken.Values.Dimension): string => {
+    return `${value.value}${value.unit}`;
+};
+
+const durationConverter = (value: DesignToken.Values.Duration): string => {
+    return `${value.value}${value.unit}`;
+};
+
+const percent = (component: number | "none"): string => {
+    return component === "none" ? "none" : `${component}%`;
+};
+
+const hexByte = (component: number): string => {
+    const byte = Math.min(255, Math.max(0, Math.round(component * 255)));
+
+    return byte.toString(16).padStart(2, "0");
+};
+
+/**
+ * Convert a color to CSS. An sRGB color becomes hex, and the other color
+ * spaces become the CSS color function for the space.
+ */
+const colorConverter = (value: DesignToken.Values.Color): string => {
+    const alpha = value.alpha ?? 1;
+    const components = value.components;
+    const slash = alpha === 1 ? "" : ` / ${alpha}`;
+    const [a, b, c] = components;
+
+    switch (value.colorSpace) {
+        case "srgb":
+            if (components.every((component) => component !== "none")) {
+                return `#${(components as number[]).map(hexByte).join("")}${
+                    alpha === 1 ? "" : hexByte(alpha)
+                }`;
+            }
+            break;
+        case "hsl":
+            return `hsl(${a} ${percent(b)} ${percent(c)}${slash})`;
+        case "hwb":
+            return `hwb(${a} ${percent(b)} ${percent(c)}${slash})`;
+        case "lab":
+        case "lch":
+        case "oklab":
+        case "oklch":
+            return `${value.colorSpace}(${components.join(" ")}${slash})`;
+    }
+
+    return `color(${value.colorSpace} ${components.join(" ")}${slash})`;
+};
+
 /**
  * Convert a border value to CSS
  */
 const borderConverter = (value: DesignToken.Values.Border): string => {
-    return `${value.width} ${value.style} ${value.color}`;
+    return `${dimensionConverter(value.width)} ${strokeStyleConverter(
+        value.style,
+    )} ${colorConverter(value.color)}`;
+};
+
+const cubicBezierConverter = (
+    value: DesignToken.Values.CubicBezier,
+): string => {
+    return `cubic-bezier(${value.join(", ")})`;
 };
 
 const fontFamilyConverter = (value: DesignToken.Values.FontFamily): string => {
@@ -206,20 +287,58 @@ const fontFamilyQuoter = (value: string): string => {
     return value.includes(" ") ? `"${value}"` : value;
 };
 
+const fontWeights: Record<string, number> = {
+    thin: 100,
+    hairline: 100,
+    "extra-light": 200,
+    "ultra-light": 200,
+    light: 300,
+    normal: 400,
+    regular: 400,
+    book: 400,
+    medium: 500,
+    "semi-bold": 600,
+    "demi-bold": 600,
+    bold: 700,
+    "extra-bold": 800,
+    "ultra-bold": 800,
+    black: 900,
+    heavy: 900,
+    "extra-black": 950,
+    "ultra-black": 950,
+};
+
+const fontWeightConverter = (value: DesignToken.Values.FontWeight): string => {
+    return String(typeof value === "number" ? value : fontWeights[value]);
+};
+
 type Unpacked<T> = T extends (infer U)[] ? U : T;
 
 const gradientReducer = (
     accumulated: string,
     value: Unpacked<DesignToken.Values.Gradient>,
 ): string => {
-    return accumulated + `${value.color} ${value.position * 100}%,`;
+    return (
+        accumulated + `${colorConverter(value.color)} ${value.position * 100}%,`
+    );
 };
 const gradientConverter = (value: DesignToken.Values.Gradient): string => {
     return value.reduce(gradientReducer, "").replace(/,$/, "");
 };
 
 const shadowConverter = (value: DesignToken.Values.Shadow): string => {
-    return `${value.offsetX} ${value.offsetY} ${value.blur} ${value.spread} ${value.color}`;
+    return (Array.isArray(value) ? value : [value])
+        .map(
+            (layer) =>
+                `${layer.inset ? "inset " : ""}${dimensionConverter(
+                    layer.offsetX,
+                )} ${dimensionConverter(layer.offsetY)} ${dimensionConverter(
+                    layer.blur,
+                )} ${dimensionConverter(layer.spread)} ${colorConverter(
+                    layer.color,
+                )}`,
+        )
+        .join(", ");
 };
 
 const strokeStyleConverter = (
@@ -230,13 +349,19 @@ const strokeStyleConverter = (
 };
 
 const transitionConverter = (value: DesignToken.Values.Transition): string => {
-    return `${value.duration} ${value.delay} ${value.timingFunction}`;
+    return `${durationConverter(value.duration)} ${cubicBezierConverter(
+        value.timingFunction,
+    )} ${durationConverter(value.delay)}`;
 };
 
 const TokenConverters = {
     [DesignToken.Type.Border]: borderConverter,
-    [DesignToken.Type.CubicBezier]: joiner,
+    [DesignToken.Type.Color]: colorConverter,
+    [DesignToken.Type.CubicBezier]: cubicBezierConverter,
+    [DesignToken.Type.Dimension]: dimensionConverter,
+    [DesignToken.Type.Duration]: durationConverter,
     [DesignToken.Type.FontFamily]: fontFamilyConverter,
+    [DesignToken.Type.FontWeight]: fontWeightConverter,
     [DesignToken.Type.Gradient]: gradientConverter,
     [DesignToken.Type.Shadow]: shadowConverter,
     [DesignToken.Type.StrokeStyle]: strokeStyleConverter,

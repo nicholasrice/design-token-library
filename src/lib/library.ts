@@ -81,9 +81,11 @@ export namespace Library {
                   | Reference
                   | Alias<DesignToken.TokenByValue<V[K]>, T>
                   | DeepAlias<V[K], T>
-            : // Not a DTCG value (e.g. a field of a custom type): it cannot be
-              // an alias, but it must remain assignable.
-              V[K];
+            : // Not a DTCG value by itself (a field of a custom type, or a list
+              // of values): it cannot be an alias, but the values inside it can.
+              V[K] extends object
+              ? DeepAlias<V[K], T>
+              : V[K];
     };
 
     /**

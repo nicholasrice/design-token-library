@@ -18,6 +18,7 @@ import {
     createPaletteRegistry,
     paletteTheme,
 } from "./my-design-system/palette.js";
+import { hex } from "./values.js";
 
 const Registry = suite("Recipe.registry");
 const fakeToken = ($value: unknown) => ({ $value });
@@ -36,8 +37,8 @@ function nextUpdate(): Promise<void> {
     });
 }
 
-const NEUTRAL = "#787878";
-const ACCENT = "#09AEF6";
+const NEUTRAL = hex("#787878");
+const ACCENT = hex("#09AEF6");
 
 function createTheme() {
     return Library.create<PaletteTheme>(paletteTheme, {
@@ -68,15 +69,15 @@ Registry("register throws on duplicate name", () => {
 Resolve("isRef recognizes reference strings", () => {
     Assert.is(isRef("{color.seed}"), true);
     Assert.is(isRef("{a.b.c}"), true);
-    Assert.is(isRef("#FFFFFF"), false);
+    Assert.equal(isRef(hex("#FFFFFF")), false);
     Assert.is(isRef("color.seed"), false);
     Assert.is(isRef(42), false);
     Assert.is(isRef({}), false);
 });
 
 Resolve("resolveRef walks nested paths and returns the token value", () => {
-    const context: any = { color: { seed: fakeToken("#abcdef") } };
-    Assert.is(resolveRef("{color.seed}", context, "x"), "#abcdef");
+    const context: any = { color: { seed: fakeToken(hex("#abcdef")) } };
+    Assert.equal(resolveRef("{color.seed}", context, "x"), hex("#abcdef"));
 });
 
 Resolve("resolveRef throws on a missing path", () => {
@@ -117,11 +118,11 @@ ValueRecipe("produces one token with the custom type and a list value", () => {
     Assert.is(palette.$type, "palette");
     Assert.is(palette.name, "color.neutral.palette");
     Assert.equal(palette.$value, [
-        "#000000",
-        "#3C3C3C",
-        NEUTRAL.toUpperCase(),
-        "#BCBCBC",
-        "#FFFFFF",
+        hex("#000000"),
+        hex("#3C3C3C"),
+        NEUTRAL,
+        hex("#BCBCBC"),
+        hex("#FFFFFF"),
     ]);
 });
 
@@ -131,8 +132,8 @@ ValueRecipe("has stepCount colors and includes the base color", () => {
 
     Assert.is(neutral.palette.$value.length, 5);
     Assert.is(accent.palette.$value.length, 5);
-    Assert.is(neutral.palette.$value[2], NEUTRAL.toUpperCase());
-    Assert.is(accent.palette.$value[2], ACCENT);
+    Assert.equal(neutral.palette.$value[2], NEUTRAL);
+    Assert.equal(accent.palette.$value[2], ACCENT);
 });
 
 ValueRecipe("recomputes when stepCount changes", () => {
@@ -145,10 +146,10 @@ ValueRecipe("recomputes when stepCount changes", () => {
     Assert.is(neutral.palette.$value.length, 7);
     Assert.is(accent.palette.$value.length, 7);
     // An odd count keeps the base at the midpoint.
-    Assert.is(neutral.palette.$value[3], NEUTRAL.toUpperCase());
-    Assert.is(accent.palette.$value[3], ACCENT);
-    Assert.is(neutral.palette.$value[0], "#000000");
-    Assert.is(neutral.palette.$value[6], "#FFFFFF");
+    Assert.equal(neutral.palette.$value[3], NEUTRAL);
+    Assert.equal(accent.palette.$value[3], ACCENT);
+    Assert.equal(neutral.palette.$value[0], hex("#000000"));
+    Assert.equal(neutral.palette.$value[6], hex("#FFFFFF"));
 });
 
 ValueRecipe("recomputes only the affected palette when a base changes", () => {
@@ -156,9 +157,9 @@ ValueRecipe("recomputes only the affected palette when a base changes", () => {
     const { neutral, accent } = library.tokens.color;
     const accentBefore = [...accent.palette.$value];
 
-    neutral.base.set("#FF0000");
+    neutral.base.set(hex("#FF0000"));
 
-    Assert.is(neutral.palette.$value[2], "#FF0000");
+    Assert.equal(neutral.palette.$value[2], hex("#FF0000"));
     Assert.equal(accent.palette.$value, accentBefore);
 });
 
@@ -185,17 +186,17 @@ ValueRecipe("a palette can be overridden with set()", () => {
     const library = createTheme();
     const palette = library.tokens.color.neutral.palette;
 
-    palette.set(["#111111", "#222222"]);
-    Assert.equal(palette.$value, ["#111111", "#222222"]);
+    palette.set([hex("#111111"), hex("#222222")]);
+    Assert.equal(palette.$value, [hex("#111111"), hex("#222222")]);
 });
 
 ValueRecipe("helpers over the plain value work without methods", () => {
     const library = createTheme();
     const palette = library.tokens.color.accent.palette.$value;
 
-    Assert.is(closestIndexOf(palette, ACCENT), 2);
-    Assert.is(closestIndexOf(palette, "#000001"), 0);
-    Assert.is(closestIndexOf(palette, "#FEFEFE"), 4);
+    Assert.equal(closestIndexOf(palette, ACCENT), 2);
+    Assert.equal(closestIndexOf(palette, hex("#000001")), 0);
+    Assert.equal(closestIndexOf(palette, hex("#FEFEFE")), 4);
 });
 
 // --- Group recipe: color.accent.states expands into fixed tokens ------------
@@ -214,10 +215,10 @@ GroupRecipe("derives its values from the palette via a helper", () => {
     const { states, palette } = library.tokens.color.accent;
     const colors = palette.$value;
 
-    Assert.is(states.rest.$value, ACCENT);
-    Assert.is(states.hover.$value, colors[3]);
-    Assert.is(states.active.$value, colors[1]);
-    Assert.is(states.focus.$value, colors[4]);
+    Assert.equal(states.rest.$value, ACCENT);
+    Assert.equal(states.hover.$value, colors[3]);
+    Assert.equal(states.active.$value, colors[1]);
+    Assert.equal(states.focus.$value, colors[4]);
 });
 
 GroupRecipe("create runs once for all generated tokens", () => {
@@ -248,7 +249,8 @@ GroupRecipe("create runs once for all generated tokens", () => {
 GroupRecipe("generated tokens are read-only", () => {
     const library = createTheme();
     Assert.throws(
-        () => library.tokens.color.accent.states.rest.set("#FFFFFF" as any),
+        () =>
+            library.tokens.color.accent.states.rest.set(hex("#FFFFFF") as any),
         /read-only/,
     );
 });
@@ -257,7 +259,7 @@ GroupRecipe("flow through toCSS and toProperties", () => {
     const library = createTheme();
 
     const css = toCSS(library);
-    Assert.ok(css.includes("--color.accent.states.rest:#09AEF6;"), css);
+    Assert.ok(css.includes("--color.accent.states.rest:#09aef6;"), css);
     Assert.ok(css.includes("--color.neutral.base:#787878;"), css);
     Assert.ok(css.includes("--color.palette.stepCount:5;"), css);
 
@@ -318,11 +320,15 @@ Cascade("a base change cascades through every dependent level", () => {
     const hoverBefore = accent.states.hover.$value;
     const focusRingBefore = accent.focusRing.$value;
 
-    accent.base.set("#FF8800");
+    accent.base.set(hex("#FF8800"));
 
-    Assert.is(accent.palette.$value[3], "#FF8800", "base is the midpoint");
-    Assert.is(accent.states.rest.$value, "#FF8800");
-    Assert.is(accent.palette.$value[0], "#000000");
+    Assert.equal(
+        accent.palette.$value[3],
+        hex("#FF8800"),
+        "base is the midpoint",
+    );
+    Assert.equal(accent.states.rest.$value, hex("#FF8800"));
+    Assert.equal(accent.palette.$value[0], hex("#000000"));
     Assert.is.not(accent.dark.$value, darkBefore, "computed token updated");
     Assert.is.not(accent.states.hover.$value, hoverBefore, "states updated");
     Assert.is.not(accent.focusRing.$value, focusRingBefore, "alias updated");
@@ -336,22 +342,22 @@ Cascade("a stepCount change reaches a computed token reading a palette", () => {
     library.tokens.color.palette.stepCount.set(7);
 
     Assert.is.not(accent.dark.$value, before);
-    Assert.is(accent.dark.$value, accent.palette.$value[1]);
+    Assert.equal(accent.dark.$value, accent.palette.$value[1]);
 });
 
 Cascade("a stepCount change reaches a group recipe consuming a palette", () => {
     const library = createTheme();
     const { states, palette } = library.tokens.color.accent;
 
-    Assert.is(states.hover.$value, palette.$value[3]);
+    Assert.equal(states.hover.$value, palette.$value[3]);
     library.tokens.color.palette.stepCount.set(7);
 
     const colors = palette.$value;
     Assert.is(colors.length, 7);
-    Assert.is(states.rest.$value, ACCENT);
-    Assert.is(states.hover.$value, colors[4]);
-    Assert.is(states.active.$value, colors[2]);
-    Assert.is(states.focus.$value, colors[5]);
+    Assert.equal(states.rest.$value, ACCENT);
+    Assert.equal(states.hover.$value, colors[4]);
+    Assert.equal(states.active.$value, colors[2]);
+    Assert.equal(states.focus.$value, colors[5]);
 });
 
 Cascade(
@@ -360,11 +366,11 @@ Cascade(
         const library = createTheme();
         const { accent } = library.tokens.color;
 
-        Assert.is(accent.focusRing.$value, "#FFFFFF");
+        Assert.equal(accent.focusRing.$value, hex("#FFFFFF"));
         library.tokens.color.palette.stepCount.set(7);
 
-        Assert.is(accent.focusRing.$value, accent.palette.$value[5]);
-        Assert.is.not(accent.focusRing.$value, "#FFFFFF");
+        Assert.equal(accent.focusRing.$value, accent.palette.$value[5]);
+        Assert.is.not(accent.focusRing.$value, hex("#FFFFFF"));
     },
 );
 
@@ -415,7 +421,7 @@ Declarative("a library with recipes can be created from JSON", () => {
         color: {
             palette: { stepCount: { $type: "number", $value: 3 } },
             neutral: {
-                base: { $type: "color", $value: "#787878" },
+                base: { $type: "color", $value: hex("#787878") },
                 palette: {
                     $type: "palette",
                     $value: {
@@ -428,7 +434,7 @@ Declarative("a library with recipes can be created from JSON", () => {
                 },
             },
             accent: {
-                base: { $type: "color", $value: "#09AEF6" },
+                base: { $type: "color", $value: hex("#09AEF6") },
                 palette: {
                     $type: "palette",
                     $value: {
@@ -455,8 +461,12 @@ Declarative("a library with recipes can be created from JSON", () => {
     }) as unknown as Library.Library<PaletteTheme>;
     const { neutral, accent } = library.tokens.color;
 
-    Assert.equal(neutral.palette.$value, ["#000000", "#787878", "#FFFFFF"]);
-    Assert.is(accent.states.rest.$value, ACCENT);
+    Assert.equal(neutral.palette.$value, [
+        hex("#000000"),
+        hex("#787878"),
+        hex("#FFFFFF"),
+    ]);
+    Assert.equal(accent.states.rest.$value, ACCENT);
 
     library.tokens.color.palette.stepCount.set(5);
     Assert.is(neutral.palette.$value.length, 5);
@@ -485,7 +495,7 @@ Extend("overriding a recipe's params keeps the shape", () => {
                 palette: {
                     $value: {
                         $recipe: "createPalette",
-                        $with: { base: "#FF0000" },
+                        $with: { base: hex("#FF0000") },
                     },
                 },
             },
@@ -494,8 +504,8 @@ Extend("overriding a recipe's params keeps the shape", () => {
 
     const palette = extended.tokens.color.accent.palette.$value;
     Assert.is(palette.length, 5, "steps still come from the source reference");
-    Assert.is(palette[2], "#FF0000");
-    Assert.is(library.tokens.color.accent.palette.$value[2], ACCENT);
+    Assert.equal(palette[2], hex("#FF0000"));
+    Assert.equal(library.tokens.color.accent.palette.$value[2], ACCENT);
 });
 
 Extend("a group recipe follows inputs overridden in the extension", () => {
@@ -508,9 +518,9 @@ Extend("a group recipe follows inputs overridden in the extension", () => {
     const colors = palette.$value;
 
     Assert.is(colors.length, 7);
-    Assert.is(states.hover.$value, colors[4], "uses the extended palette");
-    Assert.is(states.focus.$value, colors[5]);
-    Assert.is(
+    Assert.equal(states.hover.$value, colors[4], "uses the extended palette");
+    Assert.equal(states.focus.$value, colors[5]);
+    Assert.equal(
         extended.tokens.color.accent.focusRing.$value,
         colors[5],
         "aliases of generated tokens follow too",
@@ -519,7 +529,7 @@ Extend("a group recipe follows inputs overridden in the extension", () => {
     // The source library is untouched.
     const source = library.tokens.color.accent;
     Assert.is(source.palette.$value.length, 5);
-    Assert.is(source.states.hover.$value, source.palette.$value[3]);
+    Assert.equal(source.states.hover.$value, source.palette.$value[3]);
 });
 
 // --- Node schema and generated keys ----------------------------------------
@@ -529,7 +539,7 @@ const createNode = (node: object, recipes = createPaletteRegistry()) =>
 
 const paletteNode = {
     $recipe: "createPalette",
-    $with: { base: "#787878", steps: 3 },
+    $with: { base: hex("#787878"), steps: 3 },
 };
 
 Node("rejects the unprefixed `with`, and says what to use", () => {
@@ -551,13 +561,13 @@ Node("$with is optional and must be an object", () => {
     registry.register({
         name: "constant",
         type: "palette",
-        create: () => ["#000000"],
+        create: () => [hex("#000000")],
     });
 
     Assert.equal(
         createNode({ $value: { $recipe: "constant" } }, registry).tokens.node
             .$value,
-        ["#000000"],
+        [hex("#000000")],
     );
     Assert.throws(
         () =>
@@ -607,7 +617,10 @@ Node("passes the token's own properties to a value recipe's token", () => {
 Node("a group recipe carries the group's properties", () => {
     const group = createNode({
         $recipe: "createStates",
-        $with: { base: "#09AEF6", palette: ["#000000", "#09AEF6", "#FFFFFF"] },
+        $with: {
+            base: hex("#09AEF6"),
+            palette: [hex("#000000"), hex("#09AEF6"), hex("#FFFFFF")],
+        },
         $description: "States",
         $extensions: { note: 1 },
         $deprecated: true,
@@ -641,13 +654,17 @@ Node("a group recipe may generate keys named like node properties", () => {
         name: "named",
         type: DesignToken.Type.Color,
         keys: () => ["with", "recipe", "type"],
-        create: () => ({ with: "#111111", recipe: "#222222", type: "#333333" }),
+        create: () => ({
+            with: hex("#111111"),
+            recipe: hex("#222222"),
+            type: hex("#333333"),
+        }),
     });
     const node = createNode({ $recipe: "named" }, registry).tokens.node;
 
     Assert.equal(Object.keys(node), ["with", "recipe", "type"]);
-    Assert.is(node.with.$value, "#111111");
-    Assert.is(node.type.$value, "#333333");
+    Assert.equal(node.with.$value, hex("#111111"));
+    Assert.equal(node.type.$value, hex("#333333"));
 });
 
 for (const [label, keys, expected] of [

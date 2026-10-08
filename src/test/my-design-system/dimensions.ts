@@ -1,6 +1,7 @@
 import { DesignToken } from "../../lib/design-token.js";
 import { Library } from "../../lib/library.js";
 import { Theme } from "./theme.js";
+import { px } from "../values.js";
 
 export interface Dimensions {
     $type: DesignToken.Type;
@@ -10,6 +11,6 @@ export interface Dimensions {
 
 export const dimensions: Library.Config<Dimensions, Theme> = {
     $type: DesignToken.Type.Dimension,
-    unit: { $value: "4px" },
-    border: { $value: "1px" },
+    unit: { $value: px(4) },
+    border: { $value: px(1) },
 };
