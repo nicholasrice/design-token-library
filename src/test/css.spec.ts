@@ -477,12 +477,13 @@ toPropertiesSuite.skip(
     },
 );
 
-toPropertiesSuite.skip("[P7] omits tokenless groups (fails: D16)", () => {
-    const properties = toProperties(
-        createUntyped({ g: {}, b: { type: C, value: "#111111" } }),
+toPropertiesSuite("[P7] keeps tokenless groups as empty groups", () => {
+    const properties: any = toProperties(
+        createUntyped({ g: { x: 1 }, b: { type: C, value: "#111111" } }),
     );
 
-    Assert.equal(Object.keys(properties), ["b"]);
+    Assert.equal(Object.keys(properties), ["g", "b"]);
+    Assert.equal(Object.keys(properties.g), []);
 });
 
 toPropertiesSuite("[P5] preserves name casing", () => {

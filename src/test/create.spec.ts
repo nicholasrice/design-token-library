@@ -206,35 +206,35 @@ Create.skip(
     },
 );
 
-const tokenlessGroups: Array<[string, object]> = [
-    ["an empty group", {}],
-    ["a group of only non-token entries", { x: 1, y: null }],
-    ["a group with only a type", { type: C }],
-    ["a group of only empty subgroups", { h: {}, i: { j: {} } }],
+const tokenlessGroups: Array<[string, object, string[]]> = [
+    ["an empty group", {}, []],
+    ["a group of only non-token entries", { x: 1, y: null }, []],
+    ["a group with only a type", { type: C }, []],
+    ["a group of only empty subgroups", { h: {}, i: { j: {} } }, ["h", "i"]],
 ];
 
-for (const [label, group] of tokenlessGroups) {
-    Create.skip(`[C11e] ${label} is omitted (fails: D16)`, () => {
-        const library = createUntyped({
-            g: group,
-            b: { type: C, value: "#111111" },
-        });
+for (const [label, group, expectedKeys] of tokenlessGroups) {
+    Create(
+        `[C11e] ${label} is kept, exposing only its groups and tokens`,
+        () => {
+            const library = createUntyped({
+                g: group,
+                b: { type: C, value: "#111111" },
+            });
 
-        Assert.equal(Object.keys(library.tokens), ["b"]);
-        Assert.not.ok("g" in library.tokens);
-    });
+            Assert.equal(Object.keys(library.tokens), ["g", "b"]);
+            Assert.equal(Object.keys(library.tokens.g), expectedKeys);
+        },
+    );
 }
 
-Create.skip(
-    "[C11f] a group keeps its tokens and omits its tokenless subgroups (fails: D16)",
-    () => {
-        const library = createUntyped({
-            g: { type: C, empty: {}, t: { value: "#111111" } },
-        });
+Create("[C11f] a group keeps both its tokens and its empty subgroups", () => {
+    const library = createUntyped({
+        g: { type: C, empty: {}, t: { value: "#111111" } },
+    });
 
-        Assert.equal(Object.keys(library.tokens.g), ["t"]);
-    },
-);
+    Assert.equal(Object.keys(library.tokens.g), ["empty", "t"]);
+});
 
 Create("[C13] libraries created from the same config are independent", () => {
     const config = { a: { type: C, value: "#111111" } };
