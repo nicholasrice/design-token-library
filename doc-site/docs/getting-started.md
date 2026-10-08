@@ -24,14 +24,14 @@ Next, define the hierarchy of the library. This hierarchy is arbitrary, so choos
 
 ```ts
 export interface IMyLibrary {
-  colors: {
-    foreground: DesignToken.Color;
-    background: DesignToken.Color;
-  };
-  typography: {
-    base: DesignToken.FontFamily;
-    body: DesignToken.Typography;
-  };
+    colors: {
+        foreground: DesignToken.Color;
+        background: DesignToken.Color;
+    };
+    typography: {
+        base: DesignToken.FontFamily;
+        body: DesignToken.Typography;
+    };
 }
 ```
 
@@ -43,66 +43,73 @@ With the Library interface defined, the concrete library config can be construct
 import { Library } from "design-token-library";
 
 const myLibraryConfig: Library.Config<IMyLibrary> = {
-  colors: {
-    foreground: {
-      type: DesignToken.Type.Color,
-      value: "#010101",
+    colors: {
+        foreground: {
+            $type: DesignToken.Type.Color,
+            $value: { colorSpace: "srgb", components: [0, 0, 0] },
+        },
+        background: {
+            $type: DesignToken.Type.Color,
+            $value: { colorSpace: "srgb", components: [1, 1, 1] },
+        },
     },
-    background: {
-      type: DesignToken.Type.Color,
-      value: "#FEFEFE",
+    typography: {
+        fonts: {
+            $type: DesignToken.Type.FontFamily,
+            $value: "Helvetica",
+        },
+        body: {
+            $type: DesignToken.Type.Typography,
+            $value: {
+                fontFamily: (tokens) => tokens.typography.fonts.base, // Alias
+                fontSize: { value: 14, unit: "px" },
+                fontWeight: 400,
+                letterSpacing: { value: 0, unit: "px" },
+                lineHeight: 1.3,
+            },
+        },
     },
-  },
-  typography: {
-    fonts: {
-      type: DesignToken.Type.FontFamily,
-      value: "Helvetica"
-    },
-    body: {
-      type: DesignToken.Type.Typography
-      value: {
-        fontFamily: (tokens) => tokens.typography.fonts.base, // Alias
-        fontSize: "14px",
-        fontWeight: 400;
-        letterSpacing: "0px";
-        lineHeight: "18px";
-      }
-    },
-  }
 };
 ```
 
+Property names and value shapes follow the [DTCG format 2025.10](https://www.designtokens.org/tr/2025.10/format/): a token has a `$value`, and may have a `$type`, `$description`, `$extensions` and `$deprecated`. A color is an object with a color space, a dimension is a number with a unit, and so on. To read a library from a `.tokens.json` file instead, see [JSON files](./json).
+
 ### Tokens
 
-Each token in the library must have a `value` property, and groups must not have a value. Tokens can be assigned three types of values: **static**, **alias**, and **computed**.
+Each token in the library must have a `$value` property, and groups must not have a value. Tokens can be assigned three types of values: **static**, **alias**, and **computed**. An alias can also be written as a DTCG reference string such as `"{colors.foreground}"`.
 
 ```ts
 interface Colors {
-  static: DesignToken.Color;
-  alias: DesignToken.Color;
-  computed: DesignToken.Color;
+    static: DesignToken.Color;
+    alias: DesignToken.Color;
+    reference: DesignToken.Color;
+    computed: DesignToken.Color;
 }
 
 const config: Library.Config<Colors> = {
-  static: {
-    type: DesignToken.Type.Color,
-    value: "#FFFFFF",
-  },
-  alias: {
-    type: DesignToken.Type.Color,
-    value: (tokens) => tokens.static, // alias to the 'static' token
-  },
-  computed: {
-    type: DesignToken.Type.Color,
-    // Operate on the value of the 'alias' token
-    value: (tokens) => darken(tokens.alias.value, 0.3),
-  },
+    static: {
+        $type: DesignToken.Type.Color,
+        $value: { colorSpace: "srgb", components: [1, 1, 1] },
+    },
+    alias: {
+        $type: DesignToken.Type.Color,
+        $value: (tokens) => tokens.static, // alias to the 'static' token
+    },
+    reference: {
+        $type: DesignToken.Type.Color,
+        $value: "{static}", // the same alias, as a DTCG reference
+    },
+    computed: {
+        $type: DesignToken.Type.Color,
+        // Operate on the value of the 'alias' token
+        $value: (tokens) => darken(tokens.alias.$value, 0.3),
+    },
 };
 ```
 
 ### Groups
 
-In alignment with the [DTCG Group](https://design-tokens.github.io/community-group/format/#type-1) specification, token groups _may_ define a `type` field. All tokens part of the group will infer their type from the group unless they define their own type.
+In alignment with the [DTCG Group](https://design-tokens.github.io/community-group/format/#type-1) specification, token groups _may_ define a `$type`, `$description`, `$extensions` and `$deprecated`. All tokens part of the group will infer their type from the group unless they define their own type. A group also can have a `$root` token, which is the group's own token.
 
 ## Creating a Library
 
@@ -114,10 +121,11 @@ const library = Library.create(myLibraryConfig);
 
 ### Reading Token Values
 
-The value of a token can easily be read:
+A token in the library has the same property names as in the config: `$value`, `$type`, `$description`, `$extensions` and `$deprecated`, plus its `name`. The value of a token can easily be read:
 
 ```ts
-const value = library.tokens.colors.foreground.value;
+const value = library.tokens.colors.foreground.$value;
+// { colorSpace: "srgb", components: [0, 0, 0] }
 ```
 
 ### Setting Token Values
@@ -125,44 +133,47 @@ const value = library.tokens.colors.foreground.value;
 The value of a token can be set via the `.set()` method:
 
 ```ts
-library.tokens.colors.foreground.set("#EEEEEE");
+library.tokens.colors.foreground.set({
+    colorSpace: "srgb",
+    components: [0.93, 0.93, 0.93],
+});
 ```
 
 ### Subscribing to Changes
 
 ```ts
 const subscriber: Library.Subscriber<IMyLibrary> = {
-  onChange: (tokens) => {
-    tokens.forEach((token) => {
-      /* do something with tokens */
-    });
-  },
+    onChange: (tokens) => {
+        tokens.forEach((token) => {
+            /* do something with tokens */
+        });
+    },
 };
 library.subscribe(subscriber);
 
 // Will notify subscribers
-library.tokens.foreground.set("#878787");
+library.tokens.foreground.set(gray);
 ```
 
 Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
 
 ```ts
 const library = Library.create({
-  a: { type: DesignToken.Type.Color, value: "#000000" },
-  b: { type: DesignToken.Type.Color, value: (tokens) => tokens.a },
+    a: { $type: DesignToken.Type.Color, $value: black },
+    b: { $type: DesignToken.Type.Color, $value: (tokens) => tokens.a },
 });
 
 library.subscribe({
-  onChange(tokens) {
-    /* ... */
-  },
+    onChange(tokens) {
+        /* ... */
+    },
 });
 
 // Will only notify 'library.tokens.a'
-library.tokens.a.set("#FFFFFF");
+library.tokens.a.set(white);
 
-const b = library.tokens.b.value;
+const b = library.tokens.b.$value;
 
 // Will now notify with 'library.tokens.a' and 'library.tokens.b'
-library.tokens.a.set("#111111");
+library.tokens.a.set(nearBlack);
 ```

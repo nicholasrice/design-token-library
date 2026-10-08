@@ -28,8 +28,11 @@ one without is a value recipe.
 | Value | omitted | one token, whose value is `create()`'s result | a `palette` of colors    |
 | Group | present | one token per key, e.g. `rest`, `hover`, …    | interactive-state colors |
 
-Both are referenced the same way in config, so the declaration doesn't change
-when an operator moves from one kind to the other.
+The two are called from different places, which keeps every node valid DTCG: a
+**value recipe** is called from the `$value` of a token, so the token keeps its
+own `$type`, `$description` and `$extensions`; a **group recipe** is called from
+a group node. Calling a recipe from the wrong place is an error that says which
+one it is.
 
 ### Value recipes and custom types
 
@@ -46,10 +49,11 @@ export type PaletteValue = DesignToken.Values.Color[];
 // A custom token type is declared directly. `DesignToken.Properties` stays
 // constrained to the DTCG types.
 export interface PaletteToken {
-    description?: string;
-    type?: "palette";
-    extensions?: Record<string, any>;
-    value: PaletteValue;
+    $description?: string;
+    $type?: "palette";
+    $extensions?: Record<string, any>;
+    $deprecated?: boolean | string;
+    $value: PaletteValue;
 }
 
 // Register the custom type. No edit to the library is needed.
@@ -62,7 +66,7 @@ declare module "design-token-library" {
 }
 
 export const createPalette: Recipe<
-    { base: string; steps: number },
+    { base: DesignToken.Values.Color; steps: number },
     PaletteValue
 > = {
     name: "createPalette",
@@ -75,7 +79,10 @@ export const createPalette: Recipe<
 };
 
 // A helper over the plain value, not a method on it.
-export function closestIndexOf(palette: PaletteValue, color: string): number {
+export function closestIndexOf(
+    palette: PaletteValue,
+    color: DesignToken.Values.Color,
+): number {
     /* … */
 }
 ```
@@ -133,26 +140,38 @@ registry.register(createPalette);
 
 ## Using a recipe in config
 
-Reference the recipe declaratively with `$recipe` and `$with`. Inputs reference
-other tokens with DTCG-style string references, so the whole declaration is
-plain JSON-serializable data.
+Call the recipe declaratively with `$recipe` and `$with`. Inputs reference
+other tokens with DTCG string references, so the whole declaration is plain
+JSON-serializable data.
 
 ```ts
 const library = Library.create(
     {
         color: {
             palette: {
-                stepCount: { type: DesignToken.Type.Number, value: 10 },
+                stepCount: { $type: DesignToken.Type.Number, $value: 10 },
             },
             accent: {
-                base: { type: DesignToken.Type.Color, value: "#09AEF6" },
-                palette: {
-                    $recipe: "createPalette",
-                    $with: {
-                        base: "{color.accent.base}",
-                        steps: "{color.palette.stepCount}",
+                base: {
+                    $type: DesignToken.Type.Color,
+                    $value: {
+                        colorSpace: "srgb",
+                        components: [0.04, 0.68, 0.96],
                     },
                 },
+                // A value recipe: a token whose $value is the call.
+                palette: {
+                    $type: "palette",
+                    $description: "Ten steps from black to white.",
+                    $value: {
+                        $recipe: "createPalette",
+                        $with: {
+                            base: "{color.accent.base}",
+                            steps: "{color.palette.stepCount}",
+                        },
+                    },
+                },
+                // A group recipe: a group that is the call.
                 states: {
                     $recipe: "createStates",
                     $with: {
@@ -166,40 +185,42 @@ const library = Library.create(
     { recipes: registry }, // omit to use the global registry
 );
 
-library.tokens.color.accent.palette.value; // ["#000000", …, "#FFFFFF"]
-library.tokens.color.accent.states.hover.value; // a generated color
+library.tokens.color.accent.palette.$value; // [{ colorSpace: "srgb", … }, …]
+library.tokens.color.accent.states.hover.$value; // a generated color
 ```
 
-The whole declaration is plain data, so the same library can be loaded from
-JSON.
+The whole declaration is plain data, so the same library can be loaded from a
+[JSON file](./json#recipes).
 
-### The recipe node
+### The recipe call
 
-A recipe node accepts only these properties, and any other key is an error
+A recipe call accepts only these properties, and any other key is an error
 instead of being ignored:
 
-| Property       | Meaning                                                                  |
-| -------------- | ------------------------------------------------------------------------ |
-| `$recipe`      | The name of the registered recipe. Required.                             |
-| `$with`        | The recipe's params, as an object. Optional.                             |
-| `$type`        | Optional. The recipe decides the type, so this must match it when given. |
-| `$description` | The produced token's description. Value recipes only.                    |
-| `$extensions`  | The produced token's extensions. Value recipes only.                     |
+| Property  | Meaning                                      |
+| --------- | -------------------------------------------- |
+| `$recipe` | The name of the registered recipe. Required. |
+| `$with`   | The recipe's params, as an object. Optional. |
+
+A **value recipe**'s call is the token's `$value`. The token is an ordinary token,
+so `$type` (which must be the recipe's type when given), `$description`,
+`$extensions` and `$deprecated` are the token's own.
+
+A **group recipe**'s call is the group node itself. The group can carry
+`$description`, `$extensions` and `$deprecated`, and `$type` when it matches the
+recipe. A `$deprecated` group deprecates every token the recipe generates.
 
 Every property is `$`-prefixed, as format properties are in DTCG. Token and
-group names can't begin with `$`, so a node property never collides with a name,
+group names can't begin with `$`, so a property never collides with a name,
 including the names a group recipe generates. A group recipe may generate a key
 called `with` or `type`.
-
-A group is not yet able to carry a description or extensions, so a group recipe
-rejects `$description` and `$extensions`.
 
 ## Recipe tokens are first-class
 
 Recipe tokens behave like any other token:
 
 - **Aliasable** — another token can reference one, or read a palette's value:
-  `value: (theme) => theme.color.accent.palette.value[1]`.
+  `$value: (theme) => theme.color.accent.palette.$value[1]`.
 - **Cascading** — recipes can consume other recipes. Setting
   `library.tokens.color.palette.stepCount.set(12)` recomputes each palette, the
   states derived from it, and any token aliasing those. Only the tokens that
@@ -220,9 +241,19 @@ against the extended library, so overriding an input there flows through:
 ```ts
 const dark = library.extend({
     color: {
-        palette: { stepCount: { value: 7 } }, // palettes and states follow
+        palette: { stepCount: { $value: 7 } }, // palettes and states follow
         accent: {
-            palette: { $recipe: "createPalette", $with: { base: "#0A1A66" } },
+            palette: {
+                $value: {
+                    $recipe: "createPalette",
+                    $with: {
+                        base: {
+                            colorSpace: "srgb",
+                            components: [0.04, 0.1, 0.4],
+                        },
+                    },
+                },
+            },
         },
     },
 });

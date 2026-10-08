@@ -12,21 +12,22 @@ this library.
 ## Registering a type
 
 Declare the token interface directly, then register it with `TypeDefinitions`
-using declaration merging. The key is the string used as the token's `type`.
+using declaration merging. The key is the string used as the token's `$type`.
 
 ```ts
 interface FontStyleToken {
-    type?: "fontStyle";
-    description?: string;
-    extensions?: Record<string, any>;
-    value: "regular" | "italic";
+    $type?: "fontStyle";
+    $description?: string;
+    $extensions?: Record<string, any>;
+    $deprecated?: boolean | string;
+    $value: "regular" | "italic";
 }
 
 declare module "design-token-library" {
     namespace DesignToken {
         interface TypeDefinitions {
             fontStyle: {
-                value: FontStyleToken["value"];
+                value: FontStyleToken["$value"];
                 token: FontStyleToken;
             };
         }
@@ -44,10 +45,10 @@ interface Theme {
 }
 
 const library = Library.create<Theme>({
-    italic: { type: "boolean", value: true },
+    italic: { $type: "boolean", $value: true },
     style: {
-        type: "fontStyle",
-        value: (theme) => (theme.italic.value ? "italic" : "regular"),
+        $type: "fontStyle",
+        $value: (theme) => (theme.italic.$value ? "italic" : "regular"),
     },
 });
 ```
@@ -56,7 +57,7 @@ A few rules keep the types sound:
 
 - **Declare the token interface directly.** `DesignToken.Properties` stays
   constrained to the DTCG types, so a custom type is not built with it.
-- **Give the token a distinct `type` literal.** That is what keeps one token type
+- **Give the token a distinct `$type` literal.** That is what keeps one token type
   distinguishable from another.
 - **Composite values can mix fields.** In a custom composite value, fields that
   are DTCG values (such as a color) can be aliases, and other fields are plain
@@ -93,6 +94,22 @@ toCSS(library, {
 toProperties(library, { filter, name });
 ```
 
-A custom type with no converter is written with its default string conversion.
-`toCSS` uses the token's name as-is and `toProperties` replaces `.` with `-`, so
+A custom type with no converter is written as JSON, so it shows up but is not
+valid CSS. `toCSS` uses the token's name as-is and `toProperties` replaces `.` with `-`, so
 pass the same `name` function to both to keep the property names aligned.
+
+## JSON files
+
+A custom type can be used in a [DTCG file](./json) by listing its name, and it
+has no DTCG form to write back, so [`toDTCG`](./json#writing-a-document) needs a
+converter or a filter for it:
+
+```ts
+const library = fromDTCG(text, { types: ["fontStyle"] }); // values are not validated
+
+toDTCG(library, {
+    converters: {
+        fontStyle: (value) => ({ $type: "string", $value: value }),
+    },
+});
+```

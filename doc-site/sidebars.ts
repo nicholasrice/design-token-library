@@ -17,6 +17,7 @@ const sidebars: SidebarsConfig = {
   tutorialSidebar: [
     "intro",
     "getting-started",
+    "json",
     "custom-types",
     "recipes",
     // {
