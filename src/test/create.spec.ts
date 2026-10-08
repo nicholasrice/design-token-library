@@ -149,7 +149,7 @@ for (const [type, value] of valuesByType) {
     });
 }
 
-Create.skip("[C10] the root token library is frozen (fails: U3)", () => {
+Create.skip("[C10] the root token library is frozen (fails: #23)", () => {
     const library = createUntyped({ a: { type: C, value: "#111111" } });
 
     Assert.ok(Object.isFrozen(library.tokens));
@@ -195,7 +195,7 @@ Create("[C11c] non-token entries in an extend config are ignored", () => {
 });
 
 Create.skip(
-    "[C11d] an array config entry is ignored, not treated as a group (fails: D15)",
+    "[C11d] an array config entry is ignored, not treated as a group (fails: #20)",
     () => {
         const library = createUntyped({
             a: [1, 2],
@@ -248,7 +248,7 @@ Create("[C13] libraries created from the same config are independent", () => {
 });
 
 Create.skip(
-    "[C14a] toString() returns a JSON representation of the token (fails: D11)",
+    "[C14a] toString() returns a JSON representation of the token (fails: #17)",
     () => {
         const library = createUntyped({
             g: {
@@ -272,7 +272,7 @@ Create.skip(
 );
 
 Create.skip(
-    "[C14b] toString() serializes the resolved value of an alias token (fails: D11)",
+    "[C14b] toString() serializes the resolved value of an alias token (fails: #17)",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -297,7 +297,7 @@ Create.skip(
 );
 
 Create.skip(
-    "[C14c] toString() reflects the current value after set() (fails: D11)",
+    "[C14c] toString() reflects the current value after set() (fails: #17)",
     () => {
         const library = createUntyped({ a: { type: C, value: "#111111" } });
 

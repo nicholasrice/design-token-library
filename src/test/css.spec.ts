@@ -230,7 +230,7 @@ toCssSuite("[T1] concatenates multiple flat tokens in order", () => {
 });
 
 toCssSuite.skip(
-    "[T2] emits tokens declared before a nested group (fails: D1)",
+    "[T2] emits tokens declared before a nested group (fails: #10)",
     () => {
         const result = toCSS(
             createUntyped({
@@ -244,7 +244,7 @@ toCssSuite.skip(
     },
 );
 
-toCssSuite.skip("[T3] emits tokens from sibling groups (fails: D1)", () => {
+toCssSuite.skip("[T3] emits tokens from sibling groups (fails: #10)", () => {
     const result = toCSS(
         createUntyped({
             g1: { type: C, x: { value: "#111111" } },
@@ -257,7 +257,7 @@ toCssSuite.skip("[T3] emits tokens from sibling groups (fails: D1)", () => {
 });
 
 toCssSuite.skip(
-    "[T4] nested names use '-' separators, matching toProperties (fails: D2)",
+    "[T4] nested names use '-' separators, matching toProperties (fails: #10)",
     () => {
         const library = createUntyped({
             g: { type: C, b: { value: "#222222" } },
@@ -270,7 +270,7 @@ toCssSuite.skip(
 );
 
 toCssSuite.skip(
-    "[T5] converts Transition with a cubic-bezier() timing function (fails: D4)",
+    "[T5] converts Transition with a cubic-bezier() timing function (fails: #12)",
     () => {
         const config: Config<DesignToken.Transition> = {
             token: {
@@ -310,7 +310,7 @@ toCssSuite("[T7] converts object StrokeStyle to 'dashed'", () => {
 });
 
 toCssSuite.skip(
-    "[T8] converts Typography to a font shorthand (fails: D3)",
+    "[T8] converts Typography to a font shorthand (fails: #11)",
     () => {
         const config: Config<DesignToken.Typography> = {
             token: {
@@ -333,7 +333,7 @@ toCssSuite.skip(
 );
 
 toCssSuite.skip(
-    "[T9] converts Gradient positions without float error (fails: D5)",
+    "[T9] converts Gradient positions without float error (fails: #13)",
     () => {
         const config: Config<DesignToken.Gradient> = {
             token: {
@@ -402,7 +402,7 @@ toCssSuite("[T13a] emits overrides for a flat extended library", () => {
 });
 
 toCssSuite.skip(
-    "[T13b] emits tokens for an extended library with groups (fails: D6)",
+    "[T13b] emits tokens for an extended library with groups (fails: #14)",
     () => {
         const extended = createUntyped({
             g: { type: C, a: { value: "#111111" } },
@@ -444,7 +444,7 @@ toPropertiesSuite("[P2] groups and property values are frozen", () => {
     Assert.ok(Object.isFrozen(properties.g.a), "property value");
 });
 
-toPropertiesSuite.skip("[P3] the root object is frozen (fails: U3)", () => {
+toPropertiesSuite.skip("[P3] the root object is frozen (fails: #23)", () => {
     const properties = toProperties(
         createUntyped({ a: { type: C, value: "#111111" } }),
     );
@@ -466,7 +466,7 @@ toPropertiesSuite(
 );
 
 toPropertiesSuite.skip(
-    "[P4b] supports an extended library with groups (fails: D6)",
+    "[P4b] supports an extended library with groups (fails: #14)",
     () => {
         const extended = createUntyped({
             g: { type: C, a: { value: "#111111" } },

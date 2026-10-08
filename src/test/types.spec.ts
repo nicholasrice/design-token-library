@@ -57,13 +57,13 @@ const newKey: DesignToken.Values.Color = extended.tokens.c.value;
 // @ts-expect-error [Y5] set() rejects a mismatched value type
 library.tokens.a.set(12);
 
-// [Y6] (fails: U8) Enable once Dimension accepts "rem" and rejects "rm".
+// [Y6] (fails: #26) Enable once Dimension accepts "rem" and rejects "rm".
 // This can't be skipped at runtime because it is a compile-time check.
 // const rem: DesignToken.Values.Dimension = "1rem";
 // // @ts-expect-error
 // const rm: DesignToken.Values.Dimension = "1rm";
 
-// [Y7] (fails: U4) Enable once token values are deeply readonly at compile time.
+// [Y7] (fails: #24) Enable once token values are deeply readonly at compile time.
 // // @ts-expect-error top-level property is readonly
 // library.tokens.border.value.width = "2px";
 // // @ts-expect-error nested properties are readonly

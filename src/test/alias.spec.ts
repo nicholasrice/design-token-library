@@ -282,7 +282,7 @@ const borderWithDashes = () => ({
     },
 });
 
-Alias.skip("[V13a] object values are deeply frozen (fails: U4)", () => {
+Alias.skip("[V13a] object values are deeply frozen (fails: #24)", () => {
     const library = createUntyped({ a: borderWithDashes() });
     const value = library.tokens.a.value;
 
@@ -292,7 +292,7 @@ Alias.skip("[V13a] object values are deeply frozen (fails: U4)", () => {
 });
 
 Alias.skip(
-    "[V13b] mutating a value throws and leaves the token unchanged (fails: U4)",
+    "[V13b] mutating a value throws and leaves the token unchanged (fails: #24)",
     () => {
         const library = createUntyped({ a: borderWithDashes() });
 
@@ -308,25 +308,28 @@ Alias.skip(
     },
 );
 
-Alias.skip("[V13c] array values and their items are frozen (fails: U4)", () => {
-    const library = createUntyped({
-        fonts: {
-            type: DesignToken.Type.FontFamily,
-            value: ["Comic Sans", "serif"],
-        },
-        gradient: {
-            type: DesignToken.Type.Gradient,
-            value: [{ color: "#111111", position: 0 }],
-        },
-    });
+Alias.skip(
+    "[V13c] array values and their items are frozen (fails: #24)",
+    () => {
+        const library = createUntyped({
+            fonts: {
+                type: DesignToken.Type.FontFamily,
+                value: ["Comic Sans", "serif"],
+            },
+            gradient: {
+                type: DesignToken.Type.Gradient,
+                value: [{ color: "#111111", position: 0 }],
+            },
+        });
 
-    Assert.ok(Object.isFrozen(library.tokens.fonts.value), "font family");
-    Assert.ok(Object.isFrozen(library.tokens.gradient.value), "gradient");
-    Assert.ok(Object.isFrozen(library.tokens.gradient.value[0]), "stop");
-});
+        Assert.ok(Object.isFrozen(library.tokens.fonts.value), "font family");
+        Assert.ok(Object.isFrozen(library.tokens.gradient.value), "gradient");
+        Assert.ok(Object.isFrozen(library.tokens.gradient.value[0]), "stop");
+    },
+);
 
 Alias.skip(
-    "[V13d] values resolved from deep aliases are deeply frozen (fails: U4)",
+    "[V13d] values resolved from deep aliases are deeply frozen (fails: #24)",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -356,7 +359,7 @@ Alias("[V13e] the config object passed to create is not frozen", () => {
 });
 
 Alias.skip(
-    "[V14a] extensions are copied from the config, not referenced (fails: U5)",
+    "[V14a] extensions are copied from the config, not referenced (fails: #25)",
     () => {
         const extensions = { k: 1 };
         const library = createUntyped({
@@ -370,16 +373,19 @@ Alias.skip(
     },
 );
 
-Alias.skip("[V14b] nested extension objects are copied too (fails: U5)", () => {
-    const extensions = { nested: { k: 1 } };
-    const library = createUntyped({
-        a: { type: C, value: "#111111", extensions },
-    });
+Alias.skip(
+    "[V14b] nested extension objects are copied too (fails: #25)",
+    () => {
+        const extensions = { nested: { k: 1 } };
+        const library = createUntyped({
+            a: { type: C, value: "#111111", extensions },
+        });
 
-    extensions.nested.k = 2;
+        extensions.nested.k = 2;
 
-    Assert.equal(library.tokens.a.extensions, { nested: { k: 1 } });
-});
+        Assert.equal(library.tokens.a.extensions, { nested: { k: 1 } });
+    },
+);
 
 Alias(
     "[V15] the alias context is the root token library for nested tokens",
@@ -397,7 +403,7 @@ Alias(
 );
 
 Circular.skip(
-    "[V12a] a direct cycle throws CircularReferenceError (fails: U1)",
+    "[V12a] a direct cycle throws CircularReferenceError (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: (context: any) => context.b },
@@ -408,7 +414,7 @@ Circular.skip(
     },
 );
 
-Circular.skip("[V12b] a self-reference throws (fails: U1)", () => {
+Circular.skip("[V12b] a self-reference throws (fails: #21)", () => {
     const library = createUntyped({
         a: { type: C, value: (context: any) => context.a },
     });
@@ -417,7 +423,7 @@ Circular.skip("[V12b] a self-reference throws (fails: U1)", () => {
 });
 
 Circular.skip(
-    "[V12c] the error message lists the reference chain (fails: U1)",
+    "[V12c] the error message lists the reference chain (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: (context: any) => context.b },
@@ -428,7 +434,7 @@ Circular.skip(
     },
 );
 
-Circular.skip("[V12d] a cycle through a deep alias throws (fails: U1)", () => {
+Circular.skip("[V12d] a cycle through a deep alias throws (fails: #21)", () => {
     const library = createUntyped({
         self: {
             type: DesignToken.Type.Border,
@@ -444,7 +450,7 @@ Circular.skip("[V12d] a cycle through a deep alias throws (fails: U1)", () => {
 });
 
 Circular.skip(
-    "[V12e] a cycle created later via set() throws on the next read (fails: U1)",
+    "[V12e] a cycle created later via set() throws on the next read (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -459,7 +465,7 @@ Circular.skip(
 );
 
 Circular.skip(
-    "[V12f] breaking a cycle with set() makes tokens resolve again (fails: U1)",
+    "[V12f] breaking a cycle with set() makes tokens resolve again (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: (context: any) => context.b },
@@ -492,7 +498,7 @@ Circular("[V12g] a non-cyclic diamond does not throw", () => {
 });
 
 Circular.skip(
-    "[V12h] a cycle introduced by an extend override throws in the extended library (fails: U1, D8)",
+    "[V12h] a cycle introduced by an extend override throws in the extended library (fails: #21, #14)",
     () => {
         const source = createUntyped({
             a: { type: C, value: "#111111" },
@@ -527,7 +533,7 @@ Circular(
 );
 
 Circular.skip(
-    "[V12j] CircularReferenceError is exported and extends Error (fails: U1)",
+    "[V12j] CircularReferenceError is exported and extends Error (fails: #21)",
     () => {
         const ErrorClass = Reflect.get(Package, "CircularReferenceError");
         const library = createUntyped({

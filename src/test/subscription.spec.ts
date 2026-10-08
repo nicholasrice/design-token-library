@@ -186,7 +186,7 @@ const throwingSubscriber = (error: Error) => ({
 });
 
 Subscription.skip(
-    "[S11a] a throwing subscriber does not block later subscribers (fails: D13)",
+    "[S11a] a throwing subscriber does not block later subscribers (fails: #18)",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
@@ -230,7 +230,7 @@ Subscription(
 );
 
 Subscription.skip(
-    "[S11c] errors from multiple subscribers are each reported and all others still run (fails: D13)",
+    "[S11c] errors from multiple subscribers are each reported and all others still run (fails: #18)",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
@@ -303,7 +303,7 @@ Subscription(
 );
 
 SameValue.skip(
-    "[S12a] setting the same primitive does not notify (fails: U2)",
+    "[S12a] setting the same primitive does not notify (fails: #22)",
     async () => {
         const library = createUntyped({ a: { type: C, value: "#111111" } });
         const subscriber = recorder();
@@ -317,7 +317,7 @@ SameValue.skip(
 );
 
 SameValue.skip(
-    "[S12b] setting the same alias function reference does not notify (fails: U2)",
+    "[S12b] setting the same alias function reference does not notify (fails: #22)",
     async () => {
         const alias = (context: any) => context.a;
         const library = createUntyped({
@@ -335,7 +335,7 @@ SameValue.skip(
 );
 
 SameValue.skip(
-    "[S12c] setting the same object reference does not notify (fails: U2)",
+    "[S12c] setting the same object reference does not notify (fails: #22)",
     async () => {
         const value = { color: "#111111", width: "1px", style: "solid" };
         const library = createUntyped({
@@ -392,7 +392,7 @@ SameValue(
 );
 
 SameValue.skip(
-    "[S12f] a no-op set does not invalidate the cache (fails: U2)",
+    "[S12f] a no-op set does not invalidate the cache (fails: #22)",
     () => {
         const alias = spy((context: any) => context.a);
         const library = createUntyped({
@@ -440,7 +440,7 @@ SameValue(
 );
 
 SameValue.skip(
-    "[S12i] setting the inherited value on an extended token does not notify (fails: U2)",
+    "[S12i] setting the inherited value on an extended token does not notify (fails: #22)",
     async () => {
         const alias = (context: any) => context.a;
         const source = createUntyped({
