@@ -203,7 +203,7 @@ Extend(
 );
 
 Extend.skip(
-    "[E16] description and extensions overrides are applied (fails: D10)",
+    "[E16] a description override replaces and an extensions override merges (fails: D10)",
     () => {
         const source = createUntyped({
             a: {
@@ -222,7 +222,39 @@ Extend.skip(
         });
 
         Assert.is(extended.tokens.a.description, "extended");
-        Assert.equal(extended.tokens.a.extensions, { e: 1 });
+        Assert.equal(extended.tokens.a.extensions, { s: 1, e: 1 });
+    },
+);
+
+Extend.skip(
+    "[E16c] when merging extensions, override keys win (fails: D10)",
+    () => {
+        const source = createUntyped({
+            a: { type: C, value: "#111111", extensions: { k: 1, s: 1 } },
+        });
+        const extended = source.extend({
+            a: { value: "#222222", extensions: { k: 2 } },
+        });
+
+        Assert.equal(extended.tokens.a.extensions, { k: 2, s: 1 });
+    },
+);
+
+Extend.skip(
+    "[E16d] merging extensions leaves the source and the override config unchanged (fails: D10)",
+    () => {
+        const override = { k: 2 };
+        const source = createUntyped({
+            a: { type: C, value: "#111111", extensions: { s: 1 } },
+        });
+        const extended = source.extend({
+            a: { value: "#222222", extensions: override },
+        });
+
+        Assert.equal(extended.tokens.a.extensions, { s: 1, k: 2 }, "merged");
+        Assert.equal(source.tokens.a.extensions, { s: 1 }, "source");
+        Assert.equal(override, { k: 2 }, "override config");
+        Assert.is.not(extended.tokens.a.extensions, override);
     },
 );
 

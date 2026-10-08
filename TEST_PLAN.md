@@ -51,7 +51,7 @@ D6–D9 appear to be addressed by `6dc6cc0` on `fix/library-extend` (per its com
 - **U4 — DECIDED:** Token values are deeply readonly, both at compile time (Y7) and at runtime (deep-frozen; mutation throws in strict mode). Currently `.value` returns a mutable cached object. The library does not freeze the caller's config objects (V13e).
 - **U5 — DECIDED:** `extensions` is not a live reference. It is copied from the config at `create`, including nested objects. Currently it is shared by reference.
 - **S5 — DECIDED:** Lazy dependency tracking is intended. A token must be evaluated before its dependencies are recorded and it participates in change notifications.
-- **D10 / D12 / E17 — DECIDED:** `extend` may override `value`, `description`, and `extensions`, and add tokens. It may not change an existing token's `type`; a differing type throws (restating the same type is allowed). An extended token's `extensions` is always a new object: a copy of the source's, or the override.
+- **D10 / D12 / E17 — DECIDED:** `extend` may override `value`, `description`, and `extensions`, and add tokens. It may not change an existing token's `type`; a differing type throws (restating the same type is allowed). An extended token's `extensions` is always a new object: a copy of the source's, or the source's merged with the override (override keys win; shallow merge assumed, pending confirmation).
 - **D11 — DECIDED:** `toString()` returns a JSON representation of the token (`name`, `type`, `value`, `description`, `extensions`), with `value` resolved for alias tokens.
 - **D3 — DECIDED (for now):** Typography converts to the CSS `font` shorthand: `weight size/lineHeight family`.
 - **U6 — DECIDED:** Non-token config entries (`null`, `undefined`, primitives, functions, arrays) are ignored: no throw, and absent from `library.tokens`. Current behavior already matches, except for arrays (D15). Groups are always kept, even with no tokens, so the group and its `type` can be extended later. Only a group's entries that are neither tokens nor groups are hidden.
@@ -199,7 +199,9 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | E13 | Source `set` notifies extending subscribers even when the extended token was never read | PASS (verified) |
 | E14 | Chained `extend().extend()` propagates source changes to the grandchild | PASS (verified) |
 | E15 | Chained extend: middle-library override takes precedence in grandchild | PASS |
-| E16 | `description` / `extensions` overrides are applied | FAILS (D10) |
+| E16 | A `description` override replaces; an `extensions` override merges with the source's | FAILS (D10) |
+| E16c | When merging `extensions`, override keys win | FAILS (D10) |
+| E16d | Merging leaves the source's `extensions` and the override config object unchanged | FAILS (D10) |
 | E16b | Overrides without `description` / `extensions` keep the source's (as a new object) | FAILS (D12) |
 | E17a | An override with a different `type` throws, naming the token | FAILS (E17) |
 | E17b | An override restating the same `type` is allowed | PASS |
