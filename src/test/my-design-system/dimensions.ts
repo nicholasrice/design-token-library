@@ -3,7 +3,7 @@ import { Library } from "../../lib/library.js";
 import { Theme } from "./theme.js";
 
 export interface Dimensions {
-    type: DesignToken.Type;
+    type: DesignToken.Type.Dimension;
     unit: DesignToken.Dimension;
     border: DesignToken.Dimension;
 }
