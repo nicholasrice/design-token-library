@@ -2,9 +2,12 @@ import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import { DesignToken } from "../lib/design-token.js";
+import { Library } from "../lib/library.js";
 import {
+    A,
+    AB,
+    ABC,
     captureUncaughtErrors,
-    createUntyped,
     nextUpdate,
     recorder,
     settle,
@@ -15,7 +18,7 @@ const SameValue = suite("Library subscriptions: unchanged values");
 const C = DesignToken.Type.Color;
 
 Subscription("unsubscribe stops notifications", async () => {
-    const library = createUntyped({ a: { type: C, value: "#111111" } });
+    const library = Library.create<A>({ a: { type: C, value: "#111111" } });
     const subscriber = recorder();
     library.subscribe(subscriber);
 
@@ -29,7 +32,7 @@ Subscription("unsubscribe stops notifications", async () => {
 });
 
 Subscription("unsubscribing an unknown subscriber is a no-op", async () => {
-    const library = createUntyped({ a: { type: C, value: "#111111" } });
+    const library = Library.create<A>({ a: { type: C, value: "#111111" } });
     const subscriber = recorder();
     library.subscribe(subscriber);
 
@@ -43,7 +46,7 @@ Subscription("unsubscribing an unknown subscriber is a no-op", async () => {
 Subscription(
     "a token set twice in one microtask appears once in the batch",
     async () => {
-        const library = createUntyped({ a: { type: C, value: "#111111" } });
+        const library = Library.create<A>({ a: { type: C, value: "#111111" } });
         const subscriber = recorder();
         library.subscribe(subscriber);
 
@@ -58,9 +61,9 @@ Subscription(
 Subscription(
     "a read alias token is included when its dependency changes",
     async () => {
-        const library = createUntyped({
+        const library = Library.create<AB>({
             a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
+            b: { type: C, value: (context: Library.Context<AB>) => context.a },
         });
         const subscriber = recorder();
         library.subscribe(subscriber);
@@ -76,9 +79,9 @@ Subscription(
 Subscription(
     "an alias token that was never read is not included (lazy tracking)",
     async () => {
-        const library = createUntyped({
+        const library = Library.create<AB>({
             a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
+            b: { type: C, value: (context: Library.Context<AB>) => context.a },
         });
         const subscriber = recorder();
         library.subscribe(subscriber);
@@ -93,12 +96,12 @@ Subscription(
 Subscription(
     "a deep alias dependent is included when its dependency changes",
     async () => {
-        const library = createUntyped({
+        const library = Library.create<ColorAndBorder>({
             a: { type: C, value: "#111111" },
             b: {
                 type: DesignToken.Type.Border,
                 value: {
-                    color: (context: any) => context.a,
+                    color: (context) => context.a,
                     width: "1px",
                     style: "solid",
                 },
@@ -116,10 +119,10 @@ Subscription(
 );
 
 Subscription("transitive dependents are all included", async () => {
-    const library = createUntyped({
+    const library = Library.create<ABC>({
         a: { type: C, value: "#111111" },
-        b: { type: C, value: (context: any) => context.a },
-        c: { type: C, value: (context: any) => context.b },
+        b: { type: C, value: (context: Library.Context<AB>) => context.a },
+        c: { type: C, value: (context) => context.b },
     });
     library.tokens.c.value;
     const subscriber = recorder();
@@ -134,7 +137,7 @@ Subscription("transitive dependents are all included", async () => {
 Subscription(
     "multiple subscribers receive the same records array",
     async () => {
-        const library = createUntyped({ a: { type: C, value: "#111111" } });
+        const library = Library.create<A>({ a: { type: C, value: "#111111" } });
         const first = spy();
         const second = spy();
         library.subscribe({ onChange: first });
@@ -150,7 +153,7 @@ Subscription(
 );
 
 Subscription("the records array is frozen", async () => {
-    const library = createUntyped({ a: { type: C, value: "#111111" } });
+    const library = Library.create<A>({ a: { type: C, value: "#111111" } });
     const onChange = spy();
     library.subscribe({ onChange });
 
@@ -161,7 +164,7 @@ Subscription("the records array is frozen", async () => {
 });
 
 Subscription("a subscriber subscribed twice is notified once", async () => {
-    const library = createUntyped({ a: { type: C, value: "#111111" } });
+    const library = Library.create<A>({ a: { type: C, value: "#111111" } });
     const onChange = spy();
     const subscriber = { onChange };
     library.subscribe(subscriber);
@@ -172,6 +175,15 @@ Subscription("a subscriber subscribed twice is notified once", async () => {
 
     Assert.ok(onChange.calledOnce);
 });
+
+interface ColorAndBorder {
+    a: DesignToken.Color;
+    b: DesignToken.Border;
+}
+
+interface BorderTheme {
+    a: DesignToken.Border;
+}
 
 const throwingSubscriber = (error: Error) => ({
     onChange() {
@@ -184,7 +196,7 @@ Subscription.skip(
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
-            const library = createUntyped({
+            const library = Library.create<A>({
                 a: { type: C, value: "#111111" },
             });
             const second = spy();
@@ -206,7 +218,7 @@ Subscription(
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
-            const library = createUntyped({
+            const library = Library.create<A>({
                 a: { type: C, value: "#111111" },
             });
             const error = new Error("subscriber error");
@@ -228,7 +240,7 @@ Subscription.skip(
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
-            const library = createUntyped({
+            const library = Library.create<A>({
                 a: { type: C, value: "#111111" },
             });
             const first = new Error("first");
@@ -257,7 +269,7 @@ Subscription(
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
-            const library = createUntyped({
+            const library = Library.create<A>({
                 a: { type: C, value: "#111111" },
             });
             let calls = 0;
@@ -284,8 +296,8 @@ Subscription(
 Subscription(
     "changes in one library do not notify another library's subscribers",
     async () => {
-        const first = createUntyped({ a: { type: C, value: "#111111" } });
-        const second = createUntyped({ a: { type: C, value: "#111111" } });
+        const first = Library.create<A>({ a: { type: C, value: "#111111" } });
+        const second = Library.create<A>({ a: { type: C, value: "#111111" } });
         const subscriber = recorder();
         second.subscribe(subscriber);
 
@@ -299,7 +311,7 @@ Subscription(
 SameValue.skip(
     "setting the same primitive does not notify (fails: #22)",
     async () => {
-        const library = createUntyped({ a: { type: C, value: "#111111" } });
+        const library = Library.create<A>({ a: { type: C, value: "#111111" } });
         const subscriber = recorder();
         library.subscribe(subscriber);
 
@@ -313,8 +325,8 @@ SameValue.skip(
 SameValue.skip(
     "setting the same alias function reference does not notify (fails: #22)",
     async () => {
-        const alias = (context: any) => context.a;
-        const library = createUntyped({
+        const alias = (context: Library.Context<AB>) => context.a;
+        const library = Library.create<AB>({
             a: { type: C, value: "#111111" },
             b: { type: C, value: alias },
         });
@@ -331,8 +343,12 @@ SameValue.skip(
 SameValue.skip(
     "setting the same object reference does not notify (fails: #22)",
     async () => {
-        const value = { color: "#111111", width: "1px", style: "solid" };
-        const library = createUntyped({
+        const value: DesignToken.Values.Border = {
+            color: "#111111",
+            width: "1px",
+            style: "solid",
+        };
+        const library = Library.create<BorderTheme>({
             a: { type: DesignToken.Type.Border, value },
         });
         const subscriber = recorder();
@@ -346,7 +362,7 @@ SameValue.skip(
 );
 
 SameValue("setting a structurally equal but new object notifies", async () => {
-    const library = createUntyped({
+    const library = Library.create<BorderTheme>({
         a: {
             type: DesignToken.Type.Border,
             value: { color: "#111111", width: "1px", style: "solid" },
@@ -366,22 +382,22 @@ SameValue("setting a structurally equal but new object notifies", async () => {
 });
 
 SameValue("setting a new function with the same body notifies", async () => {
-    const library = createUntyped({
+    const library = Library.create<AB>({
         a: { type: C, value: "#111111" },
-        b: { type: C, value: (context: any) => context.a },
+        b: { type: C, value: (context: Library.Context<AB>) => context.a },
     });
     const subscriber = recorder();
     library.subscribe(subscriber);
 
-    library.tokens.b.set((context: any) => context.a);
+    library.tokens.b.set((context: Library.Context<AB>) => context.a);
     await nextUpdate();
 
     Assert.equal(subscriber.batches, [["b"]]);
 });
 
 SameValue.skip("a no-op set does not invalidate the cache (fails: #22)", () => {
-    const alias = spy((context: any) => context.a);
-    const library = createUntyped({
+    const alias = spy((context: Library.Context<AB>) => context.a);
+    const library = Library.create<AB>({
         a: { type: C, value: "#111111" },
         b: { type: C, value: alias },
     });
@@ -396,8 +412,8 @@ SameValue.skip("a no-op set does not invalidate the cache (fails: #22)", () => {
 SameValue(
     "setting an inherited value on an extended token detaches it from the source",
     () => {
-        const source = createUntyped({ a: { type: C, value: "#111111" } });
-        const extended = source.extend({});
+        const source = Library.create<A>({ a: { type: C, value: "#111111" } });
+        const extended = source.extend<{}>({});
 
         extended.tokens.a.set("#111111");
         source.tokens.a.set("#222222");
@@ -409,8 +425,8 @@ SameValue(
 SameValue(
     "after detaching, source changes neither change nor notify the extended token",
     async () => {
-        const source = createUntyped({ a: { type: C, value: "#111111" } });
-        const extended = source.extend({});
+        const source = Library.create<A>({ a: { type: C, value: "#111111" } });
+        const extended = source.extend<{}>({});
         extended.tokens.a.set("#111111");
         await nextUpdate();
         const subscriber = recorder();
@@ -427,12 +443,12 @@ SameValue(
 SameValue.skip(
     "setting the inherited value on an extended token does not notify (fails: #22)",
     async () => {
-        const alias = (context: any) => context.a;
-        const source = createUntyped({
+        const alias = (context: Library.Context<AB>) => context.a;
+        const source = Library.create<AB>({
             a: { type: C, value: "#111111" },
             b: { type: C, value: alias },
         });
-        const extended = source.extend({});
+        const extended = source.extend<{}>({});
         extended.tokens.b.value;
         const subscriber = recorder();
         extended.subscribe(subscriber);
@@ -448,12 +464,12 @@ SameValue.skip(
 SameValue(
     "an inherited alias resolves against the extending library before and after assignment",
     async () => {
-        const aliasB = (context: any) => context.a;
-        const source = createUntyped({
+        const aliasB = (context: Library.Context<AB>) => context.a;
+        const source = Library.create<AB>({
             a: { type: C, value: "#111111" },
             b: { type: C, value: aliasB },
         });
-        const extended = source.extend({ a: { value: "#999999" } });
+        const extended = source.extend<{}>({ a: { value: "#999999" } });
 
         // Before assignment
         Assert.is(extended.tokens.b.value, "#999999", "extended before");
@@ -485,8 +501,8 @@ SameValue(
 SameValue(
     "an inherited static value resolves the same before and after assignment",
     async () => {
-        const source = createUntyped({ a: { type: C, value: "#111111" } });
-        const extended = source.extend({});
+        const source = Library.create<A>({ a: { type: C, value: "#111111" } });
+        const extended = source.extend<{}>({});
 
         Assert.is(extended.tokens.a.value, "#111111", "before");
 

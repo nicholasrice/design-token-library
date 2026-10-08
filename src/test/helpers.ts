@@ -1,3 +1,4 @@
+import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 
 /**
@@ -11,11 +12,31 @@ export function nextUpdate(): Promise<void> {
 }
 
 /**
- * Creates a library without static config typing. Used by tests that
- * exercise runtime behavior rather than the public type surface.
+ * Library shapes shared across specs.
  */
-export function createUntyped(config: any): any {
-    return Library.create(config);
+export interface A {
+    a: DesignToken.Color;
+}
+
+export interface AB {
+    a: DesignToken.Color;
+    b: DesignToken.Color;
+}
+
+export interface ABC {
+    a: DesignToken.Color;
+    b: DesignToken.Color;
+    c: DesignToken.Color;
+}
+
+/**
+ * A source library where `b` aliases `a`.
+ */
+export function aliasedPair() {
+    return Library.create<AB>({
+        a: { type: DesignToken.Type.Color, value: "#111111" },
+        b: { type: DesignToken.Type.Color, value: (context) => context.a },
+    });
 }
 
 /**

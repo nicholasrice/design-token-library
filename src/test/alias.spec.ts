@@ -3,22 +3,28 @@ import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import * as Package from "../lib/index.js";
 import { DesignToken } from "../lib/design-token.js";
-import { createUntyped, nextUpdate, recorder } from "./helpers.js";
+import { Library } from "../lib/library.js";
+import { A, AB, ABC, aliasedPair, nextUpdate, recorder } from "./helpers.js";
 
 const Alias = suite("Library aliases");
 const Circular = suite("Library circular aliases");
 const C = DesignToken.Type.Color;
 
-const isCircularReferenceError = (error: any) =>
+const isCircularReferenceError = (error: unknown) =>
     error instanceof Error && error.name === "CircularReferenceError";
 
 Alias(
     "an alias returning a token and one returning a raw value resolve the same",
     () => {
-        const library = createUntyped({
+        interface Theme {
+            a: DesignToken.Color;
+            token: DesignToken.Color;
+            raw: DesignToken.Color;
+        }
+        const library = Library.create<Theme>({
             a: { type: C, value: "#111111" },
-            token: { type: C, value: (context: any) => context.a },
-            raw: { type: C, value: (context: any) => context.a.value },
+            token: { type: C, value: (context) => context.a },
+            raw: { type: C, value: (context) => context.a.value },
         });
 
         Assert.is(library.tokens.token.value, "#111111");
@@ -27,13 +33,17 @@ Alias(
 );
 
 Alias("an alias can reference a token in a different group", () => {
-    const library = createUntyped({
+    interface Theme {
+        colors: { type: DesignToken.Type.Color; primary: DesignToken.Color };
+        borders: { type: DesignToken.Type.Border; x: DesignToken.Border };
+    }
+    const library = Library.create<Theme>({
         colors: { type: C, primary: { value: "#111111" } },
         borders: {
             type: DesignToken.Type.Border,
             x: {
                 value: {
-                    color: (context: any) => context.colors.primary,
+                    color: (context) => context.colors.primary,
                     width: "1px",
                     style: "solid",
                 },
@@ -45,19 +55,31 @@ Alias("an alias can reference a token in a different group", () => {
 });
 
 Alias("deep aliases resolve inside array values", () => {
-    const library = createUntyped({
+    interface Theme {
+        a: DesignToken.Color;
+        n: DesignToken.Number;
+        gradient: DesignToken.Gradient;
+        curve: DesignToken.CubicBezier;
+    }
+    const stops = [
+        {
+            color: (context: Library.Context<Theme>) => context.a,
+            position: 0,
+        },
+        { color: "#222222", position: 1 },
+    ];
+    const library = Library.create<Theme>({
         a: { type: C, value: "#111111" },
         n: { type: DesignToken.Type.Number, value: 0.5 },
         gradient: {
             type: DesignToken.Type.Gradient,
-            value: [
-                { color: (context: any) => context.a, position: 0 },
-                { color: "#222222", position: 1 },
-            ],
+            // @ts-expect-error type gap: DeepAlias doesn't support aliases in gradient stops
+            value: stops,
         },
         curve: {
             type: DesignToken.Type.CubicBezier,
-            value: [(context: any) => context.n, 0, 1, 1],
+            // @ts-expect-error type gap: number elements alias FontWeight tokens, not Number tokens
+            value: [(context) => context.n, 0, 1, 1],
         },
     });
 
@@ -68,12 +90,28 @@ Alias("deep aliases resolve inside array values", () => {
     Assert.equal(library.tokens.curve.value, [0.5, 0, 1, 1]);
 });
 
+/**
+ * Narrows a Border's stroke style to its object form.
+ */
+function dashedStyle(border: DesignToken.Values.Border) {
+    const { style } = border;
+    if (typeof style === "string") {
+        throw new Error(`Expected an object stroke style, got '${style}'`);
+    }
+    return style;
+}
+
 Alias("a deep alias can reference a token that is itself an alias", () => {
-    const library = createUntyped({
+    interface Theme {
+        d1: DesignToken.Dimension;
+        d2: DesignToken.Dimension;
+        border: DesignToken.Border;
+    }
+    const library = Library.create<Theme>({
         d1: { type: DesignToken.Type.Dimension, value: "2px" },
         d2: {
             type: DesignToken.Type.Dimension,
-            value: (context: any) => context.d1,
+            value: (context) => context.d1,
         },
         border: {
             type: DesignToken.Type.Border,
@@ -81,25 +119,33 @@ Alias("a deep alias can reference a token that is itself an alias", () => {
                 color: "#111111",
                 width: "1px",
                 style: {
-                    dashArray: [(context: any) => context.d2, "4px"],
+                    dashArray: [(context) => context.d2, "4px"],
                     lineCap: "round",
                 },
             },
         },
     });
 
-    Assert.equal(library.tokens.border.value.style.dashArray, ["2px", "4px"]);
+    Assert.equal(dashedStyle(library.tokens.border.value).dashArray, [
+        "2px",
+        "4px",
+    ]);
 });
 
 Alias(
     "a deep alias returning a token and one returning a raw value resolve the same",
     () => {
-        const library = createUntyped({
+        interface Theme {
+            a: DesignToken.Color;
+            token: DesignToken.Border;
+            raw: DesignToken.Border;
+        }
+        const library = Library.create<Theme>({
             a: { type: C, value: "#111111" },
             token: {
                 type: DesignToken.Type.Border,
                 value: {
-                    color: (context: any) => context.a,
+                    color: (context) => context.a,
                     width: "1px",
                     style: "solid",
                 },
@@ -107,7 +153,7 @@ Alias(
             raw: {
                 type: DesignToken.Type.Border,
                 value: {
-                    color: (context: any) => context.a.value,
+                    color: (context) => context.a.value,
                     width: "1px",
                     style: "solid",
                 },
@@ -120,8 +166,8 @@ Alias(
 );
 
 Alias("an alias is invoked once across repeated reads", () => {
-    const alias = spy((context: any) => context.a);
-    const library = createUntyped({
+    const alias = spy((context: Library.Context<AB>) => context.a);
+    const library = Library.create<AB>({
         a: { type: C, value: "#111111" },
         b: { type: C, value: alias },
     });
@@ -136,8 +182,8 @@ Alias("an alias is invoked once across repeated reads", () => {
 Alias(
     "an alias is re-invoked exactly once after its dependency changes",
     () => {
-        const alias = spy((context: any) => context.a);
-        const library = createUntyped({
+        const alias = spy((context: Library.Context<AB>) => context.a);
+        const library = Library.create<AB>({
             a: { type: C, value: "#111111" },
             b: { type: C, value: alias },
         });
@@ -155,13 +201,13 @@ Alias(
 Alias(
     "re-aliasing tracks the new dependency and drops the old one",
     async () => {
-        const library = createUntyped({
+        const library = Library.create<ABC>({
             a: { type: C, value: "#111111" },
             b: { type: C, value: "#222222" },
-            c: { type: C, value: (context: any) => context.a },
+            c: { type: C, value: (context) => context.a },
         });
         library.tokens.c.value;
-        library.tokens.c.set((context: any) => context.b);
+        library.tokens.c.set((context) => context.b);
         library.tokens.c.value;
         await nextUpdate();
 
@@ -186,13 +232,16 @@ Alias(
 Alias(
     "a conditional alias re-tracks dependencies when its branch flips",
     async () => {
-        const library = createUntyped({
+        interface Theme extends ABC {
+            flag: DesignToken.Number;
+        }
+        const library = Library.create<Theme>({
             flag: { type: DesignToken.Type.Number, value: 0 },
             a: { type: C, value: "#111111" },
             b: { type: C, value: "#222222" },
             c: {
                 type: C,
-                value: (context: any) =>
+                value: (context) =>
                     context.flag.value ? context.a : context.b,
             },
         });
@@ -218,10 +267,7 @@ Alias(
 Alias(
     "setting a static value stops tracking the previous alias dependency",
     async () => {
-        const library = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
-        });
+        const library = aliasedPair();
         library.tokens.b.value;
         library.tokens.b.set("#222222");
         library.tokens.b.value;
@@ -237,19 +283,25 @@ Alias(
     },
 );
 
+interface Diamond extends ABC {
+    d: DesignToken.Gradient;
+}
+
 Alias("a diamond dependency updates once with the correct value", async () => {
-    const first = spy((context: any) => context.b);
-    const second = spy((context: any) => context.c);
-    const library = createUntyped({
+    const first = spy((context: Library.Context<Diamond>) => context.b);
+    const second = spy((context: Library.Context<Diamond>) => context.c);
+    const stops = [
+        { color: first, position: 0 },
+        { color: second, position: 1 },
+    ];
+    const library = Library.create<Diamond>({
         a: { type: C, value: "#111111" },
-        b: { type: C, value: (context: any) => context.a },
-        c: { type: C, value: (context: any) => context.a },
+        b: { type: C, value: (context) => context.a },
+        c: { type: C, value: (context) => context.a },
         d: {
             type: DesignToken.Type.Gradient,
-            value: [
-                { color: first, position: 0 },
-                { color: second, position: 1 },
-            ],
+            // @ts-expect-error type gap: DeepAlias doesn't support aliases in gradient stops
+            value: stops,
         },
     });
     library.tokens.d.value;
@@ -270,7 +322,11 @@ Alias("a diamond dependency updates once with the correct value", async () => {
     Assert.is(second.callCount, 2);
 });
 
-const borderWithDashes = () => ({
+interface BorderTheme {
+    a: DesignToken.Border;
+}
+
+const borderWithDashes = (): DesignToken.Border => ({
     type: DesignToken.Type.Border,
     value: {
         color: "#111111",
@@ -280,25 +336,28 @@ const borderWithDashes = () => ({
 });
 
 Alias.skip("object values are deeply frozen (fails: #24)", () => {
-    const library = createUntyped({ a: borderWithDashes() });
+    const library = Library.create<BorderTheme>({ a: borderWithDashes() });
     const value = library.tokens.a.value;
 
     Assert.ok(Object.isFrozen(value), "value");
-    Assert.ok(Object.isFrozen(value.style), "nested object");
-    Assert.ok(Object.isFrozen(value.style.dashArray), "nested array");
+    Assert.ok(Object.isFrozen(dashedStyle(value)), "nested object");
+    Assert.ok(Object.isFrozen(dashedStyle(value).dashArray), "nested array");
 });
 
 Alias.skip(
     "mutating a value throws and leaves the token unchanged (fails: #24)",
     () => {
-        const library = createUntyped({ a: borderWithDashes() });
+        const library = Library.create<BorderTheme>({ a: borderWithDashes() });
+        // Typed as mutable so this compiles before and after #24.
+        const value: { width: string } = library.tokens.a.value;
 
+        Assert.throws(() => (value.width = "9px"), "top level");
         Assert.throws(
-            () => (library.tokens.a.value.width = "9px"),
-            "top level",
-        );
-        Assert.throws(
-            () => library.tokens.a.value.style.dashArray.push("3px"),
+            () =>
+                Array.prototype.push.call(
+                    dashedStyle(library.tokens.a.value).dashArray,
+                    "3px",
+                ),
             "nested array",
         );
         Assert.equal(library.tokens.a.value, borderWithDashes().value);
@@ -306,7 +365,11 @@ Alias.skip(
 );
 
 Alias.skip("array values and their items are frozen (fails: #24)", () => {
-    const library = createUntyped({
+    interface Theme {
+        fonts: DesignToken.FontFamily;
+        gradient: DesignToken.Gradient;
+    }
+    const library = Library.create<Theme>({
         fonts: {
             type: DesignToken.Type.FontFamily,
             value: ["Comic Sans", "serif"],
@@ -325,12 +388,16 @@ Alias.skip("array values and their items are frozen (fails: #24)", () => {
 Alias.skip(
     "values resolved from deep aliases are deeply frozen (fails: #24)",
     () => {
-        const library = createUntyped({
+        interface Theme {
+            a: DesignToken.Color;
+            border: DesignToken.Border;
+        }
+        const library = Library.create<Theme>({
             a: { type: C, value: "#111111" },
             border: {
                 type: DesignToken.Type.Border,
                 value: {
-                    color: (context: any) => context.a,
+                    color: (context) => context.a,
                     width: "1px",
                     style: { dashArray: ["1px"], lineCap: "round" },
                 },
@@ -339,24 +406,27 @@ Alias.skip(
         const value = library.tokens.border.value;
 
         Assert.ok(Object.isFrozen(value), "value");
-        Assert.ok(Object.isFrozen(value.style.dashArray), "nested array");
+        Assert.ok(
+            Object.isFrozen(dashedStyle(value).dashArray),
+            "nested array",
+        );
     },
 );
 
 Alias("the config object passed to create is not frozen", () => {
-    const config = { a: borderWithDashes() };
-    const library = createUntyped(config);
+    const border = borderWithDashes();
+    const library = Library.create<BorderTheme>({ a: border });
     library.tokens.a.value;
 
-    Assert.not.ok(Object.isFrozen(config.a.value));
-    Assert.not.ok(Object.isFrozen(config.a.value.style));
+    Assert.not.ok(Object.isFrozen(border.value));
+    Assert.not.ok(Object.isFrozen(dashedStyle(border.value)));
 });
 
 Alias.skip(
     "extensions are copied from the config, not referenced (fails: #25)",
     () => {
         const extensions = { k: 1 };
-        const library = createUntyped({
+        const library = Library.create<A>({
             a: { type: C, value: "#111111", extensions },
         });
 
@@ -369,7 +439,7 @@ Alias.skip(
 
 Alias.skip("nested extension objects are copied too (fails: #25)", () => {
     const extensions = { nested: { k: 1 } };
-    const library = createUntyped({
+    const library = Library.create<A>({
         a: { type: C, value: "#111111", extensions },
     });
 
@@ -379,8 +449,12 @@ Alias.skip("nested extension objects are copied too (fails: #25)", () => {
 });
 
 Alias("the alias context is the root token library for nested tokens", () => {
-    const alias = spy((context: any) => context.a);
-    const library = createUntyped({
+    interface Theme {
+        a: DesignToken.Color;
+        g: { type: DesignToken.Type.Color; t: DesignToken.Color };
+    }
+    const alias = spy((context: Library.Context<Theme>) => context.a);
+    const library = Library.create<Theme>({
         a: { type: C, value: "#111111" },
         g: { type: C, t: { value: alias } },
     });
@@ -390,21 +464,24 @@ Alias("the alias context is the root token library for nested tokens", () => {
     Assert.is(alias.firstCall.args[0], library.tokens);
 });
 
+const cyclicPair = () =>
+    Library.create<AB>({
+        a: { type: C, value: (context) => context.b },
+        b: { type: C, value: (context) => context.a },
+    });
+
 Circular.skip(
     "a direct cycle throws CircularReferenceError (fails: #21)",
     () => {
-        const library = createUntyped({
-            a: { type: C, value: (context: any) => context.b },
-            b: { type: C, value: (context: any) => context.a },
-        });
+        const library = cyclicPair();
 
         Assert.throws(() => library.tokens.a.value, isCircularReferenceError);
     },
 );
 
 Circular.skip("a self-reference throws (fails: #21)", () => {
-    const library = createUntyped({
-        a: { type: C, value: (context: any) => context.a },
+    const library = Library.create<A>({
+        a: { type: C, value: (context) => context.a },
     });
 
     Assert.throws(() => library.tokens.a.value, isCircularReferenceError);
@@ -413,21 +490,22 @@ Circular.skip("a self-reference throws (fails: #21)", () => {
 Circular.skip(
     "the error message lists the reference chain (fails: #21)",
     () => {
-        const library = createUntyped({
-            a: { type: C, value: (context: any) => context.b },
-            b: { type: C, value: (context: any) => context.a },
-        });
+        const library = cyclicPair();
 
         Assert.throws(() => library.tokens.a.value, /a → b → a/);
     },
 );
 
 Circular.skip("a cycle through a deep alias throws (fails: #21)", () => {
-    const library = createUntyped({
+    interface Theme {
+        self: DesignToken.Border;
+    }
+    const library = Library.create<Theme>({
         self: {
             type: DesignToken.Type.Border,
             value: {
-                color: (context: any) => context.self,
+                // @ts-expect-error a Border is not a valid Color alias target
+                color: (context) => context.self,
                 width: "1px",
                 style: "solid",
             },
@@ -440,13 +518,10 @@ Circular.skip("a cycle through a deep alias throws (fails: #21)", () => {
 Circular.skip(
     "a cycle created later via set() throws on the next read (fails: #21)",
     () => {
-        const library = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
-        });
+        const library = aliasedPair();
         library.tokens.b.value;
 
-        library.tokens.a.set((context: any) => context.b);
+        library.tokens.a.set((context) => context.b);
 
         Assert.throws(() => library.tokens.a.value, isCircularReferenceError);
     },
@@ -455,10 +530,7 @@ Circular.skip(
 Circular.skip(
     "breaking a cycle with set() makes tokens resolve again (fails: #21)",
     () => {
-        const library = createUntyped({
-            a: { type: C, value: (context: any) => context.b },
-            b: { type: C, value: (context: any) => context.a },
-        });
+        const library = cyclicPair();
         Assert.throws(() => library.tokens.a.value, isCircularReferenceError);
 
         library.tokens.a.set("#111111");
@@ -469,16 +541,24 @@ Circular.skip(
 );
 
 Circular("a non-cyclic diamond does not throw", () => {
-    const library = createUntyped({
+    const stops = [
+        {
+            color: (context: Library.Context<Diamond>) => context.b,
+            position: 0,
+        },
+        {
+            color: (context: Library.Context<Diamond>) => context.c,
+            position: 1,
+        },
+    ];
+    const library = Library.create<Diamond>({
         a: { type: C, value: "#111111" },
-        b: { type: C, value: (context: any) => context.a },
-        c: { type: C, value: (context: any) => context.a },
+        b: { type: C, value: (context) => context.a },
+        c: { type: C, value: (context) => context.a },
         d: {
             type: DesignToken.Type.Gradient,
-            value: [
-                { color: (context: any) => context.b, position: 0 },
-                { color: (context: any) => context.c, position: 1 },
-            ],
+            // @ts-expect-error type gap: DeepAlias doesn't support aliases in gradient stops
+            value: stops,
         },
     });
 
@@ -488,12 +568,9 @@ Circular("a non-cyclic diamond does not throw", () => {
 Circular.skip(
     "a cycle introduced by an extend override throws in the extended library (fails: #21, #14)",
     () => {
-        const source = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
-        });
-        const extended = source.extend({
-            a: { value: (context: any) => context.b },
+        const extended = aliasedPair().extend({
+            // @ts-expect-error alias overrides aren't typed yet (#14)
+            a: { value: (context) => context.b },
         });
 
         Assert.throws(() => extended.tokens.a.value, isCircularReferenceError);
@@ -503,12 +580,10 @@ Circular.skip(
 Circular(
     "the source library is unaffected by a cycle in an extending library",
     () => {
-        const source = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
-        });
+        const source = aliasedPair();
         const extended = source.extend({
-            a: { value: (context: any) => context.b },
+            // @ts-expect-error alias overrides aren't typed yet (#14)
+            a: { value: (context) => context.b },
         });
 
         try {
@@ -524,14 +599,14 @@ Circular.skip(
     "CircularReferenceError is exported and extends Error (fails: #21)",
     () => {
         const ErrorClass = Reflect.get(Package, "CircularReferenceError");
-        const library = createUntyped({
-            a: { type: C, value: (context: any) => context.a },
+        const library = Library.create<A>({
+            a: { type: C, value: (context) => context.a },
         });
 
         Assert.type(ErrorClass, "function");
         Assert.throws(
             () => library.tokens.a.value,
-            (error: any) =>
+            (error: unknown) =>
                 error instanceof ErrorClass && error instanceof Error,
         );
     },

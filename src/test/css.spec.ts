@@ -3,7 +3,7 @@ import * as Assert from "uvu/assert";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
-import { createUntyped } from "./helpers.js";
+import { A, AB, aliasedPair } from "./helpers.js";
 
 const toCssSuite = suite("toCss");
 const toPropertiesSuite = suite("toProperties");
@@ -220,8 +220,15 @@ toPropertiesSuite(
 
 const C = DesignToken.Type.Color;
 
+interface Grouped {
+    g: { type: DesignToken.Type.Color; a: DesignToken.Color };
+}
+
+const grouped = () =>
+    Library.create<Grouped>({ g: { type: C, a: { value: "#111111" } } });
+
 toCssSuite("concatenates multiple flat tokens in order", () => {
-    const library = createUntyped({
+    const library = Library.create<AB>({
         a: { type: C, value: "#111111" },
         b: { type: C, value: "#222222" },
     });
@@ -232,8 +239,12 @@ toCssSuite("concatenates multiple flat tokens in order", () => {
 toCssSuite.skip(
     "emits tokens declared before a nested group (fails: #10)",
     () => {
+        interface Theme {
+            a: DesignToken.Color;
+            g: { type: DesignToken.Type.Color; b: DesignToken.Color };
+        }
         const result = toCSS(
-            createUntyped({
+            Library.create<Theme>({
                 a: { type: C, value: "#111111" },
                 g: { type: C, b: { value: "#222222" } },
             }),
@@ -245,8 +256,12 @@ toCssSuite.skip(
 );
 
 toCssSuite.skip("emits tokens from sibling groups (fails: #10)", () => {
+    interface Theme {
+        g1: { type: DesignToken.Type.Color; x: DesignToken.Color };
+        g2: { type: DesignToken.Type.Color; y: DesignToken.Color };
+    }
     const result = toCSS(
-        createUntyped({
+        Library.create<Theme>({
             g1: { type: C, x: { value: "#111111" } },
             g2: { type: C, y: { value: "#222222" } },
         }),
@@ -259,13 +274,10 @@ toCssSuite.skip("emits tokens from sibling groups (fails: #10)", () => {
 toCssSuite.skip(
     "nested names use '-' separators, matching toProperties (fails: #10)",
     () => {
-        const library = createUntyped({
-            g: { type: C, b: { value: "#222222" } },
-        });
+        const library = grouped();
 
-        Assert.is(toCSS(library), "--g-b:#222222;");
-        const properties: any = toProperties(library);
-        Assert.is(properties.g.b.property, "--g-b");
+        Assert.is(toCSS(library), "--g-a:#111111;");
+        Assert.is(toProperties(library).g.a.property, "--g-a");
     },
 );
 
@@ -350,8 +362,13 @@ toCssSuite.skip(
 );
 
 toCssSuite("normalizes quoting for single-word FontFamily", () => {
+    interface Theme {
+        a: DesignToken.FontFamily;
+        b: DesignToken.FontFamily;
+        c: DesignToken.FontFamily;
+    }
     const result = toCSS(
-        createUntyped({
+        Library.create<Theme>({
             a: { type: DesignToken.Type.FontFamily, value: "'Arial'" },
             b: { type: DesignToken.Type.FontFamily, value: "Arial" },
             c: {
@@ -365,21 +382,20 @@ toCssSuite("normalizes quoting for single-word FontFamily", () => {
 });
 
 toCssSuite("emits resolved values for alias tokens", () => {
-    const library = createUntyped({
-        a: { type: C, value: "#111111" },
-        b: { type: C, value: (context: any) => context.a },
-    });
-
-    Assert.is(toCSS(library), "--a:#111111;--b:#111111;");
+    Assert.is(toCSS(aliasedPair()), "--a:#111111;--b:#111111;");
 });
 
 toCssSuite("emits resolved values for deep alias tokens", () => {
-    const library = createUntyped({
+    interface Theme {
+        a: DesignToken.Color;
+        b: DesignToken.Border;
+    }
+    const library = Library.create<Theme>({
         a: { type: C, value: "#111111" },
         b: {
             type: DesignToken.Type.Border,
             value: {
-                color: (context: any) => context.a,
+                color: (context) => context.a,
                 width: "1px",
                 style: "solid",
             },
@@ -390,10 +406,7 @@ toCssSuite("emits resolved values for deep alias tokens", () => {
 });
 
 toCssSuite("emits overrides for a flat extended library", () => {
-    const extended = createUntyped({
-        a: { type: C, value: "#111111" },
-        b: { type: C, value: (context: any) => context.a },
-    }).extend({ a: { value: "#999999" } });
+    const extended = aliasedPair().extend<{}>({ a: { value: "#999999" } });
 
     Assert.is(toCSS(extended), "--a:#999999;--b:#999999;");
 });
@@ -401,20 +414,20 @@ toCssSuite("emits overrides for a flat extended library", () => {
 toCssSuite.skip(
     "emits tokens for an extended library with groups (fails: #14)",
     () => {
-        const extended = createUntyped({
-            g: { type: C, a: { value: "#111111" } },
-        }).extend({ g: { a: { value: "#999999" } } });
+        const extended = grouped().extend<{}>({
+            g: { a: { value: "#999999" } },
+        });
 
         Assert.ok(toCSS(extended).includes(":#999999;"));
     },
 );
 
 toCssSuite("an empty library emits an empty string", () => {
-    Assert.is(toCSS(createUntyped({})), "");
+    Assert.is(toCSS(Library.create<{}>({})), "");
 });
 
 toCssSuite("reflects a value after set()", () => {
-    const library = createUntyped({ a: { type: C, value: "#111111" } });
+    const library = Library.create<A>({ a: { type: C, value: "#111111" } });
 
     library.tokens.a.set("#222222");
 
@@ -422,8 +435,11 @@ toCssSuite("reflects a value after set()", () => {
 });
 
 toPropertiesSuite("supports deep nesting", () => {
-    const properties: any = toProperties(
-        createUntyped({
+    interface Theme {
+        a: { b: { c: { type: DesignToken.Type.Color; d: DesignToken.Color } } };
+    }
+    const properties = toProperties(
+        Library.create<Theme>({
             a: { b: { c: { type: C, d: { value: "#111111" } } } },
         }),
     );
@@ -433,9 +449,7 @@ toPropertiesSuite("supports deep nesting", () => {
 });
 
 toPropertiesSuite("groups and property values are frozen", () => {
-    const properties: any = toProperties(
-        createUntyped({ g: { type: C, a: { value: "#111111" } } }),
-    );
+    const properties = toProperties(grouped());
 
     Assert.ok(Object.isFrozen(properties.g), "group");
     Assert.ok(Object.isFrozen(properties.g.a), "property value");
@@ -443,17 +457,17 @@ toPropertiesSuite("groups and property values are frozen", () => {
 
 toPropertiesSuite.skip("the root object is frozen (fails: #23)", () => {
     const properties = toProperties(
-        createUntyped({ a: { type: C, value: "#111111" } }),
+        Library.create<A>({ a: { type: C, value: "#111111" } }),
     );
 
     Assert.ok(Object.isFrozen(properties));
 });
 
 toPropertiesSuite("supports a flat extended library with new tokens", () => {
-    const extended = createUntyped({
+    const extended = Library.create<A>({
         a: { type: C, value: "#111111" },
-    }).extend({ b: { type: C, value: "#222222" } });
-    const properties: any = toProperties(extended);
+    }).extend<{ b: DesignToken.Color }>({ b: { type: C, value: "#222222" } });
+    const properties = toProperties(extended);
 
     Assert.is(properties.a.property, "--a");
     Assert.is(properties.b.property, "--b");
@@ -462,18 +476,15 @@ toPropertiesSuite("supports a flat extended library with new tokens", () => {
 toPropertiesSuite.skip(
     "supports an extended library with groups (fails: #14)",
     () => {
-        const extended = createUntyped({
-            g: { type: C, a: { value: "#111111" } },
-        }).extend({});
-        const properties: any = toProperties(extended);
+        const properties = toProperties(grouped().extend<{}>({}));
 
         Assert.is(properties.g.a.property, "--g-a");
     },
 );
 
 toPropertiesSuite("keeps tokenless groups as empty groups", () => {
-    const properties: any = toProperties(
-        createUntyped({ g: { x: 1 }, b: { type: C, value: "#111111" } }),
+    const properties = toProperties(
+        Library.create({ g: { x: 1 }, b: { type: C, value: "#111111" } }),
     );
 
     Assert.equal(Object.keys(properties), ["g", "b"]);
@@ -481,17 +492,18 @@ toPropertiesSuite("keeps tokenless groups as empty groups", () => {
 });
 
 toPropertiesSuite("preserves name casing", () => {
-    const properties: any = toProperties(
-        createUntyped({ tOkEn: { type: C, value: "#111111" } }),
+    interface Theme {
+        tOkEn: DesignToken.Color;
+    }
+    const properties = toProperties(
+        Library.create<Theme>({ tOkEn: { type: C, value: "#111111" } }),
     );
 
     Assert.is(properties.tOkEn.property, "--tOkEn");
 });
 
 toPropertiesSuite("does not emit a group's 'type' key", () => {
-    const properties: any = toProperties(
-        createUntyped({ g: { type: C, a: { value: "#111111" } } }),
-    );
+    const properties = toProperties(grouped());
 
     Assert.equal(Object.keys(properties.g), ["a"]);
 });
