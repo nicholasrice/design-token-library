@@ -2,7 +2,13 @@ import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import { DesignToken } from "../lib/design-token.js";
-import { createUntyped, nextUpdate, recorder } from "./helpers.js";
+import {
+    captureUncaughtErrors,
+    createUntyped,
+    nextUpdate,
+    recorder,
+    settle,
+} from "./helpers.js";
 
 const Subscription = suite("Library subscriptions");
 const SameValue = suite("Library subscriptions: unchanged values");
@@ -173,22 +179,111 @@ Subscription(
     },
 );
 
+const throwingSubscriber = (error: Error) => ({
+    onChange() {
+        throw error;
+    },
+});
+
 Subscription.skip(
-    "[S11][DECIDE: D13] a throwing subscriber does not block other subscribers (fails: D13)",
+    "[S11a] a throwing subscriber does not block later subscribers (fails: D13)",
     async () => {
-        const library = createUntyped({ a: { type: C, value: "#111111" } });
-        const second = spy();
-        library.subscribe({
-            onChange() {
-                throw new Error("subscriber error");
-            },
-        });
-        library.subscribe({ onChange: second });
+        const uncaught = captureUncaughtErrors();
+        try {
+            const library = createUntyped({
+                a: { type: C, value: "#111111" },
+            });
+            const second = spy();
+            library.subscribe(throwingSubscriber(new Error("first")));
+            library.subscribe({ onChange: second });
 
-        library.tokens.a.set("#222222");
-        await nextUpdate();
+            library.tokens.a.set("#222222");
+            await settle();
 
-        Assert.ok(second.calledOnce);
+            Assert.ok(second.calledOnce);
+        } finally {
+            uncaught.restore();
+        }
+    },
+);
+
+Subscription(
+    "[S11b] a subscriber's error is reported as an uncaught error with the original instance",
+    async () => {
+        const uncaught = captureUncaughtErrors();
+        try {
+            const library = createUntyped({
+                a: { type: C, value: "#111111" },
+            });
+            const error = new Error("subscriber error");
+            library.subscribe(throwingSubscriber(error));
+
+            library.tokens.a.set("#222222");
+            await settle();
+
+            Assert.equal(uncaught.errors.length, 1);
+            Assert.is(uncaught.errors[0], error);
+        } finally {
+            uncaught.restore();
+        }
+    },
+);
+
+Subscription.skip(
+    "[S11c] errors from multiple subscribers are each reported and all others still run (fails: D13)",
+    async () => {
+        const uncaught = captureUncaughtErrors();
+        try {
+            const library = createUntyped({
+                a: { type: C, value: "#111111" },
+            });
+            const first = new Error("first");
+            const third = new Error("third");
+            const second = spy();
+            const fourth = spy();
+            library.subscribe(throwingSubscriber(first));
+            library.subscribe({ onChange: second });
+            library.subscribe(throwingSubscriber(third));
+            library.subscribe({ onChange: fourth });
+
+            library.tokens.a.set("#222222");
+            await settle();
+
+            Assert.ok(second.calledOnce, "second called");
+            Assert.ok(fourth.calledOnce, "fourth called");
+            Assert.equal(uncaught.errors, [first, third]);
+        } finally {
+            uncaught.restore();
+        }
+    },
+);
+
+Subscription(
+    "[S11d] the library keeps notifying after a subscriber throws",
+    async () => {
+        const uncaught = captureUncaughtErrors();
+        try {
+            const library = createUntyped({
+                a: { type: C, value: "#111111" },
+            });
+            let calls = 0;
+            library.subscribe({
+                onChange() {
+                    calls++;
+                    throw new Error("subscriber error");
+                },
+            });
+
+            library.tokens.a.set("#222222");
+            await settle();
+            library.tokens.a.set("#333333");
+            await settle();
+
+            Assert.is(calls, 2);
+            Assert.is(library.tokens.a.value, "#333333");
+        } finally {
+            uncaught.restore();
+        }
     },
 );
 

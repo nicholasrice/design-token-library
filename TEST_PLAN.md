@@ -134,7 +134,12 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | S8 | Multiple subscribers each receive the same frozen array | PASS |
 | S9 | Records array is frozen | PASS |
 | S10 | Subscribing the same subscriber twice → notified once | PASS |
-| S11 | A subscriber that throws doesn't block other subscribers | FAILS (D13) — or DECIDE if intentional |
+| S11a | A throwing subscriber doesn't block later subscribers | FAILS (D13) |
+| S11b | A subscriber's error is reported as an uncaught error, same instance | PASS |
+| S11c | Errors from multiple subscribers are each reported individually; all other subscribers run | FAILS (D13) |
+| S11d | The library keeps notifying after a subscriber throws | PASS |
+
+**D13 — DECIDED:** Subscribers are isolated from one another. The queue calls every subscriber, then re-throws each caught error individually, as the same instance, in its own microtask. Errors surface as uncaught errors (`window` `error` event / Node `uncaughtException`), matching DOM event listener semantics. Tests capture them with `captureUncaughtErrors()` in `helpers.ts`.
 | S12a | `set` with the same primitive → no notification | FAILS (U2) |
 | S12b | `set` with the same alias function reference → no notification | FAILS (U2) |
 | S12c | `set` with the same object reference → no notification | FAILS (U2) |
