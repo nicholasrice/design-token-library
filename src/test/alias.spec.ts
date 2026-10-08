@@ -13,7 +13,7 @@ const isCircularReferenceError = (error: any) =>
     error instanceof Error && error.name === "CircularReferenceError";
 
 Alias(
-    "[V1] an alias returning a token and one returning a raw value resolve the same",
+    "an alias returning a token and one returning a raw value resolve the same",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -26,7 +26,7 @@ Alias(
     },
 );
 
-Alias("[V2] an alias can reference a token in a different group", () => {
+Alias("an alias can reference a token in a different group", () => {
     const library = createUntyped({
         colors: { type: C, primary: { value: "#111111" } },
         borders: {
@@ -44,7 +44,7 @@ Alias("[V2] an alias can reference a token in a different group", () => {
     Assert.is(library.tokens.borders.x.value.color, "#111111");
 });
 
-Alias("[V3] deep aliases resolve inside array values", () => {
+Alias("deep aliases resolve inside array values", () => {
     const library = createUntyped({
         a: { type: C, value: "#111111" },
         n: { type: DesignToken.Type.Number, value: 0.5 },
@@ -68,7 +68,7 @@ Alias("[V3] deep aliases resolve inside array values", () => {
     Assert.equal(library.tokens.curve.value, [0.5, 0, 1, 1]);
 });
 
-Alias("[V4] a deep alias can reference a token that is itself an alias", () => {
+Alias("a deep alias can reference a token that is itself an alias", () => {
     const library = createUntyped({
         d1: { type: DesignToken.Type.Dimension, value: "2px" },
         d2: {
@@ -92,7 +92,7 @@ Alias("[V4] a deep alias can reference a token that is itself an alias", () => {
 });
 
 Alias(
-    "[V5] a deep alias returning a token and one returning a raw value resolve the same",
+    "a deep alias returning a token and one returning a raw value resolve the same",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -119,7 +119,7 @@ Alias(
     },
 );
 
-Alias("[V6] an alias is invoked once across repeated reads", () => {
+Alias("an alias is invoked once across repeated reads", () => {
     const alias = spy((context: any) => context.a);
     const library = createUntyped({
         a: { type: C, value: "#111111" },
@@ -134,7 +134,7 @@ Alias("[V6] an alias is invoked once across repeated reads", () => {
 });
 
 Alias(
-    "[V7] an alias is re-invoked exactly once after its dependency changes",
+    "an alias is re-invoked exactly once after its dependency changes",
     () => {
         const alias = spy((context: any) => context.a);
         const library = createUntyped({
@@ -153,7 +153,7 @@ Alias(
 );
 
 Alias(
-    "[V8] re-aliasing tracks the new dependency and drops the old one",
+    "re-aliasing tracks the new dependency and drops the old one",
     async () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -184,7 +184,7 @@ Alias(
 );
 
 Alias(
-    "[V9] a conditional alias re-tracks dependencies when its branch flips",
+    "a conditional alias re-tracks dependencies when its branch flips",
     async () => {
         const library = createUntyped({
             flag: { type: DesignToken.Type.Number, value: 0 },
@@ -216,7 +216,7 @@ Alias(
 );
 
 Alias(
-    "[V10] setting a static value stops tracking the previous alias dependency",
+    "setting a static value stops tracking the previous alias dependency",
     async () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -237,41 +237,38 @@ Alias(
     },
 );
 
-Alias(
-    "[V11] a diamond dependency updates once with the correct value",
-    async () => {
-        const first = spy((context: any) => context.b);
-        const second = spy((context: any) => context.c);
-        const library = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
-            c: { type: C, value: (context: any) => context.a },
-            d: {
-                type: DesignToken.Type.Gradient,
-                value: [
-                    { color: first, position: 0 },
-                    { color: second, position: 1 },
-                ],
-            },
-        });
-        library.tokens.d.value;
+Alias("a diamond dependency updates once with the correct value", async () => {
+    const first = spy((context: any) => context.b);
+    const second = spy((context: any) => context.c);
+    const library = createUntyped({
+        a: { type: C, value: "#111111" },
+        b: { type: C, value: (context: any) => context.a },
+        c: { type: C, value: (context: any) => context.a },
+        d: {
+            type: DesignToken.Type.Gradient,
+            value: [
+                { color: first, position: 0 },
+                { color: second, position: 1 },
+            ],
+        },
+    });
+    library.tokens.d.value;
 
-        const subscriber = recorder();
-        library.subscribe(subscriber);
-        library.tokens.a.set("#222222");
-        await nextUpdate();
+    const subscriber = recorder();
+    library.subscribe(subscriber);
+    library.tokens.a.set("#222222");
+    await nextUpdate();
 
-        const batch = subscriber.batches[0];
-        Assert.is(batch.filter((name) => name === "d").length, 1);
-        Assert.equal([...batch].sort(), ["a", "b", "c", "d"]);
-        Assert.equal(library.tokens.d.value, [
-            { color: "#222222", position: 0 },
-            { color: "#222222", position: 1 },
-        ]);
-        Assert.is(first.callCount, 2);
-        Assert.is(second.callCount, 2);
-    },
-);
+    const batch = subscriber.batches[0];
+    Assert.is(batch.filter((name) => name === "d").length, 1);
+    Assert.equal([...batch].sort(), ["a", "b", "c", "d"]);
+    Assert.equal(library.tokens.d.value, [
+        { color: "#222222", position: 0 },
+        { color: "#222222", position: 1 },
+    ]);
+    Assert.is(first.callCount, 2);
+    Assert.is(second.callCount, 2);
+});
 
 const borderWithDashes = () => ({
     type: DesignToken.Type.Border,
@@ -282,7 +279,7 @@ const borderWithDashes = () => ({
     },
 });
 
-Alias.skip("[V13a] object values are deeply frozen (fails: #24)", () => {
+Alias.skip("object values are deeply frozen (fails: #24)", () => {
     const library = createUntyped({ a: borderWithDashes() });
     const value = library.tokens.a.value;
 
@@ -292,7 +289,7 @@ Alias.skip("[V13a] object values are deeply frozen (fails: #24)", () => {
 });
 
 Alias.skip(
-    "[V13b] mutating a value throws and leaves the token unchanged (fails: #24)",
+    "mutating a value throws and leaves the token unchanged (fails: #24)",
     () => {
         const library = createUntyped({ a: borderWithDashes() });
 
@@ -308,28 +305,25 @@ Alias.skip(
     },
 );
 
-Alias.skip(
-    "[V13c] array values and their items are frozen (fails: #24)",
-    () => {
-        const library = createUntyped({
-            fonts: {
-                type: DesignToken.Type.FontFamily,
-                value: ["Comic Sans", "serif"],
-            },
-            gradient: {
-                type: DesignToken.Type.Gradient,
-                value: [{ color: "#111111", position: 0 }],
-            },
-        });
+Alias.skip("array values and their items are frozen (fails: #24)", () => {
+    const library = createUntyped({
+        fonts: {
+            type: DesignToken.Type.FontFamily,
+            value: ["Comic Sans", "serif"],
+        },
+        gradient: {
+            type: DesignToken.Type.Gradient,
+            value: [{ color: "#111111", position: 0 }],
+        },
+    });
 
-        Assert.ok(Object.isFrozen(library.tokens.fonts.value), "font family");
-        Assert.ok(Object.isFrozen(library.tokens.gradient.value), "gradient");
-        Assert.ok(Object.isFrozen(library.tokens.gradient.value[0]), "stop");
-    },
-);
+    Assert.ok(Object.isFrozen(library.tokens.fonts.value), "font family");
+    Assert.ok(Object.isFrozen(library.tokens.gradient.value), "gradient");
+    Assert.ok(Object.isFrozen(library.tokens.gradient.value[0]), "stop");
+});
 
 Alias.skip(
-    "[V13d] values resolved from deep aliases are deeply frozen (fails: #24)",
+    "values resolved from deep aliases are deeply frozen (fails: #24)",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -349,7 +343,7 @@ Alias.skip(
     },
 );
 
-Alias("[V13e] the config object passed to create is not frozen", () => {
+Alias("the config object passed to create is not frozen", () => {
     const config = { a: borderWithDashes() };
     const library = createUntyped(config);
     library.tokens.a.value;
@@ -359,7 +353,7 @@ Alias("[V13e] the config object passed to create is not frozen", () => {
 });
 
 Alias.skip(
-    "[V14a] extensions are copied from the config, not referenced (fails: #25)",
+    "extensions are copied from the config, not referenced (fails: #25)",
     () => {
         const extensions = { k: 1 };
         const library = createUntyped({
@@ -373,37 +367,31 @@ Alias.skip(
     },
 );
 
-Alias.skip(
-    "[V14b] nested extension objects are copied too (fails: #25)",
-    () => {
-        const extensions = { nested: { k: 1 } };
-        const library = createUntyped({
-            a: { type: C, value: "#111111", extensions },
-        });
+Alias.skip("nested extension objects are copied too (fails: #25)", () => {
+    const extensions = { nested: { k: 1 } };
+    const library = createUntyped({
+        a: { type: C, value: "#111111", extensions },
+    });
 
-        extensions.nested.k = 2;
+    extensions.nested.k = 2;
 
-        Assert.equal(library.tokens.a.extensions, { nested: { k: 1 } });
-    },
-);
+    Assert.equal(library.tokens.a.extensions, { nested: { k: 1 } });
+});
 
-Alias(
-    "[V15] the alias context is the root token library for nested tokens",
-    () => {
-        const alias = spy((context: any) => context.a);
-        const library = createUntyped({
-            a: { type: C, value: "#111111" },
-            g: { type: C, t: { value: alias } },
-        });
+Alias("the alias context is the root token library for nested tokens", () => {
+    const alias = spy((context: any) => context.a);
+    const library = createUntyped({
+        a: { type: C, value: "#111111" },
+        g: { type: C, t: { value: alias } },
+    });
 
-        library.tokens.g.t.value;
+    library.tokens.g.t.value;
 
-        Assert.is(alias.firstCall.args[0], library.tokens);
-    },
-);
+    Assert.is(alias.firstCall.args[0], library.tokens);
+});
 
 Circular.skip(
-    "[V12a] a direct cycle throws CircularReferenceError (fails: #21)",
+    "a direct cycle throws CircularReferenceError (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: (context: any) => context.b },
@@ -414,7 +402,7 @@ Circular.skip(
     },
 );
 
-Circular.skip("[V12b] a self-reference throws (fails: #21)", () => {
+Circular.skip("a self-reference throws (fails: #21)", () => {
     const library = createUntyped({
         a: { type: C, value: (context: any) => context.a },
     });
@@ -423,7 +411,7 @@ Circular.skip("[V12b] a self-reference throws (fails: #21)", () => {
 });
 
 Circular.skip(
-    "[V12c] the error message lists the reference chain (fails: #21)",
+    "the error message lists the reference chain (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: (context: any) => context.b },
@@ -434,7 +422,7 @@ Circular.skip(
     },
 );
 
-Circular.skip("[V12d] a cycle through a deep alias throws (fails: #21)", () => {
+Circular.skip("a cycle through a deep alias throws (fails: #21)", () => {
     const library = createUntyped({
         self: {
             type: DesignToken.Type.Border,
@@ -450,7 +438,7 @@ Circular.skip("[V12d] a cycle through a deep alias throws (fails: #21)", () => {
 });
 
 Circular.skip(
-    "[V12e] a cycle created later via set() throws on the next read (fails: #21)",
+    "a cycle created later via set() throws on the next read (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -465,7 +453,7 @@ Circular.skip(
 );
 
 Circular.skip(
-    "[V12f] breaking a cycle with set() makes tokens resolve again (fails: #21)",
+    "breaking a cycle with set() makes tokens resolve again (fails: #21)",
     () => {
         const library = createUntyped({
             a: { type: C, value: (context: any) => context.b },
@@ -480,7 +468,7 @@ Circular.skip(
     },
 );
 
-Circular("[V12g] a non-cyclic diamond does not throw", () => {
+Circular("a non-cyclic diamond does not throw", () => {
     const library = createUntyped({
         a: { type: C, value: "#111111" },
         b: { type: C, value: (context: any) => context.a },
@@ -498,7 +486,7 @@ Circular("[V12g] a non-cyclic diamond does not throw", () => {
 });
 
 Circular.skip(
-    "[V12h] a cycle introduced by an extend override throws in the extended library (fails: #21, #14)",
+    "a cycle introduced by an extend override throws in the extended library (fails: #21, #14)",
     () => {
         const source = createUntyped({
             a: { type: C, value: "#111111" },
@@ -513,7 +501,7 @@ Circular.skip(
 );
 
 Circular(
-    "[V12i] the source library is unaffected by a cycle in an extending library",
+    "the source library is unaffected by a cycle in an extending library",
     () => {
         const source = createUntyped({
             a: { type: C, value: "#111111" },
@@ -533,7 +521,7 @@ Circular(
 );
 
 Circular.skip(
-    "[V12j] CircularReferenceError is exported and extends Error (fails: #21)",
+    "CircularReferenceError is exported and extends Error (fails: #21)",
     () => {
         const ErrorClass = Reflect.get(Package, "CircularReferenceError");
         const library = createUntyped({

@@ -17,11 +17,11 @@ interface Theme {
 
 const config: Library.Config<Theme> = {
     a: { type: DesignToken.Type.Color, value: "#111111" },
-    // [Y2] Alias values are accepted
+    // Alias values are accepted
     b: { type: DesignToken.Type.Color, value: (context) => context.a },
     border: {
         type: DesignToken.Type.Border,
-        // [Y2] Deep alias values are accepted
+        // Deep alias values are accepted
         value: {
             color: (context) => context.a,
             width: "1px",
@@ -31,7 +31,7 @@ const config: Library.Config<Theme> = {
 };
 
 const invalidConfig: Library.Config<Theme> = {
-    // @ts-expect-error [Y1] a Color token rejects a number value
+    // @ts-expect-error a Color token rejects a number value
     a: { type: DesignToken.Type.Color, value: 12 },
     b: { type: DesignToken.Type.Color, value: "#111111" },
     border: config.border,
@@ -39,12 +39,12 @@ const invalidConfig: Library.Config<Theme> = {
 
 const library = Library.create(config);
 
-// [Y3] Token values are typed by token type
+// Token values are typed by token type
 const color: DesignToken.Values.Color = library.tokens.a.value;
-// @ts-expect-error [Y3] a Color value is not a number
+// @ts-expect-error a Color value is not a number
 const notNumber: number = library.tokens.a.value;
 
-// [Y4] extend<K> exposes both source and new keys
+// extend<K> exposes both source and new keys
 interface Extension {
     c: DesignToken.Color;
 }
@@ -54,16 +54,16 @@ const extended = library.extend<Extension>({
 const sourceKey: DesignToken.Values.Color = extended.tokens.a.value;
 const newKey: DesignToken.Values.Color = extended.tokens.c.value;
 
-// @ts-expect-error [Y5] set() rejects a mismatched value type
+// @ts-expect-error set() rejects a mismatched value type
 library.tokens.a.set(12);
 
-// [Y6] (fails: #26) Enable once Dimension accepts "rem" and rejects "rm".
+// Enable once Dimension accepts "rem" and rejects "rm" (#26).
 // This can't be skipped at runtime because it is a compile-time check.
 // const rem: DesignToken.Values.Dimension = "1rem";
 // // @ts-expect-error
 // const rm: DesignToken.Values.Dimension = "1rm";
 
-// [Y7] (fails: #24) Enable once token values are deeply readonly at compile time.
+// Enable once token values are deeply readonly at compile time (#24).
 // // @ts-expect-error top-level property is readonly
 // library.tokens.border.value.width = "2px";
 // // @ts-expect-error nested properties are readonly

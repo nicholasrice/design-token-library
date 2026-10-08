@@ -14,7 +14,7 @@ const Subscription = suite("Library subscriptions");
 const SameValue = suite("Library subscriptions: unchanged values");
 const C = DesignToken.Type.Color;
 
-Subscription("[S1] unsubscribe stops notifications", async () => {
+Subscription("unsubscribe stops notifications", async () => {
     const library = createUntyped({ a: { type: C, value: "#111111" } });
     const subscriber = recorder();
     library.subscribe(subscriber);
@@ -28,23 +28,20 @@ Subscription("[S1] unsubscribe stops notifications", async () => {
     Assert.equal(subscriber.batches, [["a"]]);
 });
 
-Subscription(
-    "[S2] unsubscribing an unknown subscriber is a no-op",
-    async () => {
-        const library = createUntyped({ a: { type: C, value: "#111111" } });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+Subscription("unsubscribing an unknown subscriber is a no-op", async () => {
+    const library = createUntyped({ a: { type: C, value: "#111111" } });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        Assert.not.throws(() => library.unsubscribe(recorder()));
+    Assert.not.throws(() => library.unsubscribe(recorder()));
 
-        library.tokens.a.set("#222222");
-        await nextUpdate();
-        Assert.equal(subscriber.batches, [["a"]]);
-    },
-);
+    library.tokens.a.set("#222222");
+    await nextUpdate();
+    Assert.equal(subscriber.batches, [["a"]]);
+});
 
 Subscription(
-    "[S3] a token set twice in one microtask appears once in the batch",
+    "a token set twice in one microtask appears once in the batch",
     async () => {
         const library = createUntyped({ a: { type: C, value: "#111111" } });
         const subscriber = recorder();
@@ -59,7 +56,7 @@ Subscription(
 );
 
 Subscription(
-    "[S4] a read alias token is included when its dependency changes",
+    "a read alias token is included when its dependency changes",
     async () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -77,7 +74,7 @@ Subscription(
 );
 
 Subscription(
-    "[S5] an alias token that was never read is not included (lazy tracking)",
+    "an alias token that was never read is not included (lazy tracking)",
     async () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -94,7 +91,7 @@ Subscription(
 );
 
 Subscription(
-    "[S6] a deep alias dependent is included when its dependency changes",
+    "a deep alias dependent is included when its dependency changes",
     async () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -118,7 +115,7 @@ Subscription(
     },
 );
 
-Subscription("[S7] transitive dependents are all included", async () => {
+Subscription("transitive dependents are all included", async () => {
     const library = createUntyped({
         a: { type: C, value: "#111111" },
         b: { type: C, value: (context: any) => context.a },
@@ -135,7 +132,7 @@ Subscription("[S7] transitive dependents are all included", async () => {
 });
 
 Subscription(
-    "[S8] multiple subscribers receive the same records array",
+    "multiple subscribers receive the same records array",
     async () => {
         const library = createUntyped({ a: { type: C, value: "#111111" } });
         const first = spy();
@@ -152,7 +149,7 @@ Subscription(
     },
 );
 
-Subscription("[S9] the records array is frozen", async () => {
+Subscription("the records array is frozen", async () => {
     const library = createUntyped({ a: { type: C, value: "#111111" } });
     const onChange = spy();
     library.subscribe({ onChange });
@@ -163,21 +160,18 @@ Subscription("[S9] the records array is frozen", async () => {
     Assert.ok(Object.isFrozen(onChange.firstCall.args[0]));
 });
 
-Subscription(
-    "[S10] a subscriber subscribed twice is notified once",
-    async () => {
-        const library = createUntyped({ a: { type: C, value: "#111111" } });
-        const onChange = spy();
-        const subscriber = { onChange };
-        library.subscribe(subscriber);
-        library.subscribe(subscriber);
+Subscription("a subscriber subscribed twice is notified once", async () => {
+    const library = createUntyped({ a: { type: C, value: "#111111" } });
+    const onChange = spy();
+    const subscriber = { onChange };
+    library.subscribe(subscriber);
+    library.subscribe(subscriber);
 
-        library.tokens.a.set("#222222");
-        await nextUpdate();
+    library.tokens.a.set("#222222");
+    await nextUpdate();
 
-        Assert.ok(onChange.calledOnce);
-    },
-);
+    Assert.ok(onChange.calledOnce);
+});
 
 const throwingSubscriber = (error: Error) => ({
     onChange() {
@@ -186,7 +180,7 @@ const throwingSubscriber = (error: Error) => ({
 });
 
 Subscription.skip(
-    "[S11a] a throwing subscriber does not block later subscribers (fails: #18)",
+    "a throwing subscriber does not block later subscribers (fails: #18)",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
@@ -208,7 +202,7 @@ Subscription.skip(
 );
 
 Subscription(
-    "[S11b] a subscriber's error is reported as an uncaught error with the original instance",
+    "a subscriber's error is reported as an uncaught error with the original instance",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
@@ -230,7 +224,7 @@ Subscription(
 );
 
 Subscription.skip(
-    "[S11c] errors from multiple subscribers are each reported and all others still run (fails: #18)",
+    "errors from multiple subscribers are each reported and all others still run (fails: #18)",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
@@ -259,7 +253,7 @@ Subscription.skip(
 );
 
 Subscription(
-    "[S11d] the library keeps notifying after a subscriber throws",
+    "the library keeps notifying after a subscriber throws",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
@@ -288,7 +282,7 @@ Subscription(
 );
 
 Subscription(
-    "[S13] changes in one library do not notify another library's subscribers",
+    "changes in one library do not notify another library's subscribers",
     async () => {
         const first = createUntyped({ a: { type: C, value: "#111111" } });
         const second = createUntyped({ a: { type: C, value: "#111111" } });
@@ -303,7 +297,7 @@ Subscription(
 );
 
 SameValue.skip(
-    "[S12a] setting the same primitive does not notify (fails: #22)",
+    "setting the same primitive does not notify (fails: #22)",
     async () => {
         const library = createUntyped({ a: { type: C, value: "#111111" } });
         const subscriber = recorder();
@@ -317,7 +311,7 @@ SameValue.skip(
 );
 
 SameValue.skip(
-    "[S12b] setting the same alias function reference does not notify (fails: #22)",
+    "setting the same alias function reference does not notify (fails: #22)",
     async () => {
         const alias = (context: any) => context.a;
         const library = createUntyped({
@@ -335,7 +329,7 @@ SameValue.skip(
 );
 
 SameValue.skip(
-    "[S12c] setting the same object reference does not notify (fails: #22)",
+    "setting the same object reference does not notify (fails: #22)",
     async () => {
         const value = { color: "#111111", width: "1px", style: "solid" };
         const library = createUntyped({
@@ -351,65 +345,56 @@ SameValue.skip(
     },
 );
 
-SameValue(
-    "[S12d] setting a structurally equal but new object notifies",
-    async () => {
-        const library = createUntyped({
-            a: {
-                type: DesignToken.Type.Border,
-                value: { color: "#111111", width: "1px", style: "solid" },
-            },
-        });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+SameValue("setting a structurally equal but new object notifies", async () => {
+    const library = createUntyped({
+        a: {
+            type: DesignToken.Type.Border,
+            value: { color: "#111111", width: "1px", style: "solid" },
+        },
+    });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.a.set({
-            color: "#111111",
-            width: "1px",
-            style: "solid",
-        });
-        await nextUpdate();
+    library.tokens.a.set({
+        color: "#111111",
+        width: "1px",
+        style: "solid",
+    });
+    await nextUpdate();
 
-        Assert.equal(subscriber.batches, [["a"]]);
-    },
-);
+    Assert.equal(subscriber.batches, [["a"]]);
+});
 
-SameValue(
-    "[S12e] setting a new function with the same body notifies",
-    async () => {
-        const library = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: (context: any) => context.a },
-        });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+SameValue("setting a new function with the same body notifies", async () => {
+    const library = createUntyped({
+        a: { type: C, value: "#111111" },
+        b: { type: C, value: (context: any) => context.a },
+    });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.b.set((context: any) => context.a);
-        await nextUpdate();
+    library.tokens.b.set((context: any) => context.a);
+    await nextUpdate();
 
-        Assert.equal(subscriber.batches, [["b"]]);
-    },
-);
+    Assert.equal(subscriber.batches, [["b"]]);
+});
 
-SameValue.skip(
-    "[S12f] a no-op set does not invalidate the cache (fails: #22)",
-    () => {
-        const alias = spy((context: any) => context.a);
-        const library = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: alias },
-        });
-        library.tokens.b.value;
+SameValue.skip("a no-op set does not invalidate the cache (fails: #22)", () => {
+    const alias = spy((context: any) => context.a);
+    const library = createUntyped({
+        a: { type: C, value: "#111111" },
+        b: { type: C, value: alias },
+    });
+    library.tokens.b.value;
 
-        library.tokens.b.set(alias);
-        library.tokens.b.value;
+    library.tokens.b.set(alias);
+    library.tokens.b.value;
 
-        Assert.is(alias.callCount, 1);
-    },
-);
+    Assert.is(alias.callCount, 1);
+});
 
 SameValue(
-    "[S12g] setting an inherited value on an extended token detaches it from the source",
+    "setting an inherited value on an extended token detaches it from the source",
     () => {
         const source = createUntyped({ a: { type: C, value: "#111111" } });
         const extended = source.extend({});
@@ -422,7 +407,7 @@ SameValue(
 );
 
 SameValue(
-    "[S12h] after detaching, source changes neither change nor notify the extended token",
+    "after detaching, source changes neither change nor notify the extended token",
     async () => {
         const source = createUntyped({ a: { type: C, value: "#111111" } });
         const extended = source.extend({});
@@ -440,7 +425,7 @@ SameValue(
 );
 
 SameValue.skip(
-    "[S12i] setting the inherited value on an extended token does not notify (fails: #22)",
+    "setting the inherited value on an extended token does not notify (fails: #22)",
     async () => {
         const alias = (context: any) => context.a;
         const source = createUntyped({
@@ -461,7 +446,7 @@ SameValue.skip(
 );
 
 SameValue(
-    "[S12j] an inherited alias resolves against the extending library before and after assignment",
+    "an inherited alias resolves against the extending library before and after assignment",
     async () => {
         const aliasB = (context: any) => context.a;
         const source = createUntyped({
@@ -498,7 +483,7 @@ SameValue(
 );
 
 SameValue(
-    "[S12k] an inherited static value resolves the same before and after assignment",
+    "an inherited static value resolves the same before and after assignment",
     async () => {
         const source = createUntyped({ a: { type: C, value: "#111111" } });
         const extended = source.extend({});

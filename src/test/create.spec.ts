@@ -6,7 +6,7 @@ import { createUntyped } from "./helpers.js";
 const Create = suite("Library.create");
 const C = DesignToken.Type.Color;
 
-Create("[C1] name is the full path for deeply nested tokens", () => {
+Create("name is the full path for deeply nested tokens", () => {
     const library = createUntyped({
         a: { b: { c: { d: { type: C, value: "#111111" } } } },
     });
@@ -14,7 +14,7 @@ Create("[C1] name is the full path for deeply nested tokens", () => {
     Assert.is(library.tokens.a.b.c.d.name, "a.b.c.d");
 });
 
-Create("[C2] type is inherited through multiple group levels", () => {
+Create("type is inherited through multiple group levels", () => {
     const library = createUntyped({
         g: { type: C, h: { i: { t: { value: "#111111" } } } },
     });
@@ -23,7 +23,7 @@ Create("[C2] type is inherited through multiple group levels", () => {
 });
 
 Create(
-    "[C3] a nested group type overrides the outer group type for its descendants only",
+    "a nested group type overrides the outer group type for its descendants only",
     () => {
         const library = createUntyped({
             g: {
@@ -39,7 +39,7 @@ Create(
 );
 
 Create(
-    "[C4] throws for a nested token with no type in any ancestor, naming the token",
+    "throws for a nested token with no type in any ancestor, naming the token",
     () => {
         Assert.throws(
             () => createUntyped({ g: { h: { t: { value: "#111111" } } } }),
@@ -48,26 +48,23 @@ Create(
     },
 );
 
-Create("[C5] description defaults to an empty string", () => {
+Create("description defaults to an empty string", () => {
     const library = createUntyped({ a: { type: C, value: "#111111" } });
 
     Assert.is(library.tokens.a.description, "");
 });
 
-Create(
-    "[C6] extensions defaults to an empty object unique to each token",
-    () => {
-        const library = createUntyped({
-            a: { type: C, value: "#111111" },
-            b: { type: C, value: "#222222" },
-        });
+Create("extensions defaults to an empty object unique to each token", () => {
+    const library = createUntyped({
+        a: { type: C, value: "#111111" },
+        b: { type: C, value: "#222222" },
+    });
 
-        Assert.equal(library.tokens.a.extensions, {});
-        Assert.is.not(library.tokens.a.extensions, library.tokens.b.extensions);
-    },
-);
+    Assert.equal(library.tokens.a.extensions, {});
+    Assert.is.not(library.tokens.a.extensions, library.tokens.b.extensions);
+});
 
-Create("[C7] a group's 'type' key is not an enumerable group member", () => {
+Create("a group's 'type' key is not an enumerable group member", () => {
     const library = createUntyped({
         g: { type: C, a: { value: "#111111" } },
     });
@@ -76,7 +73,7 @@ Create("[C7] a group's 'type' key is not an enumerable group member", () => {
 });
 
 Create(
-    "[C8] group keys are exactly its tokens and subgroups in declaration order",
+    "group keys are exactly its tokens and subgroups in declaration order",
     () => {
         const library = createUntyped({
             g: {
@@ -141,7 +138,7 @@ const valuesByType: Array<[DesignToken.Type, DesignToken.Values.Any]> = [
 ];
 
 for (const [type, value] of valuesByType) {
-    Create(`[C9] ${type} round-trips type and value`, () => {
+    Create(`${type} round-trips type and value`, () => {
         const library = createUntyped({ token: { type, value } });
 
         Assert.is(library.tokens.token.type, type);
@@ -149,7 +146,7 @@ for (const [type, value] of valuesByType) {
     });
 }
 
-Create.skip("[C10] the root token library is frozen (fails: #23)", () => {
+Create.skip("the root token library is frozen (fails: #23)", () => {
     const library = createUntyped({ a: { type: C, value: "#111111" } });
 
     Assert.ok(Object.isFrozen(library.tokens));
@@ -167,7 +164,7 @@ const nonTokenValues: Array<[string, unknown]> = [
 ];
 
 for (const [label, value] of nonTokenValues) {
-    Create(`[C11a] a ${label} config entry is ignored, not thrown`, () => {
+    Create(`a ${label} config entry is ignored, not thrown`, () => {
         const library = createUntyped({
             a: value,
             b: { type: C, value: "#111111" },
@@ -178,7 +175,7 @@ for (const [label, value] of nonTokenValues) {
     });
 }
 
-Create("[C11b] non-token entries inside a group are ignored", () => {
+Create("non-token entries inside a group are ignored", () => {
     const library = createUntyped({
         g: { type: C, x: 1, y: null, t: { value: "#111111" } },
     });
@@ -186,7 +183,7 @@ Create("[C11b] non-token entries inside a group are ignored", () => {
     Assert.equal(Object.keys(library.tokens.g), ["t"]);
 });
 
-Create("[C11c] non-token entries in an extend config are ignored", () => {
+Create("non-token entries in an extend config are ignored", () => {
     const extended = createUntyped({
         b: { type: C, value: "#111111" },
     }).extend({ a: null, n: 12 });
@@ -195,7 +192,7 @@ Create("[C11c] non-token entries in an extend config are ignored", () => {
 });
 
 Create.skip(
-    "[C11d] an array config entry is ignored, not treated as a group (fails: #20)",
+    "an array config entry is ignored, not treated as a group (fails: #20)",
     () => {
         const library = createUntyped({
             a: [1, 2],
@@ -214,21 +211,18 @@ const tokenlessGroups: Array<[string, object, string[]]> = [
 ];
 
 for (const [label, group, expectedKeys] of tokenlessGroups) {
-    Create(
-        `[C11e] ${label} is kept, exposing only its groups and tokens`,
-        () => {
-            const library = createUntyped({
-                g: group,
-                b: { type: C, value: "#111111" },
-            });
+    Create(`${label} is kept, exposing only its groups and tokens`, () => {
+        const library = createUntyped({
+            g: group,
+            b: { type: C, value: "#111111" },
+        });
 
-            Assert.equal(Object.keys(library.tokens), ["g", "b"]);
-            Assert.equal(Object.keys(library.tokens.g), expectedKeys);
-        },
-    );
+        Assert.equal(Object.keys(library.tokens), ["g", "b"]);
+        Assert.equal(Object.keys(library.tokens.g), expectedKeys);
+    });
 }
 
-Create("[C11f] a group keeps both its tokens and its empty subgroups", () => {
+Create("a group keeps both its tokens and its empty subgroups", () => {
     const library = createUntyped({
         g: { type: C, empty: {}, t: { value: "#111111" } },
     });
@@ -236,7 +230,7 @@ Create("[C11f] a group keeps both its tokens and its empty subgroups", () => {
     Assert.equal(Object.keys(library.tokens.g), ["empty", "t"]);
 });
 
-Create("[C13] libraries created from the same config are independent", () => {
+Create("libraries created from the same config are independent", () => {
     const config = { a: { type: C, value: "#111111" } };
     const first = createUntyped(config);
     const second = createUntyped(config);
@@ -248,7 +242,7 @@ Create("[C13] libraries created from the same config are independent", () => {
 });
 
 Create.skip(
-    "[C14a] toString() returns a JSON representation of the token (fails: #17)",
+    "toString() returns a JSON representation of the token (fails: #17)",
     () => {
         const library = createUntyped({
             g: {
@@ -272,7 +266,7 @@ Create.skip(
 );
 
 Create.skip(
-    "[C14b] toString() serializes the resolved value of an alias token (fails: #17)",
+    "toString() serializes the resolved value of an alias token (fails: #17)",
     () => {
         const library = createUntyped({
             a: { type: C, value: "#111111" },
@@ -297,7 +291,7 @@ Create.skip(
 );
 
 Create.skip(
-    "[C14c] toString() reflects the current value after set() (fails: #17)",
+    "toString() reflects the current value after set() (fails: #17)",
     () => {
         const library = createUntyped({ a: { type: C, value: "#111111" } });
 

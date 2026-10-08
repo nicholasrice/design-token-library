@@ -220,7 +220,7 @@ toPropertiesSuite(
 
 const C = DesignToken.Type.Color;
 
-toCssSuite("[T1] concatenates multiple flat tokens in order", () => {
+toCssSuite("concatenates multiple flat tokens in order", () => {
     const library = createUntyped({
         a: { type: C, value: "#111111" },
         b: { type: C, value: "#222222" },
@@ -230,7 +230,7 @@ toCssSuite("[T1] concatenates multiple flat tokens in order", () => {
 });
 
 toCssSuite.skip(
-    "[T2] emits tokens declared before a nested group (fails: #10)",
+    "emits tokens declared before a nested group (fails: #10)",
     () => {
         const result = toCSS(
             createUntyped({
@@ -244,7 +244,7 @@ toCssSuite.skip(
     },
 );
 
-toCssSuite.skip("[T3] emits tokens from sibling groups (fails: #10)", () => {
+toCssSuite.skip("emits tokens from sibling groups (fails: #10)", () => {
     const result = toCSS(
         createUntyped({
             g1: { type: C, x: { value: "#111111" } },
@@ -257,7 +257,7 @@ toCssSuite.skip("[T3] emits tokens from sibling groups (fails: #10)", () => {
 });
 
 toCssSuite.skip(
-    "[T4] nested names use '-' separators, matching toProperties (fails: #10)",
+    "nested names use '-' separators, matching toProperties (fails: #10)",
     () => {
         const library = createUntyped({
             g: { type: C, b: { value: "#222222" } },
@@ -270,7 +270,7 @@ toCssSuite.skip(
 );
 
 toCssSuite.skip(
-    "[T5] converts Transition with a cubic-bezier() timing function (fails: #12)",
+    "converts Transition with a cubic-bezier() timing function (fails: #12)",
     () => {
         const config: Config<DesignToken.Transition> = {
             token: {
@@ -290,7 +290,7 @@ toCssSuite.skip(
     },
 );
 
-toCssSuite("[T6] passes StrokeStyle keywords through", () => {
+toCssSuite("passes StrokeStyle keywords through", () => {
     const config: Config<DesignToken.StrokeStyle> = {
         token: { type: DesignToken.Type.StrokeStyle, value: "dotted" },
     };
@@ -298,7 +298,7 @@ toCssSuite("[T6] passes StrokeStyle keywords through", () => {
     Assert.is(toCSS(Library.create(config)), "--token:dotted;");
 });
 
-toCssSuite("[T7] converts object StrokeStyle to 'dashed'", () => {
+toCssSuite("converts object StrokeStyle to 'dashed'", () => {
     const config: Config<DesignToken.StrokeStyle> = {
         token: {
             type: DesignToken.Type.StrokeStyle,
@@ -309,31 +309,28 @@ toCssSuite("[T7] converts object StrokeStyle to 'dashed'", () => {
     Assert.is(toCSS(Library.create(config)), "--token:dashed;");
 });
 
-toCssSuite.skip(
-    "[T8] converts Typography to a font shorthand (fails: #11)",
-    () => {
-        const config: Config<DesignToken.Typography> = {
-            token: {
-                type: DesignToken.Type.Typography,
-                value: {
-                    fontFamily: "Comic Sans",
-                    fontSize: "12px",
-                    fontWeight: 400,
-                    letterSpacing: "0px",
-                    lineHeight: 1.2,
-                },
+toCssSuite.skip("converts Typography to a font shorthand (fails: #11)", () => {
+    const config: Config<DesignToken.Typography> = {
+        token: {
+            type: DesignToken.Type.Typography,
+            value: {
+                fontFamily: "Comic Sans",
+                fontSize: "12px",
+                fontWeight: 400,
+                letterSpacing: "0px",
+                lineHeight: 1.2,
             },
-        };
+        },
+    };
 
-        Assert.is(
-            toCSS(Library.create(config)),
-            '--token:400 12px/1.2 "Comic Sans";',
-        );
-    },
-);
+    Assert.is(
+        toCSS(Library.create(config)),
+        '--token:400 12px/1.2 "Comic Sans";',
+    );
+});
 
 toCssSuite.skip(
-    "[T9] converts Gradient positions without float error (fails: #13)",
+    "converts Gradient positions without float error (fails: #13)",
     () => {
         const config: Config<DesignToken.Gradient> = {
             token: {
@@ -352,7 +349,7 @@ toCssSuite.skip(
     },
 );
 
-toCssSuite("[T10] normalizes quoting for single-word FontFamily", () => {
+toCssSuite("normalizes quoting for single-word FontFamily", () => {
     const result = toCSS(
         createUntyped({
             a: { type: DesignToken.Type.FontFamily, value: "'Arial'" },
@@ -367,7 +364,7 @@ toCssSuite("[T10] normalizes quoting for single-word FontFamily", () => {
     Assert.is(result, '--a:Arial;--b:Arial;--c:"Times New Roman";');
 });
 
-toCssSuite("[T11] emits resolved values for alias tokens", () => {
+toCssSuite("emits resolved values for alias tokens", () => {
     const library = createUntyped({
         a: { type: C, value: "#111111" },
         b: { type: C, value: (context: any) => context.a },
@@ -376,7 +373,7 @@ toCssSuite("[T11] emits resolved values for alias tokens", () => {
     Assert.is(toCSS(library), "--a:#111111;--b:#111111;");
 });
 
-toCssSuite("[T12] emits resolved values for deep alias tokens", () => {
+toCssSuite("emits resolved values for deep alias tokens", () => {
     const library = createUntyped({
         a: { type: C, value: "#111111" },
         b: {
@@ -392,7 +389,7 @@ toCssSuite("[T12] emits resolved values for deep alias tokens", () => {
     Assert.is(toCSS(library), "--a:#111111;--b:1px solid #111111;");
 });
 
-toCssSuite("[T13a] emits overrides for a flat extended library", () => {
+toCssSuite("emits overrides for a flat extended library", () => {
     const extended = createUntyped({
         a: { type: C, value: "#111111" },
         b: { type: C, value: (context: any) => context.a },
@@ -402,7 +399,7 @@ toCssSuite("[T13a] emits overrides for a flat extended library", () => {
 });
 
 toCssSuite.skip(
-    "[T13b] emits tokens for an extended library with groups (fails: #14)",
+    "emits tokens for an extended library with groups (fails: #14)",
     () => {
         const extended = createUntyped({
             g: { type: C, a: { value: "#111111" } },
@@ -412,11 +409,11 @@ toCssSuite.skip(
     },
 );
 
-toCssSuite("[T14] an empty library emits an empty string", () => {
+toCssSuite("an empty library emits an empty string", () => {
     Assert.is(toCSS(createUntyped({})), "");
 });
 
-toCssSuite("[T15] reflects a value after set()", () => {
+toCssSuite("reflects a value after set()", () => {
     const library = createUntyped({ a: { type: C, value: "#111111" } });
 
     library.tokens.a.set("#222222");
@@ -424,7 +421,7 @@ toCssSuite("[T15] reflects a value after set()", () => {
     Assert.is(toCSS(library), "--a:#222222;");
 });
 
-toPropertiesSuite("[P1] supports deep nesting", () => {
+toPropertiesSuite("supports deep nesting", () => {
     const properties: any = toProperties(
         createUntyped({
             a: { b: { c: { type: C, d: { value: "#111111" } } } },
@@ -435,7 +432,7 @@ toPropertiesSuite("[P1] supports deep nesting", () => {
     Assert.is(properties.a.b.c.d.var, "var(--a-b-c-d)");
 });
 
-toPropertiesSuite("[P2] groups and property values are frozen", () => {
+toPropertiesSuite("groups and property values are frozen", () => {
     const properties: any = toProperties(
         createUntyped({ g: { type: C, a: { value: "#111111" } } }),
     );
@@ -444,7 +441,7 @@ toPropertiesSuite("[P2] groups and property values are frozen", () => {
     Assert.ok(Object.isFrozen(properties.g.a), "property value");
 });
 
-toPropertiesSuite.skip("[P3] the root object is frozen (fails: #23)", () => {
+toPropertiesSuite.skip("the root object is frozen (fails: #23)", () => {
     const properties = toProperties(
         createUntyped({ a: { type: C, value: "#111111" } }),
     );
@@ -452,21 +449,18 @@ toPropertiesSuite.skip("[P3] the root object is frozen (fails: #23)", () => {
     Assert.ok(Object.isFrozen(properties));
 });
 
-toPropertiesSuite(
-    "[P4a] supports a flat extended library with new tokens",
-    () => {
-        const extended = createUntyped({
-            a: { type: C, value: "#111111" },
-        }).extend({ b: { type: C, value: "#222222" } });
-        const properties: any = toProperties(extended);
+toPropertiesSuite("supports a flat extended library with new tokens", () => {
+    const extended = createUntyped({
+        a: { type: C, value: "#111111" },
+    }).extend({ b: { type: C, value: "#222222" } });
+    const properties: any = toProperties(extended);
 
-        Assert.is(properties.a.property, "--a");
-        Assert.is(properties.b.property, "--b");
-    },
-);
+    Assert.is(properties.a.property, "--a");
+    Assert.is(properties.b.property, "--b");
+});
 
 toPropertiesSuite.skip(
-    "[P4b] supports an extended library with groups (fails: #14)",
+    "supports an extended library with groups (fails: #14)",
     () => {
         const extended = createUntyped({
             g: { type: C, a: { value: "#111111" } },
@@ -477,7 +471,7 @@ toPropertiesSuite.skip(
     },
 );
 
-toPropertiesSuite("[P7] keeps tokenless groups as empty groups", () => {
+toPropertiesSuite("keeps tokenless groups as empty groups", () => {
     const properties: any = toProperties(
         createUntyped({ g: { x: 1 }, b: { type: C, value: "#111111" } }),
     );
@@ -486,7 +480,7 @@ toPropertiesSuite("[P7] keeps tokenless groups as empty groups", () => {
     Assert.equal(Object.keys(properties.g), []);
 });
 
-toPropertiesSuite("[P5] preserves name casing", () => {
+toPropertiesSuite("preserves name casing", () => {
     const properties: any = toProperties(
         createUntyped({ tOkEn: { type: C, value: "#111111" } }),
     );
@@ -494,7 +488,7 @@ toPropertiesSuite("[P5] preserves name casing", () => {
     Assert.is(properties.tOkEn.property, "--tOkEn");
 });
 
-toPropertiesSuite("[P6] does not emit a group's 'type' key", () => {
+toPropertiesSuite("does not emit a group's 'type' key", () => {
     const properties: any = toProperties(
         createUntyped({ g: { type: C, a: { value: "#111111" } } }),
     );

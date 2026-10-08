@@ -11,7 +11,7 @@ const NotifierSuite = suite("Notifier");
 const WatcherSuite = suite("Watcher");
 
 QueueSuite(
-    "[I1] batches and dedupes adds in one microtask, then clears",
+    "batches and dedupes adds in one microtask, then clears",
     async () => {
         const queue = new Queue<object>();
         const onChange = spy();
@@ -37,7 +37,7 @@ QueueSuite(
     },
 );
 
-QueueSuite("[I2] does not flush when nothing was added", async () => {
+QueueSuite("does not flush when nothing was added", async () => {
     const queue = new Queue<object>();
     const onChange = spy();
     queue.subscribe({ onChange });
@@ -48,7 +48,7 @@ QueueSuite("[I2] does not flush when nothing was added", async () => {
 });
 
 QueueSuite(
-    "[I2] a subscriber added before the flush receives the pending batch",
+    "a subscriber added before the flush receives the pending batch",
     async () => {
         const queue = new Queue<object>();
         const onChange = spy();
@@ -62,7 +62,7 @@ QueueSuite(
     },
 );
 
-NotifierSuite("[I3] returns one notifier per target", () => {
+NotifierSuite("returns one notifier per target", () => {
     const first = {};
     const second = {};
 
@@ -70,7 +70,7 @@ NotifierSuite("[I3] returns one notifier per target", () => {
     Assert.is.not(getNotifier(first), getNotifier(second));
 });
 
-NotifierSuite("[I3] notify passes the subject to subscribers", () => {
+NotifierSuite("notify passes the subject to subscribers", () => {
     const subject = {};
     const onChange = spy();
     const notifier = getNotifier(subject);
@@ -82,7 +82,7 @@ NotifierSuite("[I3] notify passes the subject to subscribers", () => {
 });
 
 WatcherSuite(
-    "[I4] nested use() restores the previous watcher; track() is a no-op without one",
+    "nested use() restores the previous watcher; track() is a no-op without one",
     () => {
         const outer = { watch: spy() };
         const inner = { watch: spy() };

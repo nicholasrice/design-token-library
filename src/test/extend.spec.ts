@@ -12,20 +12,17 @@ const abSource = () =>
         b: { type: C, value: (context: any) => context.a },
     });
 
-Extend.skip(
-    "[E1] extend({}) works on a library with a group (fails: #14)",
-    () => {
-        const source = createUntyped({
-            g: { type: C, a: { value: "#111111" } },
-        });
-        const extended = source.extend({});
+Extend.skip("extend({}) works on a library with a group (fails: #14)", () => {
+    const source = createUntyped({
+        g: { type: C, a: { value: "#111111" } },
+    });
+    const extended = source.extend({});
 
-        Assert.is(extended.tokens.g.a.value, "#111111");
-    },
-);
+    Assert.is(extended.tokens.g.a.value, "#111111");
+});
 
 Extend.skip(
-    "[E2] extend({}) preserves names in a deeply nested library (fails: #14)",
+    "extend({}) preserves names in a deeply nested library (fails: #14)",
     () => {
         const source = createUntyped({
             g: { h: { i: { type: C, t: { value: "#111111" } } } },
@@ -37,7 +34,7 @@ Extend.skip(
     },
 );
 
-Extend.skip("[E3] overrides a token inside a nested group (fails: #14)", () => {
+Extend.skip("overrides a token inside a nested group (fails: #14)", () => {
     const source = createUntyped({
         g: { type: C, a: { value: "#111111" }, b: { value: "#222222" } },
     });
@@ -47,7 +44,7 @@ Extend.skip("[E3] overrides a token inside a nested group (fails: #14)", () => {
     Assert.is(extended.tokens.g.b.value, "#222222");
 });
 
-Extend.skip("[E4] adds a new group (fails: #14)", () => {
+Extend.skip("adds a new group (fails: #14)", () => {
     const source = createUntyped({ a: { type: C, value: "#111111" } });
     const extended = source.extend({
         g: { b: { type: C, value: "#222222" } },
@@ -58,7 +55,7 @@ Extend.skip("[E4] adds a new group (fails: #14)", () => {
 });
 
 Extend.skip(
-    "[E5] a new token in an existing group inherits the group's type (fails: #14)",
+    "a new token in an existing group inherits the group's type (fails: #14)",
     () => {
         const source = createUntyped({
             g: { type: C, a: { value: "#111111" } },
@@ -69,7 +66,7 @@ Extend.skip(
     },
 );
 
-Extend.skip("[E6] an override can be an alias function (fails: #14)", () => {
+Extend.skip("an override can be an alias function (fails: #14)", () => {
     const source = createUntyped({
         a: { type: C, value: "#111111" },
         b: { type: C, value: "#222222" },
@@ -81,7 +78,7 @@ Extend.skip("[E6] an override can be an alias function (fails: #14)", () => {
     Assert.is(extended.tokens.b.value, "#111111");
 });
 
-Extend("[E7] an override can contain a deep alias", () => {
+Extend("an override can contain a deep alias", () => {
     const source = createUntyped({
         a: { type: C, value: "#111111" },
         border: {
@@ -107,7 +104,7 @@ Extend("[E7] an override can contain a deep alias", () => {
 });
 
 Extend.skip(
-    "[E8] a new token without a resolvable type throws, matching create (fails: #14)",
+    "a new token without a resolvable type throws, matching create (fails: #14)",
     () => {
         const source = createUntyped({ a: { type: C, value: "#111111" } });
 
@@ -116,7 +113,7 @@ Extend.skip(
 );
 
 Extend(
-    "[E9] inherited aliases resolve against the extending library's overrides",
+    "inherited aliases resolve against the extending library's overrides",
     () => {
         const extended = abSource().extend({ a: { value: "#999999" } });
 
@@ -124,7 +121,7 @@ Extend(
     },
 );
 
-Extend("[E10] overriding does not mutate the source library", () => {
+Extend("overriding does not mutate the source library", () => {
     const source = abSource();
     const extended = source.extend({ a: { value: "#999999" } });
     extended.tokens.b.value;
@@ -133,7 +130,7 @@ Extend("[E10] overriding does not mutate the source library", () => {
     Assert.is(source.tokens.b.value, "#111111");
 });
 
-Extend("[E11] set() on an inherited token detaches it from the source", () => {
+Extend("set() on an inherited token detaches it from the source", () => {
     const source = createUntyped({ a: { type: C, value: "#111111" } });
     const extended = source.extend({});
 
@@ -145,7 +142,7 @@ Extend("[E11] set() on an inherited token detaches it from the source", () => {
 });
 
 Extend(
-    "[E12] set() on an extended token notifies only the extending library",
+    "set() on an extended token notifies only the extending library",
     async () => {
         const source = createUntyped({ a: { type: C, value: "#111111" } });
         const extended = source.extend({});
@@ -163,7 +160,7 @@ Extend(
 );
 
 Extend(
-    "[E13] source changes notify the extending library even if the token was never read",
+    "source changes notify the extending library even if the token was never read",
     async () => {
         const source = createUntyped({ a: { type: C, value: "#111111" } });
         const extended = source.extend({});
@@ -177,21 +174,18 @@ Extend(
     },
 );
 
-Extend(
-    "[E14] chained extends propagate source changes to the last library",
-    () => {
-        const source = abSource();
-        const grandchild = source.extend({}).extend({});
+Extend("chained extends propagate source changes to the last library", () => {
+    const source = abSource();
+    const grandchild = source.extend({}).extend({});
 
-        source.tokens.a.set("#333333");
+    source.tokens.a.set("#333333");
 
-        Assert.is(grandchild.tokens.a.value, "#333333");
-        Assert.is(grandchild.tokens.b.value, "#333333");
-    },
-);
+    Assert.is(grandchild.tokens.a.value, "#333333");
+    Assert.is(grandchild.tokens.b.value, "#333333");
+});
 
 Extend(
-    "[E15] in chained extends, the middle library's override reaches the last library",
+    "in chained extends, the middle library's override reaches the last library",
     () => {
         const grandchild = abSource()
             .extend({ a: { value: "#999999" } })
@@ -203,7 +197,7 @@ Extend(
 );
 
 Extend.skip(
-    "[E16] a description override replaces and an extensions override merges (fails: #15)",
+    "a description override replaces and an extensions override merges (fails: #15)",
     () => {
         const source = createUntyped({
             a: {
@@ -226,22 +220,19 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "[E16c] when merging extensions, override keys win (fails: #15)",
-    () => {
-        const source = createUntyped({
-            a: { type: C, value: "#111111", extensions: { k: 1, s: 1 } },
-        });
-        const extended = source.extend({
-            a: { value: "#222222", extensions: { k: 2 } },
-        });
+Extend.skip("when merging extensions, override keys win (fails: #15)", () => {
+    const source = createUntyped({
+        a: { type: C, value: "#111111", extensions: { k: 1, s: 1 } },
+    });
+    const extended = source.extend({
+        a: { value: "#222222", extensions: { k: 2 } },
+    });
 
-        Assert.equal(extended.tokens.a.extensions, { k: 2, s: 1 });
-    },
-);
+    Assert.equal(extended.tokens.a.extensions, { k: 2, s: 1 });
+});
 
 Extend.skip(
-    "[E16d] merging extensions leaves the source and the override config unchanged (fails: #15)",
+    "merging extensions leaves the source and the override config unchanged (fails: #15)",
     () => {
         const override = { k: 2 };
         const source = createUntyped({
@@ -259,7 +250,7 @@ Extend.skip(
 );
 
 Extend.skip(
-    "[E16e] extensions merge shallowly: a nested override object replaces the source's (fails: #15)",
+    "extensions merge shallowly: a nested override object replaces the source's (fails: #15)",
     () => {
         const source = createUntyped({
             a: {
@@ -280,7 +271,7 @@ Extend.skip(
 );
 
 Extend.skip(
-    "[E16b] overrides without description or extensions keep the source's (fails: #15)",
+    "overrides without description or extensions keep the source's (fails: #15)",
     () => {
         const source = createUntyped({
             a: {
@@ -298,22 +289,19 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "[E17a] an override with a different type throws (fails: #16)",
-    () => {
-        const source = createUntyped({ a: { type: C, value: "#111111" } });
+Extend.skip("an override with a different type throws (fails: #16)", () => {
+    const source = createUntyped({ a: { type: C, value: "#111111" } });
 
-        Assert.throws(
-            () =>
-                source.extend({
-                    a: { type: DesignToken.Type.Dimension, value: "1px" },
-                }),
-            /'a'/,
-        );
-    },
-);
+    Assert.throws(
+        () =>
+            source.extend({
+                a: { type: DesignToken.Type.Dimension, value: "1px" },
+            }),
+        /'a'/,
+    );
+});
 
-Extend("[E17b] an override restating the same type is allowed", () => {
+Extend("an override restating the same type is allowed", () => {
     const source = createUntyped({ a: { type: C, value: "#111111" } });
     const extended = source.extend({ a: { type: C, value: "#222222" } });
 
@@ -322,7 +310,7 @@ Extend("[E17b] an override restating the same type is allowed", () => {
 });
 
 Extend.skip(
-    "[E18a] an inherited token's extensions are a new, equal object (fails: #15)",
+    "an inherited token's extensions are a new, equal object (fails: #15)",
     () => {
         const source = createUntyped({
             a: { type: C, value: "#111111", extensions: { s: 1 } },
@@ -335,7 +323,7 @@ Extend.skip(
 );
 
 Extend.skip(
-    "[E18b] mutating extended extensions does not leak to the source (fails: #15)",
+    "mutating extended extensions does not leak to the source (fails: #15)",
     () => {
         const source = createUntyped({
             a: { type: C, value: "#111111", extensions: {} },
@@ -348,7 +336,7 @@ Extend.skip(
     },
 );
 
-Extend("[E19a] tokens of a flat extended library cannot be reassigned", () => {
+Extend("tokens of a flat extended library cannot be reassigned", () => {
     const extended = createUntyped({
         a: { type: C, value: "#111111" },
     }).extend({});
@@ -360,7 +348,7 @@ Extend("[E19a] tokens of a flat extended library cannot be reassigned", () => {
 });
 
 Extend.skip(
-    "[E19b] the extended library root and groups are frozen (fails: #14, #23)",
+    "the extended library root and groups are frozen (fails: #14, #23)",
     () => {
         const extended = createUntyped({
             a: { type: C, value: "#111111" },
@@ -373,18 +361,15 @@ Extend.skip(
     },
 );
 
-Extend(
-    "[E20] extended library keys are source keys followed by new keys",
-    () => {
-        const extended = abSource().extend({
-            c: { type: C, value: "#333333" },
-        });
+Extend("extended library keys are source keys followed by new keys", () => {
+    const extended = abSource().extend({
+        c: { type: C, value: "#333333" },
+    });
 
-        Assert.equal(Object.keys(extended.tokens), ["a", "b", "c"]);
-    },
-);
+    Assert.equal(Object.keys(extended.tokens), ["a", "b", "c"]);
+});
 
-Extend("[E21] sibling extensions of one source are independent", () => {
+Extend("sibling extensions of one source are independent", () => {
     const source = abSource();
     const first = source.extend({ a: { value: "#AAAAAA" } });
     const second = source.extend({});
@@ -397,7 +382,7 @@ Extend("[E21] sibling extensions of one source are independent", () => {
 });
 
 Extend(
-    "[E22] after detaching, source changes no longer notify the extending library",
+    "after detaching, source changes no longer notify the extending library",
     async () => {
         const source = createUntyped({ a: { type: C, value: "#111111" } });
         const extended = source.extend({});
@@ -414,7 +399,7 @@ Extend(
 );
 
 Extend.skip(
-    "[E23] reading an extended token does not corrupt the source token's dependency tracking (fails: #19)",
+    "reading an extended token does not corrupt the source token's dependency tracking (fails: #19)",
     async () => {
         const source = createUntyped({
             a: { type: C, value: "#111111" },
@@ -438,7 +423,7 @@ Extend.skip(
 );
 
 Extend.skip(
-    "[E24] tokenless groups from the source and the extend config are kept (fails: #14)",
+    "tokenless groups from the source and the extend config are kept (fails: #14)",
     () => {
         const extended = createUntyped({
             g: {},
@@ -451,7 +436,7 @@ Extend.skip(
 );
 
 Extend.skip(
-    "[E25] a token added via extend to a type-only source group inherits its type (fails: #14)",
+    "a token added via extend to a type-only source group inherits its type (fails: #14)",
     () => {
         const source = createUntyped({
             g: { type: C },
