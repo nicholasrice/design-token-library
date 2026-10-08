@@ -108,22 +108,22 @@ CustomTypes("custom token types are typed, aliasable and reactive", () => {
         style: FontStyleToken;
     }
     const library = Library.create<Theme>({
-        italic: { type: "boolean", value: true },
+        italic: { $type: "boolean", $value: true },
         style: {
-            type: "fontStyle",
-            value: (theme) => (theme.italic.value ? "italic" : "regular"),
+            $type: "fontStyle",
+            $value: (theme) => (theme.italic.$value ? "italic" : "regular"),
         },
     });
     // These assignments are checked at compile time as well.
-    const type: "fontStyle" = library.tokens.style.type;
-    const italic: boolean = library.tokens.italic.value;
+    const type: "fontStyle" = library.tokens.style.$type;
+    const italic: boolean = library.tokens.italic.$value;
 
     Assert.is(type, "fontStyle");
     Assert.is(italic, true);
-    Assert.is(library.tokens.style.value, "italic");
+    Assert.is(library.tokens.style.$value, "italic");
 
     library.tokens.italic.set(false);
-    Assert.is(library.tokens.style.value, "regular");
+    Assert.is(library.tokens.style.$value, "regular");
 });
 
 CustomTypes(
@@ -134,21 +134,21 @@ CustomTypes(
             badge: BadgeToken;
         }
         const library = Library.create<Theme>({
-            accent: { type: DesignToken.Type.Color, value: "#FFFFFF" },
+            accent: { $type: DesignToken.Type.Color, $value: "#FFFFFF" },
             badge: {
-                type: "badge",
+                $type: "badge",
                 // `visible` is not a DTCG value; `color` is, so it can alias.
-                value: { visible: true, color: (theme) => theme.accent },
+                $value: { visible: true, color: (theme) => theme.accent },
             },
         });
 
-        Assert.equal(library.tokens.badge.value, {
+        Assert.equal(library.tokens.badge.$value, {
             visible: true,
             color: "#FFFFFF",
         });
 
         library.tokens.accent.set("#000000");
-        Assert.equal(library.tokens.badge.value, {
+        Assert.equal(library.tokens.badge.$value, {
             visible: true,
             color: "#000000",
         });
@@ -157,15 +157,15 @@ CustomTypes(
 
 CustomTypes("a group can declare a custom type for its tokens", () => {
     interface Theme {
-        type: "fontStyle";
+        $type: "fontStyle";
         heading: FontStyleToken;
     }
     const library = Library.create<Theme>({
-        type: "fontStyle",
-        heading: { value: "italic" },
+        $type: "fontStyle",
+        heading: { $value: "italic" },
     });
 
-    Assert.is(library.tokens.heading.type, "fontStyle");
+    Assert.is(library.tokens.heading.$type, "fontStyle");
 });
 
 Types.run();

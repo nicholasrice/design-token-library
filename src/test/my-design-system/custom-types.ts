@@ -6,21 +6,21 @@
 export type FontStyleValue = "regular" | "italic";
 
 export interface FontStyleToken {
-    description?: string;
-    type?: "fontStyle";
-    extensions?: Record<string, any>;
-    value: FontStyleValue;
+    $description?: string;
+    $type?: "fontStyle";
+    $extensions?: Record<string, any>;
+    $value: FontStyleValue;
 }
 
 export interface BooleanToken {
-    description?: string;
-    type?: "boolean";
-    extensions?: Record<string, any>;
-    value: boolean;
+    $description?: string;
+    $type?: "boolean";
+    $extensions?: Record<string, any>;
+    $value: boolean;
 }
 
 /**
- * A composite custom value: `visible` is not a DTCG value, `color` is.
+ * A composite custom $value: `visible` is not a DTCG value, `color` is.
  */
 export interface BadgeValue {
     visible: boolean;
@@ -28,10 +28,10 @@ export interface BadgeValue {
 }
 
 export interface BadgeToken {
-    description?: string;
-    type?: "badge";
-    extensions?: Record<string, any>;
-    value: BadgeValue;
+    $description?: string;
+    $type?: "badge";
+    $extensions?: Record<string, any>;
+    $value: BadgeValue;
 }
 
 declare module "../../lib/design-token.js" {

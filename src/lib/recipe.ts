@@ -1,5 +1,6 @@
 import type { DesignToken } from "./design-token.js";
 import type { Library } from "./library.js";
+import { isToken } from "./utilities.js";
 
 /**
  * A recipe is a coded "operator" that expands a single declarative config
@@ -55,18 +56,26 @@ export interface Recipe<Props extends {} = any, Output extends {} = any> {
 }
 
 /**
- * The declarative, JSON-serializable form used to invoke a {@link Recipe} from
- * config.
+ * The declarative, JSON-serializable call that invokes a {@link Recipe}.
  *
  * @remarks
  * Every property is `$`-prefixed, as format properties are in DTCG. Token and
- * group names cannot begin with `$`, so a node property can never collide with
- * a name, including the names a group recipe generates. A recipe node accepts
- * only the properties below; any other key is an error.
+ * group names cannot begin with `$`, so a property can never collide with a
+ * name, including the names a group recipe generates. A call accepts only the
+ * properties below; any other key is an error.
+ *
+ * A **value recipe** is called from a token's `$value`, so the token keeps its
+ * own `$type`, `$description` and `$extensions`:
+ *
+ * ```json
+ * { "$type": "palette", "$value": { "$recipe": "createPalette", "$with": {} } }
+ * ```
+ *
+ * A **group recipe** is called from a group node, which is a {@link RecipeDeclaration}.
  *
  * @public
  */
-export interface RecipeDeclaration<
+export interface RecipeCall<
     Name extends string = string,
     Props extends {} = any,
 > {
@@ -80,24 +89,38 @@ export interface RecipeDeclaration<
      * another token. Defaults to `{}`.
      */
     $with?: Props;
+}
 
+/**
+ * The declarative form of a **group recipe**: a group node that calls a
+ * {@link Recipe} and carries the group's own properties.
+ *
+ * @public
+ */
+export interface RecipeDeclaration<
+    Name extends string = string,
+    Props extends {} = any,
+> extends RecipeCall<Name, Props> {
     /**
-     * The type of the token(s) the recipe produces. The recipe decides the type,
+     * The type of the tokens the recipe produces. The recipe decides the type,
      * so this is optional; when present it must match.
      */
     $type?: string;
 
     /**
-     * Describes the token a value recipe produces. A group recipe produces a
-     * group, and groups cannot carry a description yet.
+     * Describes the group the recipe produces.
      */
     $description?: string;
 
     /**
-     * Extensions on the token a value recipe produces. A group recipe produces a
-     * group, and groups cannot carry extensions yet.
+     * Extensions on the group the recipe produces.
      */
     $extensions?: Record<string, any>;
+
+    /**
+     * Deprecates every token the recipe produces.
+     */
+    $deprecated?: boolean | string;
 }
 
 /**
@@ -162,29 +185,41 @@ export const isRef = (value: unknown): value is string => {
  * Must be called inside the resolving node's watcher scope so that walking the
  * tree subscribes the node to the referenced token (reactivity).
  *
+ * A reference names a whole token. A recipe may also reference a group (it is
+ * handed back as-is); a token's value may not.
+ *
+ * @param owner - what is resolving the reference, for error messages
+ *
  * @internal
  */
 export const resolveRef = (
     ref: string,
     context: Library.Context<any>,
-    recipeName: string,
+    owner: string,
+    allowGroup: boolean = true,
 ): any => {
     const match = REF.exec(ref);
     const path = match![1].split(".");
 
     let node: any = context;
     for (const segment of path) {
-        if (!isObject(node) || !(segment in node)) {
-            throw new Error(
-                `Recipe "${recipeName}" could not resolve reference "${ref}".`,
-            );
+        if (!isObject(node) || isToken(node) || !(segment in node)) {
+            throw new Error(`${owner} could not resolve reference "${ref}".`);
         }
         node = node[segment];
     }
 
-    // A reference should resolve to a token; return its value. If it resolves
-    // to a group (no "value"), hand back the node as-is.
-    return isObject(node) && "value" in node ? node.value : node;
+    if (isToken(node)) {
+        return node.$value;
+    }
+
+    if (!allowGroup) {
+        throw new Error(
+            `${owner} references "${ref}", which is a group. A reference must name a token.`,
+        );
+    }
+
+    return node;
 };
 
 /**
@@ -201,7 +236,7 @@ export const resolveProps = <T extends {}>(
 ): T => {
     const resolve = (value: any): any => {
         if (isRef(value)) {
-            return resolveRef(value, context, recipeName);
+            return resolveRef(value, context, `Recipe "${recipeName}"`);
         }
 
         if (Array.isArray(value)) {
@@ -223,7 +258,8 @@ export const resolveProps = <T extends {}>(
 };
 
 /**
- * Tests whether a config node is a {@link RecipeDeclaration}.
+ * Tests whether a config node is a {@link RecipeDeclaration} or a
+ * {@link RecipeCall}.
  *
  * @internal
  */
@@ -231,12 +267,56 @@ export const isRecipe = (value: unknown): value is RecipeDeclaration => {
     return isObject(value) && "$recipe" in value;
 };
 
+/**
+ * Gets the recipe a config node invokes, if any: a group node that has
+ * `$recipe`, or a token whose `$value` has `$recipe`. A token's own properties
+ * are carried over so both forms read alike.
+ *
+ * @internal
+ */
+export const declarationOf = (
+    node: unknown,
+    path: string,
+): RecipeDeclaration | undefined => {
+    if (isRecipe(node)) {
+        return node;
+    }
+
+    if (!isObject(node) || !isRecipe(node.$value)) {
+        return undefined;
+    }
+
+    const call: Record<string, any> = node.$value;
+
+    for (const key of Object.keys(call)) {
+        if (!CALL_PROPERTIES.includes(key)) {
+            const hint = key === "with" ? ` Did you mean "$with"?` : "";
+
+            throw new Error(
+                `The $value of "${path}" has an unsupported key "${key}". A recipe call accepts only ${CALL_PROPERTIES.join(", ")}.${hint}`,
+            );
+        }
+    }
+
+    const declaration: Record<string, any> = { ...call };
+
+    for (const key of ["$type", "$description", "$extensions", "$deprecated"]) {
+        if (node[key] !== undefined) {
+            declaration[key] = node[key];
+        }
+    }
+
+    return declaration as RecipeDeclaration;
+};
+
+const CALL_PROPERTIES = ["$recipe", "$with"];
+
 const NODE_PROPERTIES = [
-    "$recipe",
-    "$with",
+    ...CALL_PROPERTIES,
     "$type",
     "$description",
     "$extensions",
+    "$deprecated",
 ];
 
 /**
@@ -270,15 +350,6 @@ export const validateDeclaration = (
     if (decl.$type !== undefined && decl.$type !== recipe.type) {
         throw new Error(
             `Recipe "${recipe.name}" produces type "${recipe.type}", but "${path}" declares $type "${decl.$type}".`,
-        );
-    }
-
-    if (
-        recipe.keys &&
-        (decl.$description !== undefined || decl.$extensions !== undefined)
-    ) {
-        throw new Error(
-            `Recipe node "${path}" invokes the group recipe "${recipe.name}". A group cannot carry $description or $extensions yet.`,
         );
     }
 };

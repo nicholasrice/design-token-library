@@ -4,14 +4,17 @@ import { IQueue, Queue } from "./queue.js";
 import {
     RecipeRegistry,
     recipes as defaultRecipes,
+    declarationOf,
     isRecipe,
+    isRef,
     resolveProps,
+    resolveRef,
     validateDeclaration,
     validateKeys,
     type Recipe,
     type RecipeDeclaration,
 } from "./recipe.js";
-import { DeepPartial, empty } from "./utilities.js";
+import { DeepPartial, empty, isToken } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
 /**
@@ -42,8 +45,8 @@ export namespace Library {
     export type TokenLibrary<T extends {}, R extends {} = T> = {
         [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
             ? Token<T[K], R>
-            : K extends "type"
-              ? DesignToken.Type
+            : K extends `$${string}`
+              ? T[K]
               : T[K] extends {}
                 ? TokenLibrary<T[K], R>
                 : never;
@@ -56,7 +59,14 @@ export namespace Library {
      */
     export type Alias<T extends DesignToken.Any, R extends Context<any>> = (
         context: R,
-    ) => T | DesignToken.ValueByToken<T>;
+    ) => T | Token<T, any> | DesignToken.ValueByToken<T>;
+
+    /**
+     * A reference to another token by path, as in DTCG: `"{color.blue}"`.
+     *
+     * @public
+     */
+    export type Reference = `{${string}}`;
 
     /**
      * An {@link (Library:namespace).Alias} that supports complex token value types
@@ -68,6 +78,7 @@ export namespace Library {
         [K in keyof V]: V[K] extends DesignToken.Values.Any
             ?
                   | V[K]
+                  | Reference
                   | Alias<DesignToken.TokenByValue<V[K]>, T>
                   | DeepAlias<V[K], T>
             : // Not a DTCG value (e.g. a field of a custom type): it cannot be
@@ -82,9 +93,9 @@ export namespace Library {
      */
     export type Context<T extends {}, R extends {} = T> = {
         [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
-            ? Readonly<T[K]>
-            : K extends "type"
-              ? DesignToken.Type
+            ? Token<T[K], R>
+            : K extends `$${string}`
+              ? T[K]
               : T[K] extends {}
                 ? Context<T[K], R>
                 : never;
@@ -96,12 +107,21 @@ export namespace Library {
      * @public
      */
     export type Token<T extends DesignToken.Any, C extends {}> = {
-        set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
+        set(
+            value:
+                | DesignToken.ValueByToken<T>
+                | Reference
+                | Alias<T, Context<C>>,
+        ): void;
         toString(): string;
-        readonly type: DesignToken.TypeByToken<T>;
-        readonly extensions: Record<string, any>;
-        readonly value: DesignToken.ValueByToken<T>;
-        readonly description: string;
+        readonly $type: DesignToken.TypeByToken<T>;
+        readonly $extensions: Record<string, any>;
+        readonly $value: DesignToken.ValueByToken<T>;
+        readonly $description: string;
+        /**
+         * `false`, `true`, or the explanation the token was deprecated with.
+         */
+        readonly $deprecated: boolean | string;
         readonly name: string;
     };
 
@@ -113,9 +133,11 @@ export namespace Library {
     export type Config<T extends {}, R extends {} = T> = {
         [K in keyof T]: T[K] extends DesignToken.Any
             ? ConfigValue<T[K], R>
-            : T[K] extends {}
-              ? Config<T[K], R> | RecipeDeclaration
-              : never;
+            : K extends `$${string}`
+              ? T[K]
+              : T[K] extends {}
+                ? Config<T[K], R> | RecipeDeclaration
+                : never;
     };
 
     /**
@@ -124,15 +146,16 @@ export namespace Library {
     export type ConfigValue<T extends DesignToken.Any, R extends {}> =
         | T
         // There is an odd TypeScript type error that occurs if this is simply
-        // assign Omit<T, "value"> & { value...} where if the type of the argument
+        // assign Omit<T, "$value"> & { $value...} where if the type of the argument
         // in Library.create is untyped, it cannot be inferred, so use T | ...
-        | (Omit<T, "value"> & {
-              value:
+        | (Omit<T, "$value"> & {
+              $value:
+                  | Reference
                   | Library.Alias<T, Context<R>>
                   | Library.DeepAlias<DesignToken.ValueByToken<T>, Context<R>>;
           })
-        // A value recipe produces this token (e.g. a palette) declaratively.
-        | RecipeDeclaration;
+        // A value recipe produces this token's value (e.g. a palette).
+        | (Omit<T, "$value"> & { $value: RecipeDeclaration });
 
     /**
      * Options accepted by {@link Library.create}.
@@ -162,15 +185,6 @@ const isObject = <T>(value: T): value is T & {} => {
     return typeof value === "object" && value !== null;
 };
 
-/**
- * @internal
- */
-const isToken = <T extends DesignToken.Any>(
-    value: T | any,
-): value is DesignToken.Any => {
-    return isObject(value) && "value" in value;
-};
-
 const isGroup = (
     value: DesignToken.Group | any,
 ): value is DesignToken.Group => {
@@ -183,6 +197,87 @@ const isAlias = <T extends DesignToken.Any, K extends {}>(
     return typeof value === "function";
 };
 
+const GROUP_METADATA = [
+    "$type",
+    "$description",
+    "$extensions",
+    "$deprecated",
+] as const;
+
+/**
+ * Names beginning with `$` are for format properties, except `$root`: the
+ * reserved name of a group's own token.
+ */
+const isChildKey = (key: string): boolean => {
+    return !key.startsWith("$") || key === "$root";
+};
+
+/**
+ * Records a group's own `$`-prefixed properties on it. They are not
+ * enumerable, so they never appear as children when a group is walked.
+ */
+const defineGroupMetadata = (group: object, config: Record<string, any>) => {
+    for (const property of GROUP_METADATA) {
+        if (property in config) {
+            Reflect.defineProperty(group, property, {
+                value: config[property],
+                enumerable: false,
+            });
+        }
+    }
+};
+
+const createToken = (
+    name: string,
+    node: Record<string, any>,
+    context: Library.TokenLibrary<any, any>,
+    typeContext: DesignToken.Type | null,
+    queue: IQueue<Library.Token<DesignToken.Any, any>>,
+): LibraryToken<any> => {
+    for (const key of Object.keys(node)) {
+        if (!key.startsWith("$")) {
+            throw new Error(
+                `"${name}" has a $value, so it is a token and cannot have a child "${key}".`,
+            );
+        }
+    }
+
+    const type = node.$type || typeContext;
+
+    if (!type) {
+        throw new Error(
+            `No '$type' found for token '${name}'. Types cannot be inferred, please add a $type to the token or to a group ancestor.`,
+        );
+    }
+
+    return new LibraryToken(
+        name,
+        node.$value,
+        type,
+        context,
+        node.$description || "",
+        node.$extensions || {},
+        node.$deprecated ?? false,
+        queue,
+    );
+};
+
+const defineToken = (
+    library: Library.TokenLibrary<any, any>,
+    key: string,
+    token: object,
+) => {
+    Reflect.defineProperty(library, key, {
+        get() {
+            // Token access needs to be tracked because an alias token
+            // is a function that returns a token
+            Watcher.track(token);
+            return token;
+        },
+        enumerable: true,
+    });
+};
+
 const recurseCreate = (
     name: string,
     library: Library.TokenLibrary<any, any>,
@@ -192,64 +287,50 @@ const recurseCreate = (
     registry: RecipeRegistry,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
+    typeContext = (config as any).$type ?? typeContext;
+
     for (const key in config) {
-        if (key === "type") {
-            typeContext = config[key] as any;
+        if (!isChildKey(key)) {
             continue;
         }
 
         const _name = name.length === 0 ? key : `${name}.${key}`;
+        const declaration = declarationOf(config[key], _name);
 
-        if (isRecipe(config[key])) {
+        if (declaration) {
             expandRecipe(
                 _name,
                 key,
                 library,
-                config[key] as any,
+                declaration,
+                isToken(config[key]),
                 context,
                 registry,
                 queue,
             );
         } else if (isGroup(config[key])) {
+            const group = {};
+            defineGroupMetadata(group, config[key]);
             Reflect.defineProperty(library, key, {
-                value: {},
+                value: group,
                 enumerable: true,
             });
             recurseCreate(
                 _name,
-                library[key] as any,
+                group,
                 config[key],
                 context,
-                config[key].type || typeContext,
+                typeContext,
                 registry,
                 queue,
             );
-            Object.freeze(library[key]);
+            Object.freeze(group);
         } else if (isToken(config[key])) {
-            const { value, type, description, extensions } = config[key];
-            if (!type && !typeContext) {
-                throw new Error(
-                    `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
-                );
-            }
-            const token = new LibraryToken(
-                _name,
-                value,
-                type || typeContext,
-                context,
-                description || "",
-                extensions || {},
-                queue,
+            defineToken(
+                library,
+                key,
+                createToken(_name, config[key], context, typeContext, queue),
             );
-            Reflect.defineProperty(library, key, {
-                get() {
-                    // Token access needs to be tracked because an alias token
-                    // is a function that returns a token
-                    Watcher.track(token);
-                    return token;
-                },
-                enumerable: true,
-            });
         }
     }
 };
@@ -264,17 +345,19 @@ const recurseExtend = (
     registry: RecipeRegistry,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
-    const keys = new Set(Object.keys(sourceTokens).concat(Object.keys(config))); // Remove duplicate keys
+    typeContext =
+        (config as any).$type ?? (sourceTokens as any).$type ?? typeContext;
+
+    const keys = new Set(
+        Object.keys(sourceTokens)
+            .concat(Object.keys(config))
+            .filter(isChildKey),
+    ); // Remove duplicate keys
 
     for (const key of keys) {
         const sourceHasKey = key in sourceTokens;
         const configHasKey = key in config;
         const _name = name.length === 0 ? key : `${name}.${key}`;
-
-        if (key === "type") {
-            typeContext = sourceTokens[key] as any;
-            continue;
-        }
 
         // Recipes are re-expanded in the extension so they resolve their
         // references against the extended library. An override layers its params
@@ -286,9 +369,7 @@ const recurseExtend = (
         const sourceDecl = isObject(sourceValue)
             ? recipeDeclarations.get(sourceValue)
             : undefined;
-        const override = isRecipe(config[key])
-            ? (config[key] as RecipeDeclaration)
-            : undefined;
+        const override = declarationOf(config[key], _name);
         const rebindsGroup =
             sourceDecl !== undefined && !override && !isToken(sourceValue);
 
@@ -306,6 +387,7 @@ const recurseExtend = (
                 key,
                 extendedTokens,
                 decl,
+                override !== undefined && isToken(config[key]),
                 context,
                 registry,
                 queue,
@@ -313,14 +395,18 @@ const recurseExtend = (
             continue;
         }
 
-        const keyIsGroup = isGroup(sourceTokens[key]) || isGroup(config[key]);
+        const sourceIsGroup =
+            isObject(sourceTokens[key]) && !isToken(sourceTokens[key]);
+        const keyIsGroup = sourceIsGroup || isGroup(config[key]);
         const keyIsToken = isToken(sourceTokens[key]) || isToken(config[key]);
 
         if (keyIsGroup) {
             // Inherit the source group via the prototype chain so unconfigured
             // descendants resolve to the source, while overrides shadow them.
+            const group = Object.create(sourceHasKey ? sourceTokens[key] : {});
+            defineGroupMetadata(group, config[key] ?? {});
             Reflect.defineProperty(extendedTokens, key, {
-                value: Object.create(sourceHasKey ? sourceTokens[key] : {}),
+                value: group,
                 enumerable: true,
             });
             if (sourceHasKey) {
@@ -330,7 +416,7 @@ const recurseExtend = (
                     extendedTokens[key] as any,
                     config[key] || {},
                     context,
-                    (sourceTokens.type || typeContext) as any,
+                    typeContext,
                     registry,
                     queue,
                 );
@@ -338,10 +424,10 @@ const recurseExtend = (
                 // This will always be the case
                 recurseCreate(
                     _name,
-                    sourceTokens[key] as any,
-                    extendedTokens[key],
+                    extendedTokens[key] as any,
+                    config[key],
                     context,
-                    (sourceTokens.type || typeContext) as any,
+                    typeContext,
                     registry,
                     queue,
                 );
@@ -355,24 +441,14 @@ const recurseExtend = (
                           queue,
                           config[key],
                       )
-                    : new LibraryToken(
+                    : createToken(
                           _name,
-                          config[key].value,
-                          config[key].type || typeContext,
+                          config[key],
                           context,
-                          config[key].description || "",
-                          config[key].extensions || {},
+                          typeContext,
                           queue,
                       );
-            Reflect.defineProperty(extendedTokens, key, {
-                get() {
-                    // Token access needs to be tracked because an alias token
-                    // is a function that returns a token
-                    Watcher.track(token);
-                    return token;
-                },
-                enumerable: true,
-            });
+            defineToken(extendedTokens, key, token);
         }
     }
 };
@@ -381,7 +457,7 @@ function extendToken(
     token: Library.Token<any, any>,
     context: Library.Context<any>,
     queue: IQueue<any>,
-    value?: any,
+    node?: Record<string, any>,
 ) {
     const extendingToken = Object.create(token);
     extendingToken.context = context;
@@ -389,8 +465,19 @@ function extendToken(
     extendingToken.watchContext = extendingToken;
     extendingToken.queue = queue;
 
-    if (value !== undefined) {
-        extendingToken.raw = value;
+    // An extension can restate the token's metadata along with its value.
+    if (node?.$description !== undefined) {
+        extendingToken._description = node.$description;
+    }
+    if (node?.$extensions !== undefined) {
+        extendingToken._extensions = node.$extensions;
+    }
+    if (node?.$deprecated !== undefined) {
+        extendingToken._deprecated = node.$deprecated;
+    }
+
+    if (node !== undefined && "$value" in node) {
+        extendingToken.raw = node.$value;
     } else {
         // Subscribe to changes
         // spy on set, unsubscribe when set
@@ -399,7 +486,7 @@ function extendToken(
                 extendingToken.onChange();
             },
         };
-        // token.value;
+        // token.$value;
         getNotifier(token).subscribe(subscriber);
         const set = extendingToken.set;
         extendingToken.set = (value: any) => {
@@ -412,21 +499,27 @@ function extendToken(
     return extendingToken;
 }
 
-const recurseResolve = (value: any, context: Library.Context<any>) => {
+const recurseResolve = (
+    value: any,
+    context: Library.Context<any>,
+    owner: string,
+) => {
     const r: any = Array.isArray(value) ? [] : {};
     for (const key in value) {
         let v = value[key];
 
         if (isAlias(v)) {
             v = v(context);
+        } else if (isRef(v)) {
+            v = resolveRef(v, context, owner, false);
         }
 
         if (isToken(v)) {
-            v = v.value;
+            v = v.$value;
         }
 
         if (isObject(v)) {
-            r[key] = recurseResolve(v, context);
+            r[key] = recurseResolve(v, context, owner);
         } else {
             r[key] = v;
         }
@@ -452,6 +545,7 @@ const expandRecipe = (
     key: string,
     library: Library.TokenLibrary<any, any>,
     decl: RecipeDeclaration,
+    asToken: boolean,
     context: Library.Context<any>,
     registry: RecipeRegistry,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
@@ -465,6 +559,19 @@ const expandRecipe = (
     }
 
     validateDeclaration(decl, name, recipe);
+
+    if (asToken && recipe.keys) {
+        throw new Error(
+            `Recipe "${recipe.name}" is a group recipe, so "${name}" must be a group that calls it, not a token.`,
+        );
+    }
+
+    if (!asToken && !recipe.keys) {
+        throw new Error(
+            `Recipe "${recipe.name}" is a value recipe, so "${name}" must be a token that calls it from its $value.`,
+        );
+    }
+
     const props = decl.$with ?? {};
 
     if (!recipe.keys) {
@@ -479,16 +586,11 @@ const expandRecipe = (
             context,
             decl.$description ?? "",
             decl.$extensions ?? {},
+            decl.$deprecated ?? false,
             queue,
         );
         recipeDeclarations.set(token, decl);
-        Reflect.defineProperty(library, key, {
-            get() {
-                Watcher.track(token);
-                return token;
-            },
-            enumerable: true,
-        });
+        defineToken(library, key, token);
         return;
     }
 
@@ -506,6 +608,7 @@ const expandRecipe = (
     validateKeys(keys, name, recipe);
     const node = new RecipeNode(recipe, props, context);
     const group: Record<string, any> = {};
+    defineGroupMetadata(group, { ...decl, $type: recipe.type });
 
     for (const genKey of keys) {
         const token = new RecipeToken(
@@ -513,6 +616,7 @@ const expandRecipe = (
             node,
             genKey,
             recipe.type,
+            decl.$deprecated ?? false,
             queue,
         );
         Reflect.defineProperty(group, genKey, {
@@ -569,7 +673,9 @@ class RecipeNode implements IWatcher, ISubscriber<any> {
         );
         const raw = this.recipe.create(props);
         // Allow operator output leaves to themselves be aliases/tokens.
-        const value = isObject(raw) ? recurseResolve(raw, this.context) : raw;
+        const value = isObject(raw)
+            ? recurseResolve(raw, this.context, `Recipe "${this.recipe.name}"`)
+            : raw;
         this.cached = value;
         stopWatching();
 
@@ -618,22 +724,27 @@ class RecipeToken
         private readonly node: RecipeNode,
         private readonly key: string,
         private readonly _type: string,
+        private readonly _deprecated: boolean | string,
         private readonly queue: IQueue<Library.Token<DesignToken.Any, any>>,
     ) {}
 
-    public get type(): any {
+    public get $type(): any {
         return this._type;
     }
 
-    public get description(): string {
+    public get $description(): string {
         return "";
     }
 
-    public get extensions(): Record<string, any> {
+    public get $deprecated(): boolean | string {
+        return this._deprecated;
+    }
+
+    public get $extensions(): Record<string, any> {
         return {};
     }
 
-    public get value(): any {
+    public get $value(): any {
         if (this.cached !== empty) {
             return this.cached;
         }
@@ -654,7 +765,7 @@ class RecipeToken
     }
 
     public toString(): string {
-        return String(this.value);
+        return String(this.$value);
     }
 
     public onChange(): void {
@@ -729,59 +840,93 @@ class LibraryToken<T extends DesignToken.Any>
         ISubscriber<Library.Alias<T, any>>,
         IWatcher
 {
-    private raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
+    private raw:
+        | DesignToken.ValueByToken<T>
+        | Library.Reference
+        | Library.Alias<T, any>;
     private cached: DesignToken.ValueByToken<T> | typeof empty = empty;
+    private resolving = false;
     private subscriptions: Set<INotifier<any>> = new Set();
 
     constructor(
         public readonly name: string,
-        value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
+        value:
+            | DesignToken.ValueByToken<T>
+            | Library.Reference
+            | Library.Alias<T, any>,
         private readonly _type: DesignToken.TypeByToken<T>,
         private readonly context: Library.Context<any>,
         private readonly _description: string,
         private readonly _extensions: Record<string, any>,
+        private readonly _deprecated: boolean | string,
         private queue: IQueue<Library.Token<DesignToken.Any, any>>,
     ) {
         this.raw = value;
         this.context = context;
     }
 
-    public get type() {
+    public get $deprecated() {
+        return this._deprecated;
+    }
+
+    public get $type() {
         return this._type;
     }
 
-    public get description() {
+    public get $description() {
         return this._description;
     }
 
-    public get extensions() {
+    public get $extensions() {
         return this._extensions;
     }
 
     /**
      * Gets the token value
      */
-    public get value(): T["value"] {
+    public get $value(): DesignToken.ValueByToken<T> {
         if (this.cached !== empty) {
             return this.cached;
         }
 
+        if (this.resolving) {
+            throw new Error(
+                `Circular reference: the value of "${this.name}" depends on itself.`,
+            );
+        }
+
         this.disconnect();
+        this.resolving = true;
         const stopWatching = Watcher.use(this);
-        const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
-        const normalized = isToken(raw) ? raw.value : raw;
 
-        const value = isObject(normalized)
-            ? recurseResolve(normalized, this.context)
-            : normalized;
+        try {
+            const owner = `Token "${this.name}"`;
+            const raw = isAlias(this.raw)
+                ? this.raw(this.context)
+                : isRef(this.raw)
+                  ? resolveRef(this.raw, this.context, owner, false)
+                  : this.raw;
+            const normalized = isToken(raw) ? raw.$value : raw;
 
-        this.cached = value;
-        stopWatching();
+            const value = isObject(normalized)
+                ? recurseResolve(normalized, this.context, owner)
+                : normalized;
 
-        return value;
+            this.cached = value;
+
+            return value;
+        } finally {
+            this.resolving = false;
+            stopWatching();
+        }
     }
 
-    public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
+    public set(
+        value:
+            | DesignToken.ValueByToken<T>
+            | Library.Reference
+            | Library.Alias<T, any>,
+    ) {
         this.raw = value;
         this.onChange();
     }

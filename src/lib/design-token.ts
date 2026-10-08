@@ -202,10 +202,11 @@ export namespace DesignToken {
      *
      * ```ts
      * interface FontStyleToken {
-     *   type?: "fontStyle";
-     *   description?: string;
-     *   extensions?: Record<string, any>;
-     *   value: "regular" | "italic";
+     *   $type?: "fontStyle";
+     *   $description?: string;
+     *   $extensions?: Record<string, any>;
+     *   $deprecated?: boolean | string;
+     *   $value: "regular" | "italic";
      * }
      *
      * declare module "design-token-library" {
@@ -324,10 +325,14 @@ export namespace DesignToken {
         Type extends DesignToken.Type,
         Value extends DesignToken.Values.Any,
     > {
-        description?: string;
-        type?: Type;
-        extensions?: Record<string, any>;
-        value: Value;
+        $description?: string;
+        $type?: Type;
+        $extensions?: Record<string, any>;
+        /**
+         * `true`, or a string explaining why, when the token is deprecated.
+         */
+        $deprecated?: boolean | string;
+        $value: Value;
     }
 
     export type Border = Properties<
@@ -393,7 +398,10 @@ export namespace DesignToken {
          * If the group has a type, the type is inferred for all descendent design tokens,
          * unless specified by the token.
          */
-        type?: keyof DesignToken.TypeDefinitions;
+        $type?: keyof DesignToken.TypeDefinitions;
+        $description?: string;
+        $extensions?: Record<string, any>;
+        $deprecated?: boolean | string;
     };
 
     /**

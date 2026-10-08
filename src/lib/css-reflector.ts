@@ -1,5 +1,6 @@
 import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
+import { isToken } from "./utilities.js";
 
 /**
  * Options that control which tokens are reflected to CSS custom properties and
@@ -63,10 +64,12 @@ interface CSSPropertyValues {
  * @public
  */
 export type CSSPropertiesLibrary<T extends {}> = {
-    [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
+    [K in keyof Readonly<T>]: T[K] extends
+        | DesignToken.Any
+        | Library.Token<any, any>
         ? CSSPropertyValues
-        : K extends "type"
-          ? DesignToken.Type
+        : K extends `$${string}`
+          ? T[K]
           : T[K] extends {}
             ? CSSPropertiesLibrary<T[K]>
             : never;
@@ -122,12 +125,6 @@ export function toProperties<T extends Library.Library<any>>(
     return properties;
 }
 
-const isToken = (
-    value: Library.TokenLibrary<any> | Library.Token<any, any>,
-): value is Library.Token<any, any> => {
-    return "value" in value;
-};
-
 const recurseToCss = (
     librarySection: Library.TokenLibrary<any, any>,
     options: CSSOptions,
@@ -141,7 +138,7 @@ const recurseToCss = (
                 continue;
             }
 
-            let value = tokenOrGroup.value;
+            let value = tokenOrGroup.$value;
             const converter = findConverter(tokenOrGroup, options);
 
             if (converter) {
@@ -168,7 +165,7 @@ const findConverter = (
     token: Library.Token<any, any>,
     options: CSSOptions,
 ): ((value: any, token: Library.Token<any, any>) => string) | undefined => {
-    const type: string | undefined = token.type;
+    const type: string | undefined = token.$type;
 
     if (type === undefined) {
         return undefined;
