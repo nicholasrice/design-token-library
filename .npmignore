@@ -7,3 +7,5 @@ src
 temp
 tsconfig.json
 tsconfig.tsbuildinfo
+coverage
+.c8rc.json
