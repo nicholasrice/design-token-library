@@ -77,3 +77,30 @@ export function recorder() {
         },
     };
 }
+
+/**
+ * Type-level assertion helpers. `Expect<T>` fails to compile unless `T` is `true`.
+ */
+export type Expect<T extends true> = T;
+
+/**
+ * `true` if `A` and `B` are identical types, including `any` and `readonly` modifiers.
+ */
+export type Equal<A, B> =
+    (<X>() => X extends A ? 1 : 2) extends <X>() => X extends B ? 1 : 2
+        ? true
+        : false;
+
+export type IsAny<T> = 0 extends 1 & T ? true : false;
+
+export type IsUnknown<T> = unknown extends T
+    ? IsAny<T> extends true
+        ? false
+        : true
+    : false;
+
+/**
+ * `true` if `T` is neither `any` nor `unknown`.
+ */
+export type IsKnown<T> =
+    IsAny<T> extends true ? false : IsUnknown<T> extends true ? false : true;
