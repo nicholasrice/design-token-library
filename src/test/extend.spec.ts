@@ -203,7 +203,7 @@ Extend(
 );
 
 Extend.skip(
-    "[E16][DECIDE: D10] description and extensions overrides are applied (fails: D10)",
+    "[E16] description and extensions overrides are applied (fails: D10)",
     () => {
         const source = createUntyped({
             a: {
@@ -227,7 +227,62 @@ Extend.skip(
 );
 
 Extend.skip(
-    "[E18][DECIDE: D12] mutating extended extensions does not leak to the source (fails: D12)",
+    "[E16b] overrides without description or extensions keep the source's (fails: D12)",
+    () => {
+        const source = createUntyped({
+            a: {
+                type: C,
+                value: "#111111",
+                description: "source",
+                extensions: { s: 1 },
+            },
+        });
+        const extended = source.extend({ a: { value: "#222222" } });
+
+        Assert.is(extended.tokens.a.description, "source");
+        Assert.equal(extended.tokens.a.extensions, { s: 1 });
+        Assert.is.not(extended.tokens.a.extensions, source.tokens.a.extensions);
+    },
+);
+
+Extend.skip(
+    "[E17a] an override with a different type throws (fails: E17)",
+    () => {
+        const source = createUntyped({ a: { type: C, value: "#111111" } });
+
+        Assert.throws(
+            () =>
+                source.extend({
+                    a: { type: DesignToken.Type.Dimension, value: "1px" },
+                }),
+            /'a'/,
+        );
+    },
+);
+
+Extend("[E17b] an override restating the same type is allowed", () => {
+    const source = createUntyped({ a: { type: C, value: "#111111" } });
+    const extended = source.extend({ a: { type: C, value: "#222222" } });
+
+    Assert.is(extended.tokens.a.type, C);
+    Assert.is(extended.tokens.a.value, "#222222");
+});
+
+Extend.skip(
+    "[E18a] an inherited token's extensions are a new, equal object (fails: D12)",
+    () => {
+        const source = createUntyped({
+            a: { type: C, value: "#111111", extensions: { s: 1 } },
+        });
+        const extended = source.extend({});
+
+        Assert.is.not(extended.tokens.a.extensions, source.tokens.a.extensions);
+        Assert.equal(extended.tokens.a.extensions, { s: 1 });
+    },
+);
+
+Extend.skip(
+    "[E18b] mutating extended extensions does not leak to the source (fails: D12)",
     () => {
         const source = createUntyped({
             a: { type: C, value: "#111111", extensions: {} },

@@ -48,8 +48,12 @@ D6–D9 appear to be addressed by `6dc6cc0` on `fix/library-extend` (per its com
 - **U1 — DECIDED:** Circular aliases (currently `RangeError: Maximum call stack size exceeded`) must throw a dedicated, descriptive error naming the chain. DTCG Format Module 2025.10 §6.7.4 requires tools to "detect and throw an error on circular references".
 - **U2 — DECIDED:** `set()` must not notify when the new raw value is identical to the current one (`Object.is`: same primitive, same alias function reference, same object reference). Structurally equal but distinct objects still notify.
 - **U3 — DECIDED:** `library.tokens` root must be frozen like nested groups (currently `tokens.z = 1` succeeds). Applies to extended libraries and the `toProperties` root too.
-- **U4** `.value` of object-typed tokens returns a mutable cached object; mutating it changes subsequent reads.
-- **U5** Token `extensions` object is shared by reference with the config passed to `create`.
+- **U4 — DECIDED:** Token values are deeply readonly, both at compile time (Y7) and at runtime (deep-frozen; mutation throws in strict mode). Currently `.value` returns a mutable cached object. The library does not freeze the caller's config objects (V13e).
+- **U5 — DECIDED:** `extensions` is not a live reference. It is copied from the config at `create`, including nested objects. Currently it is shared by reference.
+- **S5 — DECIDED:** Lazy dependency tracking is intended. A token must be evaluated before its dependencies are recorded and it participates in change notifications.
+- **D10 / D12 / E17 — DECIDED:** `extend` may override `value`, `description`, and `extensions`, and add tokens. It may not change an existing token's `type`; a differing type throws (restating the same type is allowed). An extended token's `extensions` is always a new object: a copy of the source's, or the override.
+- **D11 — DECIDED:** `toString()` returns a JSON representation of the token (`name`, `type`, `value`, `description`, `extensions`), with `value` resolved for alias tokens.
+- **D3 — DECIDED (for now):** Typography converts to the CSS `font` shorthand: `weight size/lineHeight family`.
 - **U6 — DECIDED:** Non-token config entries (`null`, `undefined`, primitives, functions, arrays) are ignored: no throw, and absent from `library.tokens`. Current behavior already matches, except for arrays (D15). Groups are always kept, even with no tokens, so the group and its `type` can be extended later. Only a group's entries that are neither tokens nor groups are hidden.
 - **U7** A group containing a child literally named `value` is treated as a token (`isToken` = `"value" in obj`).
 - **U8 — VERIFIED:** `"rm"` is a typo. DTCG 2025.10 §8.2.1: unit "may only be `"px"` or `"rem"`". Separately, 2025.10 makes Dimension (§8.2) an object `{ value, unit }`, not a string. This library uses the older string form throughout; aligning is a breaking change and out of scope for this plan.
@@ -81,7 +85,9 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | C11f | A group keeps both its tokens and its empty subgroups | PASS |
 | C12 | Group containing a child key named `value` | DECIDE (U7) — not implemented; the spec upgrade's `$value` key removes the ambiguity |
 | C13 | Two libraries created from the same config are independent (`set` on one doesn't affect the other) | PASS |
-| C14 | `toString()` returns a meaningful string (name or value) | FAILS (D11) |
+| C14a | `toString()` returns JSON with `name`, `type`, `value`, `description`, `extensions` | FAILS (D11) |
+| C14b | `toString()` serializes the resolved value for alias and deep-alias tokens | FAILS (D11) |
+| C14c | `toString()` reflects the current value after `set()` | FAILS (D11) |
 
 ### 3.2 Values & aliases (`library.spec.ts`)
 
@@ -115,8 +121,13 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 - A module-level stack of the tokens being resolved, pushed and popped alongside the flag, supplies `chain` for the message (`a → b → a`).
 - `extendToken` initializes `resolving = false` as an own property so extended tokens don't read the source token's flag through the prototype.
 - Expected cost: one boolean check plus a push/pop per uncached read; no cost on cached reads.
-| V13 | Mutating a returned object value doesn't affect the token | DECIDE (U4) |
-| V14 | Mutating the config `extensions` object after `create` doesn't affect the token | DECIDE (U5) |
+| V13a | Object values are deeply frozen (nested objects and arrays) | FAILS (U4) |
+| V13b | Mutating a value throws and leaves the token unchanged | FAILS (U4) |
+| V13c | Array values and their items are frozen (FontFamily, Gradient) | FAILS (U4) |
+| V13d | Values resolved from deep aliases are deeply frozen | FAILS (U4) |
+| V13e | The config object passed to `create` is not frozen | PASS |
+| V14a | `extensions` is copied from the config, not referenced | FAILS (U5) |
+| V14b | Nested extension objects are copied too | FAILS (U5) |
 | V15 | Alias context is the library's own `tokens` object for nested-group tokens | PASS |
 
 ### 3.3 Subscriptions (`library.spec.ts`)
@@ -127,7 +138,7 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | S2 | `unsubscribe` of a never-subscribed subscriber is a no-op | PASS |
 | S3 | Same token `set` twice in one microtask → appears once in the batch | PASS (verified) |
 | S4 | Dependent alias token included in batch when its dependency changes (after being read) | PASS (verified) |
-| S5 | Dependent alias token **not** included if never read (documents lazy tracking) | PASS (verified) — confirm this is intended |
+| S5 | Dependent alias token **not** included if never read (documents lazy tracking) | PASS — intended (S5 decision) |
 | S6 | Deep-alias dependent (Border color alias) included in batch | PASS (verified) |
 | S7 | Transitive dependents (`c → b → a`) all included in batch | PASS |
 | S8 | Multiple subscribers each receive the same frozen array | PASS |
@@ -188,9 +199,12 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | E13 | Source `set` notifies extending subscribers even when the extended token was never read | PASS (verified) |
 | E14 | Chained `extend().extend()` propagates source changes to the grandchild | PASS (verified) |
 | E15 | Chained extend: middle-library override takes precedence in grandchild | PASS |
-| E16 | Override `description` / `extensions` | FAILS (D10) — or DECIDE |
-| E17 | Override `type` (should it be allowed?) | DECIDE — not implemented; no default expectation |
-| E18 | Extended token `extensions` mutation doesn't leak to source | FAILS (D12) — or DECIDE |
+| E16 | `description` / `extensions` overrides are applied | FAILS (D10) |
+| E16b | Overrides without `description` / `extensions` keep the source's (as a new object) | FAILS (D12) |
+| E17a | An override with a different `type` throws, naming the token | FAILS (E17) |
+| E17b | An override restating the same `type` is allowed | PASS |
+| E18a | An inherited token's `extensions` is a new, equal object | FAILS (D12) |
+| E18b | Mutating extended `extensions` doesn't leak to source | FAILS (D12) |
 | E19 | Extended library is immutable (same assertions as existing `Lib "should be immutable"`, plus root frozen) | FAILS (D6 for groups, U3 for root) |
 | E20 | `Object.keys(extended.tokens)` equals source keys ∪ new keys | PASS (flat) |
 | E21 | Two sibling extensions of one source are independent | PASS |
@@ -210,7 +224,7 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | T5 | Transition → `duration delay cubic-bezier(...)` | FAILS (D4) |
 | T6 | StrokeStyle string keyword passthrough | PASS |
 | T7 | StrokeStyle object → `dashed` fallback | PASS (verified) |
-| T8 | Typography → defined output (CSS `font` shorthand or skipped) | FAILS (D3) — DECIDE format |
+| T8 | Typography → CSS `font` shorthand (`400 12px/1.2 "Comic Sans"`) | FAILS (D3) |
 | T9 | Gradient with non-terminating float positions (`0.07`, `0.333`) | FAILS (D5) |
 | T10 | Single-quoted / unquoted single-word FontFamily | PASS |
 | T11 | Alias tokens emit resolved values | PASS (verified) |
@@ -254,7 +268,8 @@ Use `// @ts-expect-error` assertions; the `tsc -b` step in CI already enforces t
 | Y3 | `TokenLibrary` exposes `.value` typed as the token's value type |
 | Y4 | `extend<K>` result includes keys from both source and `K` |
 | Y5 | `Token.set` rejects a mismatched value type |
-| Y6 | `Dimension` accepts `"1rem"` and rejects `"1rm"` (`@ts-expect-error`) | FAILS (U8) |
+| Y6 | `Dimension` accepts `"1rem"` and rejects `"1rm"` (`@ts-expect-error`) | FAILS (U8) — commented out |
+| Y7 | Token values are deeply readonly: top-level, nested, array, and array-item writes are type errors | FAILS (U4) — commented out |
 
 ## 4. Infrastructure
 

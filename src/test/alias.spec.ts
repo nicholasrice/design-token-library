@@ -273,26 +273,90 @@ Alias(
     },
 );
 
+const borderWithDashes = () => ({
+    type: DesignToken.Type.Border,
+    value: {
+        color: "#111111",
+        width: "1px",
+        style: { dashArray: ["1px", "2px"], lineCap: "round" },
+    },
+});
+
+Alias.skip("[V13a] object values are deeply frozen (fails: U4)", () => {
+    const library = createUntyped({ a: borderWithDashes() });
+    const value = library.tokens.a.value;
+
+    Assert.ok(Object.isFrozen(value), "value");
+    Assert.ok(Object.isFrozen(value.style), "nested object");
+    Assert.ok(Object.isFrozen(value.style.dashArray), "nested array");
+});
+
 Alias.skip(
-    "[V13][DECIDE: U4] mutating a returned object value does not affect the token",
+    "[V13b] mutating a value throws and leaves the token unchanged (fails: U4)",
     () => {
-        const library = createUntyped({
-            a: {
-                type: DesignToken.Type.Border,
-                value: { color: "#111111", width: "1px", style: "solid" },
-            },
-        });
+        const library = createUntyped({ a: borderWithDashes() });
 
-        try {
-            library.tokens.a.value.width = "9px";
-        } catch {}
-
-        Assert.is(library.tokens.a.value.width, "1px");
+        Assert.throws(
+            () => (library.tokens.a.value.width = "9px"),
+            "top level",
+        );
+        Assert.throws(
+            () => library.tokens.a.value.style.dashArray.push("3px"),
+            "nested array",
+        );
+        Assert.equal(library.tokens.a.value, borderWithDashes().value);
     },
 );
 
+Alias.skip("[V13c] array values and their items are frozen (fails: U4)", () => {
+    const library = createUntyped({
+        fonts: {
+            type: DesignToken.Type.FontFamily,
+            value: ["Comic Sans", "serif"],
+        },
+        gradient: {
+            type: DesignToken.Type.Gradient,
+            value: [{ color: "#111111", position: 0 }],
+        },
+    });
+
+    Assert.ok(Object.isFrozen(library.tokens.fonts.value), "font family");
+    Assert.ok(Object.isFrozen(library.tokens.gradient.value), "gradient");
+    Assert.ok(Object.isFrozen(library.tokens.gradient.value[0]), "stop");
+});
+
 Alias.skip(
-    "[V14][DECIDE: U5] mutating config extensions after create does not affect the token",
+    "[V13d] values resolved from deep aliases are deeply frozen (fails: U4)",
+    () => {
+        const library = createUntyped({
+            a: { type: C, value: "#111111" },
+            border: {
+                type: DesignToken.Type.Border,
+                value: {
+                    color: (context: any) => context.a,
+                    width: "1px",
+                    style: { dashArray: ["1px"], lineCap: "round" },
+                },
+            },
+        });
+        const value = library.tokens.border.value;
+
+        Assert.ok(Object.isFrozen(value), "value");
+        Assert.ok(Object.isFrozen(value.style.dashArray), "nested array");
+    },
+);
+
+Alias("[V13e] the config object passed to create is not frozen", () => {
+    const config = { a: borderWithDashes() };
+    const library = createUntyped(config);
+    library.tokens.a.value;
+
+    Assert.not.ok(Object.isFrozen(config.a.value));
+    Assert.not.ok(Object.isFrozen(config.a.value.style));
+});
+
+Alias.skip(
+    "[V14a] extensions are copied from the config, not referenced (fails: U5)",
     () => {
         const extensions = { k: 1 };
         const library = createUntyped({
@@ -301,9 +365,21 @@ Alias.skip(
 
         extensions.k = 2;
 
+        Assert.is.not(library.tokens.a.extensions, extensions);
         Assert.equal(library.tokens.a.extensions, { k: 1 });
     },
 );
+
+Alias.skip("[V14b] nested extension objects are copied too (fails: U5)", () => {
+    const extensions = { nested: { k: 1 } };
+    const library = createUntyped({
+        a: { type: C, value: "#111111", extensions },
+    });
+
+    extensions.nested.k = 2;
+
+    Assert.equal(library.tokens.a.extensions, { nested: { k: 1 } });
+});
 
 Alias(
     "[V15] the alias context is the root token library for nested tokens",

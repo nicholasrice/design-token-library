@@ -310,7 +310,7 @@ toCssSuite("[T7] converts object StrokeStyle to 'dashed'", () => {
 });
 
 toCssSuite.skip(
-    "[T8][DECIDE: D3 format] converts Typography to a font shorthand (fails: D3)",
+    "[T8] converts Typography to a font shorthand (fails: D3)",
     () => {
         const config: Config<DesignToken.Typography> = {
             token: {

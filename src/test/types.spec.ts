@@ -63,6 +63,19 @@ library.tokens.a.set(12);
 // // @ts-expect-error
 // const rm: DesignToken.Values.Dimension = "1rm";
 
+// [Y7] (fails: U4) Enable once token values are deeply readonly at compile time.
+// // @ts-expect-error top-level property is readonly
+// library.tokens.border.value.width = "2px";
+// // @ts-expect-error nested properties are readonly
+// library.tokens.border.value.style = "dashed";
+// const gradient = Library.create({
+//     g: { type: DesignToken.Type.Gradient, value: [{ color: "#111111", position: 0 }] },
+// });
+// // @ts-expect-error arrays are readonly
+// gradient.tokens.g.value.push({ color: "#222222", position: 1 });
+// // @ts-expect-error array items are readonly
+// gradient.tokens.g.value[0].position = 1;
+
 Types("type-level assertions compile", () => {
     Assert.ok([invalidConfig, color, notNumber, sourceKey, newKey]);
 });

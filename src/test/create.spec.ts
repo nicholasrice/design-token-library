@@ -248,13 +248,62 @@ Create("[C13] libraries created from the same config are independent", () => {
 });
 
 Create.skip(
-    "[C14][DECIDE: D11] toString() returns a meaningful string (fails: D11)",
+    "[C14a] toString() returns a JSON representation of the token (fails: D11)",
+    () => {
+        const library = createUntyped({
+            g: {
+                type: C,
+                a: {
+                    value: "#111111",
+                    description: "primary",
+                    extensions: { k: 1 },
+                },
+            },
+        });
+
+        Assert.equal(JSON.parse(String(library.tokens.g.a)), {
+            name: "g.a",
+            type: C,
+            value: "#111111",
+            description: "primary",
+            extensions: { k: 1 },
+        });
+    },
+);
+
+Create.skip(
+    "[C14b] toString() serializes the resolved value of an alias token (fails: D11)",
+    () => {
+        const library = createUntyped({
+            a: { type: C, value: "#111111" },
+            b: { type: C, value: (context: any) => context.a },
+            border: {
+                type: DesignToken.Type.Border,
+                value: {
+                    color: (context: any) => context.a,
+                    width: "1px",
+                    style: "solid",
+                },
+            },
+        });
+
+        Assert.is(JSON.parse(String(library.tokens.b)).value, "#111111");
+        Assert.equal(JSON.parse(String(library.tokens.border)).value, {
+            color: "#111111",
+            width: "1px",
+            style: "solid",
+        });
+    },
+);
+
+Create.skip(
+    "[C14c] toString() reflects the current value after set() (fails: D11)",
     () => {
         const library = createUntyped({ a: { type: C, value: "#111111" } });
-        const result = String(library.tokens.a);
 
-        Assert.type(result, "string");
-        Assert.is.not(result, "[object Object]");
+        library.tokens.a.set("#222222");
+
+        Assert.is(JSON.parse(String(library.tokens.a)).value, "#222222");
     },
 );
 
