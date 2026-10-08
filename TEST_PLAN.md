@@ -51,7 +51,7 @@ D6–D9 appear to be addressed by `6dc6cc0` on `fix/library-extend` (per its com
 - **U4 — DECIDED:** Token values are deeply readonly, both at compile time (Y7) and at runtime (deep-frozen; mutation throws in strict mode). Currently `.value` returns a mutable cached object. The library does not freeze the caller's config objects (V13e).
 - **U5 — DECIDED:** `extensions` is not a live reference. It is copied from the config at `create`, including nested objects. Currently it is shared by reference.
 - **S5 — DECIDED:** Lazy dependency tracking is intended. A token must be evaluated before its dependencies are recorded and it participates in change notifications.
-- **D10 / D12 / E17 — DECIDED:** `extend` may override `value`, `description`, and `extensions`, and add tokens. It may not change an existing token's `type`; a differing type throws (restating the same type is allowed). An extended token's `extensions` is always a new object: a copy of the source's, or the source's merged with the override (override keys win; shallow merge assumed, pending confirmation).
+- **D10 / D12 / E17 — DECIDED:** `extend` may override `value`, `description`, and `extensions`, and add tokens. It may not change an existing token's `type`; a differing type throws (restating the same type is allowed). An extended token's `extensions` is always a new object: a copy of the source's, or the source's merged with the override (shallow merge; override keys win).
 - **D11 — DECIDED:** `toString()` returns a JSON representation of the token (`name`, `type`, `value`, `description`, `extensions`), with `value` resolved for alias tokens.
 - **D3 — DECIDED (for now):** Typography converts to the CSS `font` shorthand: `weight size/lineHeight family`.
 - **U6 — DECIDED:** Non-token config entries (`null`, `undefined`, primitives, functions, arrays) are ignored: no throw, and absent from `library.tokens`. Current behavior already matches, except for arrays (D15). Groups are always kept, even with no tokens, so the group and its `type` can be extended later. Only a group's entries that are neither tokens nor groups are hidden.
@@ -115,7 +115,7 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | V12i | Source library is unaffected by V12h: `source.tokens.a/b` still resolve | PASS |
 | V12j | Error is `instanceof CircularReferenceError` and `instanceof Error`; exported from the package entry point | FAILS (U1) |
 
-**U1 implementation approach (planning only — do not implement until approved):**
+**U1 implementation approach (approved):**
 - Add an exported `CircularReferenceError extends Error` with a `chain: string[]` of token names.
 - `LibraryToken` gets an own `resolving` boolean. Set it before resolving an uncached value; clear it in `finally`. Cached reads skip the check.
 - A module-level stack of the tokens being resolved, pushed and popped alongside the flag, supplies `chain` for the message (`a → b → a`).
@@ -202,6 +202,7 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | E16 | A `description` override replaces; an `extensions` override merges with the source's | FAILS (D10) |
 | E16c | When merging `extensions`, override keys win | FAILS (D10) |
 | E16d | Merging leaves the source's `extensions` and the override config object unchanged | FAILS (D10) |
+| E16e | The merge is shallow: a nested override object replaces the source's | FAILS (D10) |
 | E16b | Overrides without `description` / `extensions` keep the source's (as a new object) | FAILS (D12) |
 | E17a | An override with a different `type` throws, naming the token | FAILS (E17) |
 | E17b | An override restating the same `type` is allowed | PASS |
@@ -275,13 +276,13 @@ Use `// @ts-expect-error` assertions; the `tsc -b` step in CI already enforces t
 
 ## 4. Infrastructure
 
-- Add `c8` and a `test:coverage` script (`c8 npx uvu dist/test .spec.js$`) to measure line/branch coverage; consider a threshold in CI once gaps above are filled.
-- Either use `my-design-system/` fixtures in an end-to-end test (create → extend → toCSS/toProperties) or delete them.
-- Split `library.spec.ts` (~750 lines) into `create.spec.ts`, `extend.spec.ts`, `subscription.spec.ts` as the suite grows.
+- `c8` coverage reporting: separate PR off `main`, merged before this branch.
+- `my-design-system/` fixtures are intentional compile-time tests: they assert the core authoring use cases (multi-file config, group types, aliases, deep aliases) compile. Keep them; `tsc -b` enforces them. They don't yet cover calling `Library.create(theme)`, `extend`, or reading values back.
+- New specs live in separate files (`create`, `alias`, `subscription`, `extend`, `internals`, `types`). `library.spec.ts` is left as-is.
 
 ## 5. Suggested order
 
 1. PASS cases (pure coverage, no source changes): C1–C9, C13, V1–V11, V15, S1–S10, S13, E9–E15, E20–E22, T1, T6–T7, T10–T12, T14–T15, P1–P2, P5–P6, I1–I4, Y1–Y5.
 2. Merge `fix/library-extend`, then add E1–E8, E19 and the group variants of T13/P4.
-3. Implement decided items U1, U2, U3, U8 alongside their tests (V12*, S12*, C10, E19, P3, Y6). **U1 is on hold until approved.**
-4. Resolve U4–U7 and D10–D13 decisions, then add the remaining cases with their fixes.
+3. Implement decided items alongside their tests, unskipping each as it lands: U1–U6, U8, D1–D5, D10–D15. Uncomment Y6 and Y7 with U8 and U4.
+4. U7 / C12 is deferred to the spec-version upgrade.

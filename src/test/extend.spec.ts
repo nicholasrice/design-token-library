@@ -259,6 +259,27 @@ Extend.skip(
 );
 
 Extend.skip(
+    "[E16e] extensions merge shallowly: a nested override object replaces the source's (fails: D10)",
+    () => {
+        const source = createUntyped({
+            a: {
+                type: C,
+                value: "#111111",
+                extensions: { theme: { a: 1 }, s: 1 },
+            },
+        });
+        const extended = source.extend({
+            a: { value: "#222222", extensions: { theme: { b: 1 } } },
+        });
+
+        Assert.equal(extended.tokens.a.extensions, {
+            theme: { b: 1 },
+            s: 1,
+        });
+    },
+);
+
+Extend.skip(
     "[E16b] overrides without description or extensions keep the source's (fails: D12)",
     () => {
         const source = createUntyped({
