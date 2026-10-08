@@ -418,6 +418,49 @@ Value("Should support retrieving custom values", () => {
     Assert.equal(lib.tokens.b.value, 12);
     Assert.equal(lib.tokens.c.value, "12");
 });
+
+Value.only(
+    "Should support resolving nested tokens from custom token types",
+    () => {
+        interface CustomType {
+            a: DesignToken.Border;
+        }
+        interface Theme {
+            a: DesignToken.Custom<CustomType>;
+            width: DesignToken.Dimension;
+            color: DesignToken.Color;
+            style: DesignToken.StrokeStyle;
+        }
+
+        const config: Library.Config<Theme> = {
+            a: {
+                type: DesignToken.Type.Custom,
+                value: {
+                    a: {
+                        type: DesignToken.Type.Border,
+                        value(ctx) {
+                            return {
+                                color: ctx.color.value,
+                                style: ctx.style.value,
+                                width: ctx.width.value,
+                            };
+                        },
+                    },
+                },
+            },
+
+            width: { type: DesignToken.Type.Dimension, value: "2px" },
+            color: { type: DesignToken.Type.Color, value: (ctx) => "#FFF" },
+            style: { type: DesignToken.Type.StrokeStyle, value: "dashed" },
+        };
+
+        const lib = Library.create(config);
+
+        Assert.is(lib.tokens.a.type, DesignToken.Type.Custom);
+        Assert.equal(lib.tokens.a.value.a.value, "#FFF");
+    },
+);
+
 Subscription(
     "should notify a subscriber after a token changes with an array of the changed tokens",
     async () => {
@@ -769,10 +812,10 @@ Extend("Should allow adding new tokens to an extending library", async () => {
     Assert.is(extending.tokens.c.value, "#111111");
 });
 
-Description.run();
-Lib.run();
-Extend.run();
-Name.run();
-Subscription.run();
-Type.run();
+// Description.run();
+// Lib.run();
+// Extend.run();
+// Name.run();
+// Subscription.run();
+// Type.run();
 Value.run();

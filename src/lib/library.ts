@@ -54,11 +54,8 @@ export namespace Library {
      *
      * @public
      */
-    export type DeepAlias<
-        V extends DesignToken.Values.Any,
-        T extends Context<any>,
-    > = {
-        [K in keyof V]: V[K] extends DesignToken.Values.Any
+    export type DeepAlias<V extends {}, T extends Context<any>> = {
+        [K in keyof V]: V[K] extends {}
             ?
                   | V[K]
                   | Alias<DesignToken.TokenByValue<V[K]>, T>
