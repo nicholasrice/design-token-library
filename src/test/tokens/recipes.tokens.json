@@ -1,0 +1,62 @@
+{
+    "$description": "Exercises recipes, an extension to DTCG. A value recipe is called from a token's $value; a group recipe from a group.",
+    "color": {
+        "palette": {
+            "stepCount": { "$type": "number", "$value": 5 }
+        },
+        "neutral": {
+            "base": {
+                "$type": "color",
+                "$value": {
+                    "colorSpace": "srgb",
+                    "components": [0.47, 0.47, 0.47]
+                }
+            },
+            "palette": {
+                "$type": "palette",
+                "$description": "A value recipe: a token whose value is computed.",
+                "$extensions": { "com.example": { "generated": true } },
+                "$value": {
+                    "$recipe": "createPalette",
+                    "$with": {
+                        "base": "{color.neutral.base}",
+                        "steps": "{color.palette.stepCount}"
+                    }
+                }
+            }
+        },
+        "accent": {
+            "base": {
+                "$type": "color",
+                "$value": {
+                    "colorSpace": "srgb",
+                    "components": [0.04, 0.68, 0.96]
+                }
+            },
+            "palette": {
+                "$type": "palette",
+                "$value": {
+                    "$recipe": "createPalette",
+                    "$with": {
+                        "base": "{color.accent.base}",
+                        "steps": "{color.palette.stepCount}"
+                    }
+                }
+            },
+            "states": {
+                "$description": "A group recipe: a group whose tokens are generated.",
+                "$extensions": { "com.example": { "generated": true } },
+                "$deprecated": "Use color.accent.palette directly.",
+                "$recipe": "createStates",
+                "$with": {
+                    "base": "{color.accent.base}",
+                    "palette": "{color.accent.palette}"
+                }
+            },
+            "focusRing": {
+                "$description": "An alias of a token a recipe generated; its type comes from the recipe.",
+                "$value": "{color.accent.states.focus}"
+            }
+        }
+    }
+}

@@ -807,6 +807,13 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
         // TODO should not type Library.Config<any>
         const queue = new Queue();
         const tokens: Library.TokenLibrary<any> = {};
+        const inherited: Record<string, any> = {};
+        for (const property of GROUP_METADATA) {
+            if (property in this.tokens) {
+                inherited[property] = (this.tokens as any)[property];
+            }
+        }
+        defineGroupMetadata(tokens, { ...inherited, ...config });
         recurseExtend(
             "",
             this.tokens,
@@ -827,6 +834,7 @@ class LibraryImpl<T extends {} = any> implements Library.Library<T> {
     ) {
         const queue = new Queue();
         const tokens: Library.TokenLibrary<any> = {};
+        defineGroupMetadata(tokens, config);
         recurseCreate("", tokens, config, tokens, null, registry, queue);
 
         return new LibraryImpl(tokens, registry, queue);

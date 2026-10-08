@@ -152,6 +152,13 @@ export class RecipeRegistry {
     public has(name: string): boolean {
         return this.registered.has(name);
     }
+
+    /**
+     * Every registered recipe, in registration order.
+     */
+    public list(): Recipe[] {
+        return [...this.registered.values()];
+    }
 }
 
 /**

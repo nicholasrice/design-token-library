@@ -1,0 +1,216 @@
+{
+    "$description": "Exercises the DTCG 2025.10 format module: every type, groups, aliases, metadata and names.",
+    "$extensions": { "com.example.file": { "owner": "design-systems" } },
+
+    "color": {
+        "$type": "color",
+        "$description": "Brand colors. Every token in this group is a color.",
+        "$extensions": { "com.example.group": { "figmaCollection": "Brand" } },
+        "blue": {
+            "$value": {
+                "colorSpace": "srgb",
+                "components": [0, 0.4, 1],
+                "hex": "#0066ff"
+            },
+            "$description": "The primary blue.",
+            "$extensions": { "com.example.figma": { "id": "VariableID:1:2" } }
+        },
+        "red": {
+            "$value": {
+                "colorSpace": "srgb",
+                "components": [1, 0.2, 0.2],
+                "alpha": 0.9
+            }
+        },
+        "accent": {
+            "$description": "A group with its own token, $root, and variants.",
+            "$root": { "$value": "{color.blue}" },
+            "light": {
+                "$value": { "colorSpace": "srgb", "components": [0.6, 0.8, 1] }
+            }
+        },
+        "primary": { "$value": "{color.blue}" },
+        "link": {
+            "$value": "{color.primary}",
+            "$description": "An alias of an alias."
+        },
+        "legacy": {
+            "$value": "{color.blue}",
+            "$deprecated": "Use color.primary instead."
+        },
+        "retired": {
+            "$value": { "colorSpace": "srgb", "components": [0.5, 0.5, 0.5] },
+            "$deprecated": true
+        },
+        "current": {
+            "$value": { "colorSpace": "srgb", "components": [0.1, 0.1, 0.1] },
+            "$deprecated": false
+        },
+        "Hot pink": {
+            "$value": { "colorSpace": "srgb", "components": [1, 0, 1] }
+        },
+        "hot pink": {
+            "$value": { "colorSpace": "srgb", "components": [1, 0.1, 1] },
+            "$description": "Names are case sensitive, so this is not 'Hot pink'."
+        },
+        "🎨 palette": {
+            "$value": "{color.Hot pink}",
+            "$description": "A name can have spaces and non-ASCII characters, and still be referenced."
+        }
+    },
+
+    "size": {
+        "$type": "dimension",
+        "small": { "$value": { "value": 4, "unit": "px" } },
+        "base": { "$value": { "value": 1, "unit": "rem" } },
+        "zero": {
+            "$value": { "value": 0, "unit": "px" },
+            "$description": "The unit is required even when the value is 0."
+        },
+        "gap": { "$value": "{size.small}" },
+        "nested": {
+            "$description": "A group inside a group inherits the type.",
+            "wide": { "$value": { "value": 24.5, "unit": "px" } }
+        }
+    },
+
+    "time": {
+        "$type": "duration",
+        "fast": { "$value": { "value": 100, "unit": "ms" } },
+        "slow": { "$value": { "value": 0.5, "unit": "s" } }
+    },
+
+    "font": {
+        "sans": {
+            "$type": "fontFamily",
+            "$value": ["Helvetica Neue", "Arial", "sans-serif"]
+        },
+        "mono": { "$type": "fontFamily", "$value": "Menlo" },
+        "weight": {
+            "numeric": { "$type": "fontWeight", "$value": 700 },
+            "keyword": { "$type": "fontWeight", "$value": "semi-bold" },
+            "alias": { "$value": "{font.weight.keyword}" }
+        },
+        "body": {
+            "$type": "typography",
+            "$value": {
+                "fontFamily": "{font.sans}",
+                "fontSize": { "value": 1, "unit": "rem" },
+                "fontWeight": "{font.weight.numeric}",
+                "letterSpacing": { "value": 0, "unit": "px" },
+                "lineHeight": 1.5
+            }
+        }
+    },
+
+    "number": {
+        "$type": "number",
+        "ratio": { "$value": 1.618 },
+        "negative": { "$value": -2 },
+        "reference": { "$value": "{number.ratio}" }
+    },
+
+    "motion": {
+        "ease": { "$type": "cubicBezier", "$value": [0.4, 0, 0.2, 1] },
+        "overshoot": {
+            "$type": "cubicBezier",
+            "$value": [0.5, -0.5, 0.5, 1.5],
+            "$description": "The y coordinates may leave 0 to 1; the x coordinates may not."
+        },
+        "default": {
+            "$type": "transition",
+            "$value": {
+                "duration": "{time.fast}",
+                "delay": { "value": 0, "unit": "ms" },
+                "timingFunction": "{motion.ease}"
+            }
+        }
+    },
+
+    "stroke": {
+        "$type": "strokeStyle",
+        "solid": { "$value": "solid" },
+        "dashed": {
+            "$value": {
+                "dashArray": [{ "value": 4, "unit": "px" }, "{size.small}"],
+                "lineCap": "round"
+            }
+        }
+    },
+
+    "border": {
+        "$type": "border",
+        "thin": {
+            "$value": {
+                "color": "{color.blue}",
+                "width": { "value": 1, "unit": "px" },
+                "style": "solid"
+            }
+        },
+        "dashed": {
+            "$value": {
+                "color": { "colorSpace": "srgb", "components": [0, 0, 0] },
+                "width": "{size.small}",
+                "style": "{stroke.dashed}"
+            }
+        }
+    },
+
+    "shadow": {
+        "$type": "shadow",
+        "card": {
+            "$value": {
+                "color": {
+                    "colorSpace": "srgb",
+                    "components": [0, 0, 0],
+                    "alpha": 0.2
+                },
+                "offsetX": { "value": 0, "unit": "px" },
+                "offsetY": { "value": 2, "unit": "px" },
+                "blur": { "value": 4, "unit": "px" },
+                "spread": { "value": 0, "unit": "px" }
+            }
+        },
+        "layered": {
+            "$value": [
+                "{shadow.card}",
+                {
+                    "color": "{color.blue}",
+                    "offsetX": { "value": 0, "unit": "px" },
+                    "offsetY": { "value": 0, "unit": "px" },
+                    "blur": "{size.small}",
+                    "spread": { "value": 1, "unit": "px" },
+                    "inset": true
+                }
+            ]
+        }
+    },
+
+    "gradient": {
+        "$type": "gradient",
+        "sky": {
+            "$value": [
+                { "color": "{color.blue}", "position": 0 },
+                {
+                    "color": { "colorSpace": "srgb", "components": [1, 1, 1] },
+                    "position": "{gradient.midpoint}"
+                },
+                {
+                    "color": { "colorSpace": "srgb", "components": [0, 0, 0] },
+                    "position": 1
+                }
+            ]
+        },
+        "midpoint": { "$type": "number", "$value": 0.5 }
+    },
+
+    "override": {
+        "$type": "number",
+        "$description": "A token's own $type wins over the group's.",
+        "inherited": { "$value": 3 },
+        "explicit": {
+            "$type": "dimension",
+            "$value": { "value": 3, "unit": "px" }
+        }
+    }
+}
