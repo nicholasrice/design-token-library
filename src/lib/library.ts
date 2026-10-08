@@ -1,7 +1,7 @@
 import { DesignToken } from "./design-token.js";
 import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
 import { IQueue, Queue } from "./queue.js";
-import { DeepPartial, empty } from "./utilities.js";
+import { empty } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
 /**
@@ -12,9 +12,9 @@ export namespace Library {
         tokens: TokenLibrary<T, R>;
         subscribe(subscriber: Library.Subscriber<R>): void;
         unsubscribe(subscriber: Library.Subscriber<R>): void;
-        extend<K extends {} = any>(
-            config: DeepPartial<T> & Config<K, R & K>,
-        ): Library<T & K, R & K>; // TODO should not be any
+        extend<K extends {} = {}>(
+            config: ExtendConfig<T, R & K> & Config<K, R & K>,
+        ): Library<T & K, R & K>;
     }
 
     export interface Subscriber<R extends {}> {
@@ -124,6 +124,23 @@ export namespace Library {
           });
 
     /**
+     * A configuration object provided to {@link (Library:namespace).Library.extend}.
+     * All tokens and groups of the source library are optional, and token
+     * values may be static values or aliases.
+     *
+     * @public
+     */
+    export type ExtendConfig<T extends {}, R extends {} = T> = {
+        [K in keyof T]?: T[K] extends DesignToken.Any
+            ? ConfigValue<T[K], R>
+            : K extends "type"
+              ? never
+              : T[K] extends {}
+                ? ExtendConfig<T[K], R>
+                : never;
+    };
+
+    /**
      * @public
      */
     export const create = <T extends {} = any>(
@@ -158,6 +175,66 @@ const isAlias = <T extends DesignToken.Any, K extends {}>(
     return typeof value === "function";
 };
 
+/**
+ * Stores a group's declared type on the library group so that extending
+ * libraries can resolve inherited types. Non-enumerable so that group
+ * iteration only visits tokens and child groups.
+ */
+const defineGroupType = (
+    group: Library.TokenLibrary<any, any>,
+    type: DesignToken.Type | undefined,
+): void => {
+    if (type !== undefined) {
+        Reflect.defineProperty(group, "type", { value: type });
+    }
+};
+
+const getGroupType = (group: object): DesignToken.Type | undefined => {
+    return Reflect.get(group, "type");
+};
+
+const defineToken = (
+    library: Library.TokenLibrary<any, any>,
+    key: string,
+    token: Library.Token<any, any>,
+): void => {
+    Reflect.defineProperty(library, key, {
+        get() {
+            // Token access needs to be tracked because an alias token
+            // is a function that returns a token
+            Watcher.track(token);
+            return token;
+        },
+        enumerable: true,
+    });
+};
+
+const createToken = (
+    name: string,
+    config: DesignToken.Any,
+    context: Library.TokenLibrary<any, any>,
+    typeContext: DesignToken.Type | null,
+    queue: IQueue<Library.Token<DesignToken.Any, any>>,
+): LibraryToken<any> => {
+    const { value, type, description, extensions } = config;
+    const resolvedType = type || typeContext;
+    if (!resolvedType) {
+        throw new Error(
+            `No 'type' found for token '${name}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
+        );
+    }
+
+    return new LibraryToken(
+        name,
+        value,
+        resolvedType,
+        context,
+        description || "",
+        extensions || {},
+        queue,
+    );
+};
+
 const recurseCreate = (
     name: string,
     library: Library.TokenLibrary<any, any>,
@@ -166,53 +243,37 @@ const recurseCreate = (
     typeContext: DesignToken.Type | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
+    defineGroupType(library, config.type);
+    typeContext = config.type || typeContext;
+
     for (const key in config) {
         if (key === "type") {
-            typeContext = config[key] as any;
             continue;
         }
 
         const _name = name.length === 0 ? key : `${name}.${key}`;
 
         if (isGroup(config[key])) {
+            const group = {};
             Reflect.defineProperty(library, key, {
-                value: {},
+                value: group,
                 enumerable: true,
             });
             recurseCreate(
                 _name,
-                library[key] as any,
+                group,
                 config[key],
                 context,
-                config[key].type || typeContext,
+                typeContext,
                 queue,
             );
-            Object.freeze(library[key]);
+            Object.freeze(group);
         } else if (isToken(config[key])) {
-            const { value, type, description, extensions } = config[key];
-            if (!type && !typeContext) {
-                throw new Error(
-                    `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
-                );
-            }
-            const token = new LibraryToken(
-                _name,
-                value,
-                type || typeContext,
-                context,
-                description || "",
-                extensions || {},
-                queue,
+            defineToken(
+                library,
+                key,
+                createToken(_name, config[key], context, typeContext, queue),
             );
-            Reflect.defineProperty(library, key, {
-                get() {
-                    // Token access needs to be tracked because an alias token
-                    // is a function that returns a token
-                    Watcher.track(token);
-                    return token;
-                },
-                enumerable: true,
-            });
         }
     }
 };
@@ -221,79 +282,66 @@ const recurseExtend = (
     name: string,
     sourceTokens: Library.TokenLibrary<any, any>,
     extendedTokens: Library.TokenLibrary<any, any>,
-    config: Library.Config<any>, // TODO allow new config options
+    config: Library.Config<any>,
     context: Library.TokenLibrary<any, any>,
     typeContext: DesignToken.Type | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
+    // The source library's group type takes precedence; `type` cannot be changed by extension
+    const groupType = getGroupType(sourceTokens) || config.type;
+    defineGroupType(extendedTokens, groupType);
+    typeContext = groupType || typeContext;
+
     const keys = new Set(Object.keys(sourceTokens).concat(Object.keys(config))); // Remove duplicate keys
 
     for (const key of keys) {
-        const sourceHasKey = key in sourceTokens;
-        const configHasKey = key in config;
-        const _name = name.length === 0 ? key : `${name}.${key}`;
-        const keyIsGroup = isGroup(sourceTokens[key]) || isGroup(config[key]);
-        const keyIsToken = isToken(sourceTokens[key]) || isToken(config[key]);
-
         if (key === "type") {
-            typeContext = sourceTokens[key] as any;
             continue;
         }
 
-        if (keyIsGroup) {
-            Reflect.defineProperty(
-                extendedTokens,
-                key,
-                Object.create(sourceTokens[key]),
-            );
+        const _name = name.length === 0 ? key : `${name}.${key}`;
+        const sourceHasKey = key in sourceTokens;
+        const sourceValue = sourceTokens[key];
+        const configValue = config[key];
+
+        if (sourceHasKey ? isGroup(sourceValue) : isGroup(configValue)) {
+            const group = {};
+            Reflect.defineProperty(extendedTokens, key, {
+                value: group,
+                enumerable: true,
+            });
+
             if (sourceHasKey) {
                 recurseExtend(
                     _name,
-                    sourceTokens[key] as any,
-                    extendedTokens[key] as any,
-                    config[key] || {},
+                    sourceValue as Library.TokenLibrary<any, any>,
+                    group,
+                    configValue || {},
                     context,
-                    (sourceTokens.type || typeContext) as any,
+                    typeContext,
                     queue,
                 );
-            } else if (configHasKey) {
-                // This will always be the case
+            } else {
                 recurseCreate(
                     _name,
-                    sourceTokens[key] as any,
-                    extendedTokens[key],
+                    group,
+                    configValue,
                     context,
-                    (sourceTokens.type || typeContext) as any,
+                    typeContext,
                     queue,
                 );
             }
-        } else if (keyIsToken) {
-            const token =
-                sourceTokens[key] !== undefined
-                    ? extendToken(
-                          sourceTokens[key] as Library.Token<any, any>,
-                          context,
-                          queue,
-                          config[key],
-                      )
-                    : new LibraryToken(
-                          _name,
-                          config[key].value,
-                          config[key].type || typeContext,
-                          context,
-                          config[key].description || "",
-                          config[key].extensions || {},
-                          queue,
-                      );
-            Reflect.defineProperty(extendedTokens, key, {
-                get() {
-                    // Token access needs to be tracked because an alias token
-                    // is a function that returns a token
-                    Watcher.track(token);
-                    return token;
-                },
-                enumerable: true,
-            });
+            Object.freeze(group);
+        } else if (sourceHasKey ? isToken(sourceValue) : isToken(configValue)) {
+            const token = sourceHasKey
+                ? extendToken(
+                      sourceValue as Library.Token<any, any>,
+                      context,
+                      queue,
+                      configValue?.value,
+                  )
+                : createToken(_name, configValue, context, typeContext, queue);
+            defineToken(extendedTokens, key, token);
         }
     }
 };
