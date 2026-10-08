@@ -343,7 +343,7 @@ Extend("tokens of a flat extended library cannot be reassigned", () => {
 });
 
 Extend.skip(
-    "the extended library root and groups are frozen (fails: #14, #23)",
+    "the extended library root and groups are frozen (fails: #23)",
     () => {
         interface Theme extends Grouped {
             b: DesignToken.Color;
