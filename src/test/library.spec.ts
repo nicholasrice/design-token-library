@@ -778,12 +778,12 @@ Extend("extending library groups should be immutable", () => {
     const extending = source.extend({});
 
     Assert.throws(
-        // @ts-ignore
+        // @ts-expect-error
         () => (extending.tokens.colors = {}),
         "Assigning a group should throw",
     );
     Assert.throws(
-        // @ts-ignore
+        // @ts-expect-error
         () => (extending.tokens.colors.primary = { value: "#FFF000" }),
         "Assigning a token field should throw",
     );
