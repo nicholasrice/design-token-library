@@ -40,6 +40,7 @@ These were reproduced with a scratch script, not existing tests. Tests below tha
 | D13 | One throwing subscriber prevents later subscribers from being notified | second subscriber call count `0` |
 | D14 | Extended tokens share the source token's `subscriptions` Set via the prototype. Reading an extended token clears the source token's dependency records, so later re-aliasing in the source leaves a stale dependency | source `b` re-aliased from `a` to `c` is still notified on `a` change once an extension has read `b` |
 | D15 | Array config entries are treated as groups (`isGroup` accepts any object) | `{ a: [1, 2] }` → `tokens.a` is an empty group; also emitted by `toProperties` |
+| D16 | Groups that contain no tokens (empty, only non-token entries, only `type`, or only tokenless subgroups) are present in `library.tokens` | `{ g: {} }` → `tokens.g` is `{}` |
 
 D6–D9 appear to be addressed by `6dc6cc0` on `fix/library-extend` (per its commit message; unverified against tests). D1–D5, D10–D13 are not mentioned there.
 
@@ -50,7 +51,7 @@ D6–D9 appear to be addressed by `6dc6cc0` on `fix/library-extend` (per its com
 - **U3 — DECIDED:** `library.tokens` root must be frozen like nested groups (currently `tokens.z = 1` succeeds). Applies to extended libraries and the `toProperties` root too.
 - **U4** `.value` of object-typed tokens returns a mutable cached object; mutating it changes subsequent reads.
 - **U5** Token `extensions` object is shared by reference with the config passed to `create`.
-- **U6 — DECIDED:** Non-token config entries (`null`, `undefined`, primitives, functions, arrays) are ignored: no throw, and absent from `library.tokens`. Current behavior already matches, except for arrays (D15).
+- **U6 — DECIDED:** Non-token config entries (`null`, `undefined`, primitives, functions, arrays) are ignored: no throw, and absent from `library.tokens`. Current behavior already matches, except for arrays (D15). Groups that contain no tokens, at any depth, are omitted too (D16).
 - **U7** A group containing a child literally named `value` is treated as a token (`isToken` = `"value" in obj`).
 - **U8 — VERIFIED:** `"rm"` is a typo. DTCG 2025.10 §8.2.1: unit "may only be `"px"` or `"rem"`". Separately, 2025.10 makes Dimension (§8.2) an object `{ value, unit }`, not a string. This library uses the older string form throughout; aligning is a breaking change and out of scope for this plan.
   - **DECIDED:** Fix the unit only (`"rm"` → `"rem"` in `DesignToken.Values.Dimension`). The object form is deferred to the upcoming spec-version upgrade.
@@ -77,6 +78,8 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | C11b | Non-token entries inside a group are ignored | PASS |
 | C11c | Non-token entries in an `extend` config are ignored | PASS |
 | C11d | Array entries are ignored, not treated as groups | FAILS (D15) |
+| C11e | Tokenless groups are omitted: empty, only non-token entries, only `type`, only tokenless subgroups | FAILS (D16) |
+| C11f | A group keeps its tokens and omits its tokenless subgroups | FAILS (D16) |
 | C12 | Group containing a child key named `value` | DECIDE (U7) — not implemented; the spec upgrade's `$value` key removes the ambiguity |
 | C13 | Two libraries created from the same config are independent (`set` on one doesn't affect the other) | PASS |
 | C14 | `toString()` returns a meaningful string (name or value) | FAILS (D11) |
@@ -189,6 +192,8 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | E21 | Two sibling extensions of one source are independent | PASS |
 | E22 | After extended token detaches via `set`, the old source subscription is released (source `set` no longer notifies it) | PASS |
 | E23 | Reading an extended token doesn't corrupt the source token's dependency tracking | FAILS (D14) |
+| E24 | Tokenless groups are omitted from an extended library (from the source and from the extend config) | FAILS (D6, D16) |
+| E25 | A token added via `extend` to a type-only source group (omitted per D16) still inherits the group's type | DECIDE — FAILS (D6, D16) |
 
 ### 3.5 `toCSS` (`css.spec.ts`)
 
@@ -221,6 +226,7 @@ Legend: **PASS** = expected to pass on `main` today (pure coverage gain). **FAIL
 | P4 | Extended library including new tokens | PASS (flat), FAILS with groups (D6) |
 | P5 | Case preserved in names (`tOkEn` → `--tOkEn`) | PASS |
 | P6 | Group `type` key not emitted | PASS |
+| P7 | Tokenless groups omitted | FAILS (D16) |
 
 ### 3.7 Internal units (new `internals.spec.ts`)
 

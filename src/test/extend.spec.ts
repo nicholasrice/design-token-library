@@ -329,4 +329,31 @@ Extend.skip(
     },
 );
 
+Extend.skip(
+    "[E24] tokenless groups are omitted from an extended library (fails: D6, D16)",
+    () => {
+        const extended = createUntyped({
+            g: {},
+            b: { type: C, value: "#111111" },
+        }).extend({ h: {} });
+
+        Assert.equal(Object.keys(extended.tokens), ["b"]);
+    },
+);
+
+Extend.skip(
+    "[E25][DECIDE] a token added via extend to a type-only source group inherits its type (fails: D6, D16)",
+    () => {
+        const source = createUntyped({
+            g: { type: C },
+            b: { type: C, value: "#111111" },
+        });
+        const extended = source.extend({ g: { t: { value: "#222222" } } });
+
+        Assert.not.ok("g" in source.tokens, "omitted from the source");
+        Assert.is(extended.tokens.g.t.type, C);
+        Assert.is(extended.tokens.g.t.value, "#222222");
+    },
+);
+
 Extend.run();

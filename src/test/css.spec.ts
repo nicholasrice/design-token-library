@@ -477,6 +477,14 @@ toPropertiesSuite.skip(
     },
 );
 
+toPropertiesSuite.skip("[P7] omits tokenless groups (fails: D16)", () => {
+    const properties = toProperties(
+        createUntyped({ g: {}, b: { type: C, value: "#111111" } }),
+    );
+
+    Assert.equal(Object.keys(properties), ["b"]);
+});
+
 toPropertiesSuite("[P5] preserves name casing", () => {
     const properties: any = toProperties(
         createUntyped({ tOkEn: { type: C, value: "#111111" } }),

@@ -206,6 +206,36 @@ Create.skip(
     },
 );
 
+const tokenlessGroups: Array<[string, object]> = [
+    ["an empty group", {}],
+    ["a group of only non-token entries", { x: 1, y: null }],
+    ["a group with only a type", { type: C }],
+    ["a group of only empty subgroups", { h: {}, i: { j: {} } }],
+];
+
+for (const [label, group] of tokenlessGroups) {
+    Create.skip(`[C11e] ${label} is omitted (fails: D16)`, () => {
+        const library = createUntyped({
+            g: group,
+            b: { type: C, value: "#111111" },
+        });
+
+        Assert.equal(Object.keys(library.tokens), ["b"]);
+        Assert.not.ok("g" in library.tokens);
+    });
+}
+
+Create.skip(
+    "[C11f] a group keeps its tokens and omits its tokenless subgroups (fails: D16)",
+    () => {
+        const library = createUntyped({
+            g: { type: C, empty: {}, t: { value: "#111111" } },
+        });
+
+        Assert.equal(Object.keys(library.tokens.g), ["t"]);
+    },
+);
+
 Create("[C13] libraries created from the same config are independent", () => {
     const config = { a: { type: C, value: "#111111" } };
     const first = createUntyped(config);
