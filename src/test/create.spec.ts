@@ -157,15 +157,52 @@ Create.skip("[C10] the root token library is frozen (fails: U3)", () => {
     Assert.throws(() => delete library.tokens.a, "deleting a key throws");
 });
 
+const nonTokenValues: Array<[string, unknown]> = [
+    ["null", null],
+    ["undefined", undefined],
+    ["number", 12],
+    ["string", "x"],
+    ["boolean", true],
+    ["function", () => "#111111"],
+];
+
+for (const [label, value] of nonTokenValues) {
+    Create(`[C11a] a ${label} config entry is ignored, not thrown`, () => {
+        const library = createUntyped({
+            a: value,
+            b: { type: C, value: "#111111" },
+        });
+
+        Assert.equal(Object.keys(library.tokens), ["b"]);
+        Assert.not.ok("a" in library.tokens);
+    });
+}
+
+Create("[C11b] non-token entries inside a group are ignored", () => {
+    const library = createUntyped({
+        g: { type: C, x: 1, y: null, t: { value: "#111111" } },
+    });
+
+    Assert.equal(Object.keys(library.tokens.g), ["t"]);
+});
+
+Create("[C11c] non-token entries in an extend config are ignored", () => {
+    const extended = createUntyped({
+        b: { type: C, value: "#111111" },
+    }).extend({ a: null, n: 12 });
+
+    Assert.equal(Object.keys(extended.tokens), ["b"]);
+});
+
 Create.skip(
-    "[C11][DECIDE: U6] null and primitive config entries throw a descriptive error",
+    "[C11d] an array config entry is ignored, not treated as a group (fails: D15)",
     () => {
-        Assert.throws(() =>
-            createUntyped({ a: null, b: { type: C, value: "#111111" } }),
-        );
-        Assert.throws(() =>
-            createUntyped({ a: 12, b: { type: C, value: "#111111" } }),
-        );
+        const library = createUntyped({
+            a: [1, 2],
+            b: { type: C, value: "#111111" },
+        });
+
+        Assert.equal(Object.keys(library.tokens), ["b"]);
     },
 );
 
