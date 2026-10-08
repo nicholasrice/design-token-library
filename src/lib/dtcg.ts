@@ -1,4 +1,5 @@
 import { Library } from "./library.js";
+import { isToken } from "./utilities.js";
 import { RecipeRegistry, recipes as defaultRecipes, isRef } from "./recipe.js";
 import { isDTCGType, validateValue, type ValueContext } from "./dtcg-values.js";
 import { DesignToken } from "./design-token.js";
@@ -918,4 +919,124 @@ export function fromDTCG<T extends {} = any>(
     return Library.create(parseDTCG(document, options) as any, {
         recipes: options.recipes,
     }) as Library.Library<T>;
+}
+
+/**
+ * Options for {@link toDTCG}.
+ *
+ * @public
+ */
+export interface DTCGExportOptions {
+    /**
+     * Return `false` to leave a token out of the document. The filter runs
+     * before a token's value is read, so omitted tokens are never resolved.
+     */
+    filter?(token: Library.Token<any, any>): boolean;
+
+    /**
+     * Writes the tokens of a type as a DTCG token, keyed by type.
+     *
+     * @remarks
+     * A custom type, such as a `palette`, has no DTCG form, so a library that
+     * has one cannot be written until the type is converted or filtered out.
+     * The converter returns the `$type` and `$value` to write, which must be
+     * valid DTCG. A converter also takes precedence over the format for a DTCG
+     * type.
+     */
+    converters?: Record<
+        string,
+        (
+            value: any,
+            token: Library.Token<any, any>,
+        ) => { $type: string; $value: unknown }
+    >;
+}
+
+const exportGroup = (
+    group: Record<string, any>,
+    options: DTCGExportOptions,
+): Node => {
+    const result: Node = {};
+
+    for (const key of ["$type", "$description", "$extensions", "$deprecated"]) {
+        if (group[key] !== undefined) {
+            result[key] = structuredClone(group[key]);
+        }
+    }
+
+    for (const key in group) {
+        const child = group[key];
+
+        if (isToken(child)) {
+            if (options.filter && !options.filter(child as any)) {
+                continue;
+            }
+
+            result[key] = exportToken(child as any, options);
+        } else {
+            const exported = exportGroup(child, options);
+
+            // A group that filtering emptied is left out.
+            if (Object.keys(exported).some(isChildName)) {
+                result[key] = exported;
+            }
+        }
+    }
+
+    return result;
+};
+
+const exportToken = (
+    token: Library.Token<any, any>,
+    options: DTCGExportOptions,
+): Node => {
+    const type: string = token.$type;
+    const converter =
+        options.converters && Object.hasOwn(options.converters, type)
+            ? options.converters[type]
+            : undefined;
+
+    if (!converter && !isDTCGType(type)) {
+        throw new Error(
+            `Token "${token.name}" has the custom type "${type}", which has no DTCG form. Provide a converter for it in toDTCG's options, or filter it out.`,
+        );
+    }
+
+    const { $type, $value } = converter
+        ? converter(token.$value, token)
+        : { $type: type, $value: token.$value };
+    const result: Node = { $type, $value: structuredClone($value) };
+
+    if (token.$description) {
+        result.$description = token.$description;
+    }
+
+    if (Object.keys(token.$extensions).length > 0) {
+        result.$extensions = structuredClone(token.$extensions);
+    }
+
+    if (token.$deprecated !== false) {
+        result.$deprecated = token.$deprecated;
+    }
+
+    return result;
+};
+
+/**
+ * Writes a library as a
+ * {@link https://www.designtokens.org/tr/2025.10/format/ | DTCG 2025.10}
+ * document that any DTCG tool can read.
+ *
+ * @remarks
+ * The document holds each token's *evaluated* value, so aliases and recipes are
+ * written as the values they produced. Group and token metadata is kept. Use
+ * `JSON.stringify` to get the text.
+ *
+ * @public
+ */
+export function toDTCG(
+    library: Library.Library<any, any>,
+    options: DTCGExportOptions = {},
+): Record<string, any> {
+    return exportGroup(library.tokens, options);
 }

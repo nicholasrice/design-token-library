@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
-import { DTCGError, fromDTCG, parseDTCG } from "../lib/dtcg.js";
+import { DTCGError, fromDTCG, parseDTCG, toDTCG } from "../lib/dtcg.js";
 import { Library } from "../lib/library.js";
 import { toCSS } from "../lib/css-reflector.js";
 import { createPaletteRegistry } from "./my-design-system/palette.js";
@@ -1165,6 +1165,248 @@ Invalid("a DTCGError lists the path and message of each issue", () => {
 
     throw new Error("The document was accepted.");
 });
+// --- Export ----------------------------------------------------------------
+
+const Export = suite("DTCG.export");
+
+/**
+ * Everything observable about each token of a library, by name.
+ */
+const snapshot = (library: Library.Library<any, any>) => {
+    const result: Record<string, unknown> = {};
+    const visit = (group: any) => {
+        for (const key in group) {
+            const child = group[key];
+
+            if (typeof child.name === "string") {
+                result[child.name] = {
+                    type: child.$type,
+                    value: child.$value,
+                    description: child.$description,
+                    extensions: child.$extensions,
+                    deprecated: child.$deprecated,
+                };
+            } else {
+                visit(child);
+            }
+        }
+    };
+
+    visit(library.tokens);
+
+    return result;
+};
+
+for (const name of ["format", "color", "extends"]) {
+    Export(`${name}.tokens.json survives a round trip`, () => {
+        const library = fromDTCG(fixture(name));
+        const written = toDTCG(library);
+        const again = fromDTCG(written);
+
+        Assert.equal(snapshot(again), snapshot(library));
+    });
+}
+
+Export("the output is plain JSON", () => {
+    const written = toDTCG(fromDTCG(fixture("format")));
+
+    Assert.equal(JSON.parse(JSON.stringify(written)), written);
+});
+
+Export("a token is written with $type and $value", () => {
+    const written = toDTCG(fromDTCG(fixture("format")));
+
+    Assert.equal(written.size.small, {
+        $type: "dimension",
+        $value: { value: 4, unit: "px" },
+    });
+    Assert.equal(written.font.mono, { $type: "fontFamily", $value: "Menlo" });
+    Assert.is(written.size.small.type, undefined);
+    Assert.is(written.size.small.value, undefined);
+});
+
+Export("values use the 2025.10 shapes", () => {
+    const written = toDTCG(fromDTCG(fixture("format")));
+
+    Assert.equal(written.color.blue.$value, {
+        colorSpace: "srgb",
+        components: [0, 0.4, 1],
+        hex: "#0066ff",
+    });
+    Assert.equal(written.time.slow.$value, { value: 0.5, unit: "s" });
+});
+
+Export("aliases are written as the values they evaluate to", () => {
+    const written = toDTCG(fromDTCG(fixture("format")));
+
+    Assert.equal(written.color.primary.$value, written.color.blue.$value);
+    Assert.equal(written.color.link.$value, written.color.blue.$value);
+    // Including inside a composite value.
+    Assert.equal(written.font.body.$value.fontWeight, 700);
+    Assert.equal(written.border.thin.$value.color, written.color.blue.$value);
+});
+
+Export("the current value is written, after a set()", () => {
+    const library = fromDTCG(fixture("format")) as any;
+
+    library.tokens.color.blue.set(srgb(0, 1, 0));
+
+    Assert.equal(toDTCG(library).color.primary.$value, srgb(0, 1, 0));
+});
+
+Export("token and group metadata is kept", () => {
+    const written = toDTCG(fromDTCG(fixture("format")));
+
+    Assert.is(written.color.blue.$description, "The primary blue.");
+    Assert.equal(written.color.blue.$extensions, {
+        "com.example.figma": { id: "VariableID:1:2" },
+    });
+    Assert.is(written.color.legacy.$deprecated, "Use color.primary instead.");
+    Assert.is(written.color.retired.$deprecated, true);
+    Assert.is(written.color.$type, "color");
+    Assert.match(written.color.$description, "Brand colors");
+    Assert.equal(written.color.$extensions, {
+        "com.example.group": { figmaCollection: "Brand" },
+    });
+    // The document root too.
+    Assert.match(written.$description, "format module");
+});
+
+Export("nothing is written for a token with no metadata", () => {
+    const written = toDTCG(fromDTCG(fixture("format")));
+
+    Assert.equal(Object.keys(written.color.red).sort(), ["$type", "$value"]);
+    Assert.equal(Object.keys(written.color.current).sort(), [
+        "$type",
+        "$value",
+    ]);
+});
+
+Export("$root is written as a token", () => {
+    const written = toDTCG(fromDTCG(fixture("format")));
+
+    Assert.equal(written.color.accent.$root.$value, written.color.blue.$value);
+    Assert.equal(written.color.accent.light.$type, "color");
+});
+
+Export("a library written in TypeScript is written as DTCG", () => {
+    const library = Library.create({
+        color: { brand: { $type: "color", $value: hex("#ff0000") } },
+    } as any);
+
+    Assert.equal(toDTCG(library), {
+        color: {
+            brand: {
+                $type: "color",
+                $value: { colorSpace: "srgb", components: [1, 0, 0] },
+            },
+        },
+    });
+});
+
+Export("an extended library is written with its overrides", () => {
+    const library = fromDTCG(fixture("extends"));
+    const written = toDTCG(
+        library.extend({ dark: { text: { $value: srgb(1, 0, 0) } } } as any),
+    );
+
+    Assert.equal(written.dark.text.$value, srgb(1, 0, 0));
+    Assert.equal(written.dark.background.$value, srgb(0, 0, 0));
+    Assert.equal(written.base.text.$value, srgb(0, 0, 0));
+});
+
+Export("the output is a copy", () => {
+    const library = fromDTCG(fixture("format")) as any;
+    const written = toDTCG(library);
+
+    written.color.blue.$value.components[0] = 1;
+
+    Assert.is(library.tokens.color.blue.$value.components[0], 0);
+});
+
+Export("a filter leaves tokens out, and the groups it empties", () => {
+    const written = toDTCG(fromDTCG(fixture("format")), {
+        filter: (token) =>
+            token.$type !== "color" && token.name !== "size.small",
+    });
+
+    Assert.is(written.color, undefined);
+    Assert.is(written.size.small, undefined);
+    Assert.ok(written.size.base);
+});
+
+Export("a custom type with no converter is an error that names it", () => {
+    const library = fromDTCG(fixture("recipes"), recipeOptions());
+
+    Assert.throws(
+        () => toDTCG(library),
+        /Token "color\.neutral\.palette" has the custom type "palette", which has no DTCG form/,
+    );
+});
+
+Export("a custom type can be filtered out", () => {
+    const written = toDTCG(fromDTCG(fixture("recipes"), recipeOptions()), {
+        filter: (token) => token.$type !== "palette",
+    });
+
+    Assert.is(written.color.neutral.palette, undefined);
+    Assert.ok(written.color.neutral.base);
+});
+
+Export("a custom type can be converted to a DTCG type", () => {
+    const library = fromDTCG(fixture("recipes"), recipeOptions()) as any;
+    const written = toDTCG(library, {
+        converters: {
+            // A palette as a gradient through its colors.
+            palette: (palette: any[]) => ({
+                $type: "gradient",
+                $value: palette.map((color, index) => ({
+                    color,
+                    position: index / (palette.length - 1),
+                })),
+            }),
+        },
+    });
+
+    Assert.is(written.color.accent.palette.$type, "gradient");
+    Assert.is(written.color.accent.palette.$value.length, 5);
+    Assert.equal(
+        written.color.accent.palette.$value.map((stop: any) => stop.position),
+        [0, 0.25, 0.5, 0.75, 1],
+    );
+    // The converted document is valid DTCG.
+    Assert.ok(parseDTCG(written));
+});
+
+Export("a group recipe is written as the plain group it generated", () => {
+    const written = toDTCG(fromDTCG(fixture("recipes"), recipeOptions()), {
+        filter: (token) => token.$type !== "palette",
+    });
+    const { states } = written.color.accent;
+
+    Assert.equal(
+        Object.keys(states).filter((key) => !key.startsWith("$")),
+        ["rest", "hover", "active", "focus"],
+    );
+    Assert.is(states.$recipe, undefined);
+    Assert.match(states.$description, "A group recipe");
+    Assert.is(states.rest.$type, "color");
+    Assert.is(states.rest.$deprecated, "Use color.accent.palette directly.");
+    Assert.equal(written.color.accent.focusRing.$value, states.focus.$value);
+});
+
+Export("a converter wins over the format for a DTCG type", () => {
+    const written = toDTCG(fromDTCG(fixture("format")), {
+        converters: {
+            dimension: (value: any) => ({
+                $type: "number",
+                $value: value.value,
+            }),
+        },
+    });
+
+    Assert.equal(written.size.small, { $type: "number", $value: 4 });
+});
 
 Types.run();
 Aliases.run();
@@ -1175,3 +1417,4 @@ Extends.run();
 Pointers.run();
 Recipes.run();
 Invalid.run();
+Export.run();
