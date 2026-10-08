@@ -210,6 +210,7 @@ const defineToken = (
 };
 
 const createToken = (
+    key: string,
     name: string,
     config: DesignToken.Any,
     context: Library.TokenLibrary<any, any>,
@@ -220,7 +221,7 @@ const createToken = (
     const resolvedType = type || typeContext;
     if (!resolvedType) {
         throw new Error(
-            `No 'type' found for token '${name}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
+            `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
         );
     }
 
@@ -272,7 +273,14 @@ const recurseCreate = (
             defineToken(
                 library,
                 key,
-                createToken(_name, config[key], context, typeContext, queue),
+                createToken(
+                    key,
+                    _name,
+                    config[key],
+                    context,
+                    typeContext,
+                    queue,
+                ),
             );
         }
     }
@@ -340,7 +348,14 @@ const recurseExtend = (
                       queue,
                       configValue?.value,
                   )
-                : createToken(_name, configValue, context, typeContext, queue);
+                : createToken(
+                      key,
+                      _name,
+                      configValue,
+                      context,
+                      typeContext,
+                      queue,
+                  );
             defineToken(extendedTokens, key, token);
         }
     }
