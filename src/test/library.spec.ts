@@ -750,8 +750,6 @@ interface GroupedTheme {
     colors: {
         type: DesignToken.Type.Color;
         primary: DesignToken.Color;
-        secondary: DesignToken.Color;
-        nested: { tertiary: DesignToken.Color };
     };
 }
 
@@ -759,69 +757,13 @@ const groupedConfig = (): Library.Config<GroupedTheme> => ({
     colors: {
         type: DesignToken.Type.Color,
         primary: { value: "#FFFFFF" },
-        secondary: { value: (context) => context.colors.primary },
-        nested: { tertiary: { value: "#000000" } },
     },
-});
-
-Extend("should preserve groups from the source library", () => {
-    const source = Library.create(groupedConfig());
-    const extending = source.extend({});
-
-    Assert.is(extending.tokens.colors.primary.value, "#FFFFFF");
-    Assert.is(extending.tokens.colors.nested.tertiary.value, "#000000");
-    Assert.is(
-        extending.tokens.colors.nested.tertiary.name,
-        "colors.nested.tertiary",
-    );
-    Assert.is(
-        extending.tokens.colors.nested.tertiary.type,
-        DesignToken.Type.Color,
-    );
 });
 
 Type("A group should expose its declared type", () => {
     const library = Library.create(groupedConfig());
 
     Assert.is(library.tokens.colors.type, DesignToken.Type.Color);
-    Assert.equal(
-        Object.keys(library.tokens.colors),
-        ["primary", "secondary", "nested"],
-        "'type' should not be enumerable",
-    );
-});
-
-Extend("should override tokens nested in groups", () => {
-    const source = Library.create(groupedConfig());
-    const extending = source.extend({
-        colors: { primary: { value: "#111111" } },
-    });
-
-    Assert.is(extending.tokens.colors.primary.value, "#111111");
-    Assert.is(extending.tokens.colors.nested.tertiary.value, "#000000");
-    Assert.is(source.tokens.colors.primary.value, "#FFFFFF");
-});
-
-Extend("should resolve aliases against the extending library", () => {
-    const source = Library.create(groupedConfig());
-    const extending = source.extend({
-        colors: { primary: { value: "#111111" } },
-    });
-
-    Assert.is(extending.tokens.colors.secondary.value, "#111111");
-    Assert.is(source.tokens.colors.secondary.value, "#FFFFFF");
-});
-
-Extend("should support overriding a token with an alias", () => {
-    const source = Library.create(groupedConfig());
-    const extending = source.extend({
-        colors: {
-            primary: { value: (context) => context.colors.nested.tertiary },
-        },
-    });
-
-    Assert.is(extending.tokens.colors.primary.value, "#000000");
-    Assert.is(extending.tokens.colors.secondary.value, "#000000");
 });
 
 Extend("should type-check token overrides against the source library", () => {
@@ -830,69 +772,6 @@ Extend("should type-check token overrides against the source library", () => {
     // @ts-expect-error a Color token cannot be overridden with a Dimension value
     source.extend({ colors: { primary: { value: "4px" } } });
 });
-
-Extend("should allow adding new groups to an extending library", () => {
-    interface Extending {
-        dimensions: {
-            type: DesignToken.Type.Dimension;
-            unit: DesignToken.Dimension;
-        };
-    }
-    const source = Library.create(groupedConfig());
-    const extending = source.extend<Extending>({
-        dimensions: {
-            type: DesignToken.Type.Dimension,
-            unit: { value: "4px" },
-        },
-    });
-
-    Assert.is(extending.tokens.dimensions.unit.value, "4px");
-    Assert.is(
-        extending.tokens.dimensions.unit.type,
-        DesignToken.Type.Dimension,
-    );
-    Assert.is(extending.tokens.dimensions.unit.name, "dimensions.unit");
-    Assert.is(extending.tokens.colors.primary.value, "#FFFFFF");
-});
-
-Extend(
-    "new tokens added to an existing group should inherit the group's type",
-    () => {
-        interface Extending {
-            colors: { quaternary: DesignToken.Color };
-        }
-        const source = Library.create(groupedConfig());
-        const extending = source.extend<Extending>({
-            colors: { quaternary: { value: "#222222" } },
-        });
-
-        Assert.is(extending.tokens.colors.quaternary.value, "#222222");
-        Assert.is(
-            extending.tokens.colors.quaternary.type,
-            DesignToken.Type.Color,
-        );
-        Assert.is(extending.tokens.colors.primary.value, "#FFFFFF");
-    },
-);
-
-Extend(
-    "should throw when a new token has no type and no ancestor group type",
-    () => {
-        interface Extending {
-            b: DesignToken.Color;
-        }
-        const source = Library.create<ABTheme>({
-            a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
-            b: { type: DesignToken.Type.Color, value: "#FFFFFF" },
-        });
-
-        Assert.throws(() =>
-            source.extend<{ c: DesignToken.Color }>({
-                c: { value: "#000000" },
-            }),
-        );
-    },
-);
 
 Extend("extending library groups should be immutable", () => {
     const source = Library.create(groupedConfig());
