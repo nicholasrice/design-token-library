@@ -106,6 +106,29 @@ Props("$root is a token in its group", () => {
     Assert.equal(Object.keys(library.tokens.color), ["$root", "light"]);
 });
 
+Props("$root is not allowed at the top level", () => {
+    const root = { $type: C, $value: "#111111" } as const;
+    const message = /"\$root" is the token of a group/;
+
+    Assert.throws(
+        () =>
+            // @ts-expect-error a library has no group to name a top-level $root for
+            Library.create<{ $root: DesignToken.Color }>({ $root: root }),
+        message,
+    );
+    // @ts-expect-error the type is inferred from the config
+    Assert.throws(() => Library.create({ $root: root }), message);
+
+    const source = Library.create<{ a: DesignToken.Color }>({
+        a: { $type: C, $value: "#111111" },
+    });
+    Assert.throws(
+        // @ts-expect-error extending cannot add a top-level $root
+        () => source.extend<{ $root: DesignToken.Color }>({ $root: root }),
+        message,
+    );
+});
+
 Props("a token exposes $deprecated, false by default", () => {
     interface Theme {
         a: DesignToken.Color;

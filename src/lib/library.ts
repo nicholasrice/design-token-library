@@ -12,7 +12,7 @@ export namespace Library {
         tokens: TokenLibrary<T, R>;
         subscribe(subscriber: Library.Subscriber<R>): void;
         unsubscribe(subscriber: Library.Subscriber<R>): void;
-        extend<K extends {} = {}>(
+        extend<K extends NoRoot<K> = {}>(
             config: ExtendConfig<T, R & NewTokens<K, T>> &
                 Config<K, R & NewTokens<K, T>, never, T>,
         ): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
@@ -31,6 +31,16 @@ export namespace Library {
                 ? never
                 : P
             : P]: P extends keyof T ? NewTokens<K[P], T[P]> : K[P];
+    };
+
+    /**
+     * `$root` is the token of a group, so a library cannot have one at its top
+     * level, where there is no group to name it for.
+     *
+     * @public
+     */
+    export type NoRoot<T> = {
+        [K in keyof T]: K extends "$root" ? never : T[K];
     };
 
     export interface Subscriber<R extends {}> {
@@ -306,7 +316,7 @@ export namespace Library {
     /**
      * @public
      */
-    export const create = <T extends {} = any>(
+    export const create = <T extends NoRoot<T> = any>(
         config: Library.Config<T, T>,
     ): Library.Library<T> => {
         // The runtime library is untyped; its shape is guaranteed by `config`.
@@ -632,6 +642,14 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
     return r;
 };
 
+const assertNoRoot = (config: RawConfig): void => {
+    if ("$root" in config) {
+        throw new Error(
+            `"$root" is the token of a group, so it cannot be at the top level of a library.`,
+        );
+    }
+};
+
 /**
  * The runtime library. It is untyped internally; {@link Library.create}
  * exposes it through the typed {@link (Library:namespace).Library} interface.
@@ -649,6 +667,7 @@ class LibraryImpl implements Library.Library<any> {
     }
 
     public extend(config: RawConfig): LibraryImpl {
+        assertNoRoot(config);
         const queue = new Queue();
         const tokens: RawLibrary = {};
         recurseExtend("", this.tokens, tokens, config, tokens, null, queue);
@@ -657,6 +676,7 @@ class LibraryImpl implements Library.Library<any> {
     }
 
     public static create(config: RawConfig): LibraryImpl {
+        assertNoRoot(config);
         const queue = new Queue();
         const tokens: RawLibrary = {};
         recurseCreate("", tokens, config, tokens, null, queue);

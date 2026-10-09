@@ -132,7 +132,7 @@ A group declared with a non-literal `$type` (such as `DesignToken.Type`), a unio
 
 Tokens and groups share the DTCG property names: `$type`, `$description`, `$extensions` and `$deprecated`. A token's `$deprecated` is `false` unless it is set to `true` or to a string explaining why. A group's properties are available on the group but are not enumerable, so they never appear when iterating a group's tokens. Group properties are kept when a library is extended.
 
-A group can have a token of its own named `$root`. Its CSS custom property is named for the group:
+A group can have a token of its own named `$root`. It must be in a group: a library cannot have a `$root` token at its top level, and `Library.create` and `extend` reject one at compile time and at runtime. Its CSS custom property is named for the group:
 
 ```ts
 interface Theme {
