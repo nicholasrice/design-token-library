@@ -10,8 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Custom token types via `DesignToken.Custom<Name, Value>`, with static values, aliases, deep aliases, group type inheritance, `set()` and `extend()` support. Reserved DTCG type names and non-serializable values are rejected at compile time.
-- `toCSS(library, converters)` accepts a converter for each custom type, and requires one for every custom type in the library. At runtime it throws for a custom type without a converter.
-- `Library.TokensOf`, `Library.TokenRecord`, `Library.GroupType`, `Library.ValueAlias`, `Library.ValueSource`, `CSSConverter`, `CSSConverters` and `CustomTokensOf` types.
+- `toCSS(library, options)` accepts `options.converters`, a converter for each custom type that receives the value and the token. It's required for every custom type in the library. At runtime `toCSS` throws for a custom type without a converter.
+- `Library.TokensOf`, `Library.TokenRecord`, `Library.GroupType`, `Library.ValueAlias`, `Library.ValueSource`, `CSSOptions`, `CSSConverter`, `CSSConverters` and `CustomTokensOf` types.
 
 ### Changed
 

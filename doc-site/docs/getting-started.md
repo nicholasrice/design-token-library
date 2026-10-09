@@ -186,11 +186,13 @@ Custom types have two restrictions, both enforced at compile time:
 
 #### CSS
 
-`toCSS` requires a converter for each custom type in the library. Each converter receives the token's resolved value:
+`toCSS` requires a converter for each custom type in the library. Each converter receives the token's resolved value and the token:
 
 ```ts
 const css = toCSS(library, {
-  elevation: (value) => `${value.level}`,
+  converters: {
+    elevation: (value, token) => `${value.level}`,
+  },
 });
 ```
 

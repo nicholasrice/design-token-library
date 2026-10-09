@@ -315,9 +315,24 @@ const flatConverters = {
 
 CSS("custom converters receive resolved values (R6.1, R6.2)", () => {
     Assert.is(
-        toCSS(flat(), flatConverters),
+        toCSS(flat(), { converters: flatConverters }),
         "--c:#111111;--e:2 #111111;--r:200%;",
     );
+});
+
+CSS("custom converters receive the token (R6.1)", () => {
+    const tokens: string[] = [];
+    toCSS(flat(), {
+        converters: {
+            ...flatConverters,
+            elevation: (value, token) => {
+                tokens.push(`${token.name}:${token.type}`);
+                return "";
+            },
+        },
+    });
+
+    Assert.equal(tokens, ["e:elevation"]);
 });
 
 CSS("a custom token without a converter throws (R6.3)", () => {
@@ -335,8 +350,10 @@ CSS("an extended library uses converters for new custom types (R6.4)", () => {
 
     Assert.is(
         toCSS(extended, {
-            ...flatConverters,
-            "z-index": (value) => `${value}`,
+            converters: {
+                ...flatConverters,
+                "z-index": (value) => `${value}`,
+            },
         }),
         "--c:#111111;--e:2 #111111;--r:200%;--z:3;",
     );

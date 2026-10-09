@@ -420,27 +420,48 @@ function cssCases() {
     });
     // T6.1
     toCSS(standardOnly);
-    // @ts-expect-error a library without custom types takes no converters
     toCSS(standardOnly, {});
+    toCSS(standardOnly, {
+        // @ts-expect-error a library without custom types takes no converters
+        converters: { color: () => "" },
+    });
 
     // T6.2
-    toCSS(library, converters);
-    // @ts-expect-error converters are required
+    toCSS(library, { converters });
+    // @ts-expect-error options are required
     toCSS(library);
+    // @ts-expect-error converters are required
+    toCSS(library, {});
     // T6.3
     const { nested, ...withoutNested } = converters;
     // @ts-expect-error a converter for 'nested' is missing
-    toCSS(library, withoutNested);
+    toCSS(library, { converters: withoutNested });
     // T6.4
     toCSS(library, {
-        ...converters,
-        // @ts-expect-error 'unknown' is not a custom type in the library
-        unknown: (value: unknown) => "",
+        converters: {
+            ...converters,
+            // @ts-expect-error 'unknown' is not a custom type in the library
+            unknown: (value: unknown) => "",
+        },
+    });
+    // T6.5: converters receive the token
+    toCSS(library, {
+        converters: {
+            ...converters,
+            elevation: (value, token) => {
+                type Value = Expect<Equal<typeof value, Elevation>>;
+                type Type = Expect<Equal<typeof token.type, "elevation">>;
+                type TokenValue = Expect<Equal<typeof token.value, Elevation>>;
+                return token.name;
+            },
+        },
     });
     // T6.6
-    toCSS(extended, { ...converters, "z-index": (value) => `${value}` });
+    toCSS(extended, {
+        converters: { ...converters, "z-index": (value) => `${value}` },
+    });
     // @ts-expect-error a converter for 'z-index' is missing
-    toCSS(extended, converters);
+    toCSS(extended, { converters });
 
     // T6.7
     const properties = toProperties(library);
