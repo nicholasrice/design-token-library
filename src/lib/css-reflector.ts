@@ -111,7 +111,7 @@ type NameFn = (token: Library.Token<any, any>) => string;
  * the group: `color.$root` is `--color`.
  */
 const defaultName: NameFn = (token) =>
-    (token.name.replace(/(^|\.)\$root$/, "") || "root").replaceAll(".", "-");
+    token.name.replace(/\.\$root$/, "").replaceAll(".", "-");
 
 const needsJSON = (value: unknown): boolean => {
     return (

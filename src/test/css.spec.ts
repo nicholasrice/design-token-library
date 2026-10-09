@@ -332,15 +332,6 @@ toCssSuite("should name a $root token for its group", () => {
     Assert.is(properties.accent.light.property, "--accent-light");
 });
 
-toCssSuite("should name a top-level $root token root", () => {
-    const library = Library.create<any>({
-        $root: { $type: "color", $value: hex("#111111") },
-    });
-
-    Assert.is(untypedCSS(library), "--root:#111111;");
-    Assert.is((toProperties(library) as any).$root.property, "--root");
-});
-
 toPropertiesSuite(
     "should convert a library to CSS custom property names and var names",
     () => {

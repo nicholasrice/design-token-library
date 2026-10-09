@@ -5,7 +5,7 @@ import { px } from "../values.js";
 
 export interface Elevation {
     level: number;
-    shadow: DesignToken.Values.ShadowLayer;
+    shadow: DesignToken.Values.Shadow;
 }
 
 export type ElevationToken = DesignToken.Custom<"elevation", Elevation>;
@@ -31,12 +31,15 @@ export const elevations: Library.Config<Elevations, Theme> = {
         },
     },
     raised: {
+        // A shadow is one layer or several: raise each layer.
         $value: (theme) => ({
             level: theme.elevations.flat.$value.level + 1,
-            shadow: {
-                ...theme.elevations.flat.$value.shadow,
-                offsetY: theme.dimensions.unit.$value,
-            },
+            shadow: [theme.elevations.flat.$value.shadow]
+                .flat()
+                .map((layer) => ({
+                    ...layer,
+                    offsetY: theme.dimensions.unit.$value,
+                })),
         }),
     },
 };

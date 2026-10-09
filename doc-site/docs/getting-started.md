@@ -173,7 +173,7 @@ Token types that aren't defined by the DTCG can be declared with `DesignToken.Cu
 ```ts
 interface Elevation {
   level: number;
-  shadow: DesignToken.Values.ShadowLayer;
+  shadow: DesignToken.Values.Shadow;
 }
 
 type ElevationToken = DesignToken.Custom<"elevation", Elevation>;
@@ -316,4 +316,4 @@ library.tokens.a.set({ colorSpace: "srgb", components: [0.07, 0.07, 0.07] });
 
 `toCSS` and `toProperties` convert the DTCG value shapes to CSS. An sRGB color becomes hex (`#ff8000`) and a color in another color space becomes the CSS `color()` function, or `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()` or `oklch()`. Dimensions and durations are written with their unit, font weight keywords become numbers, a cubic Bézier becomes `cubic-bezier()`, a transition uses CSS shorthand order, and a shadow may be layered and inset. A standard type with no converter, such as typography, is written as JSON.
 
-A group's `$root` token is named for the group, so `color.$root` is `--color`. A `$root` token that is not in a group is `--root`.
+A group's `$root` token is named for the group, so `color.$root` is `--color`.

@@ -112,7 +112,7 @@ Props("$root is a token in its group", () => {
 });
 
 Props("$root is not allowed at the top level", () => {
-    const root = { $type: C, $value: "#111111" } as const;
+    const root = { $type: C, $value: hex("#111111") } as const;
     const message = /"\$root" is the token of a group/;
 
     Assert.throws(

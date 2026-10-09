@@ -64,11 +64,12 @@ Create("the example design system resolves custom tokens", () => {
 
     Assert.is(library.tokens.elevations.raised.$type, "elevation");
     Assert.is(library.tokens.elevations.raised.$value.level, 1);
-    Assert.equal(library.tokens.elevations.raised.$value.shadow.offsetY, px(4));
-    Assert.equal(
-        library.tokens.elevations.raised.$value.shadow.color,
-        hex("#FFFFFF"),
-    );
+    const [layer, ...rest] = [
+        library.tokens.elevations.raised.$value.shadow,
+    ].flat();
+    Assert.is(rest.length, 0);
+    Assert.equal(layer.offsetY, px(4));
+    Assert.equal(layer.color, hex("#FFFFFF"));
 });
 
 Alias("a whole-value alias resolves to the target's value", () => {
