@@ -1,8 +1,7 @@
 /**
  * Type-level tests for custom token types. These are enforced by `tsc -b`:
  * a failing `Expect`, a `@ts-expect-error` that no longer errors, or a valid
- * assignment that errors fails the build. IDs refer to
- * `test-plans/custom-token-types.md`.
+ * assignment that errors fails the build.
  *
  * Negative cases are wrapped in functions that are never called, so that
  * invalid configs don't throw when this module is loaded.
@@ -34,15 +33,15 @@ const C = DesignToken.Type.Color;
 const library = Library.create(customConfig());
 type Tokens = typeof library.tokens;
 
-/* T1: value and type resolution */
-type T1 = [
-    // T1.1
+/* Value and type resolution */
+type Resolution = [
+    // Object values
     Expect<Equal<Tokens["elevation"]["low"]["value"], Elevation>>,
-    // T1.2
+    // Primitive values
     Expect<Equal<Tokens["ratio"]["value"], number>>,
     Expect<Equal<Tokens["label"]["value"], string>>,
     Expect<Equal<Tokens["flag"]["value"], boolean>>,
-    // T1.3
+    // Array, nested object and tuple values
     Expect<Equal<Tokens["steps"]["value"], number[]>>,
     Expect<Equal<Tokens["nested"]["value"], Nested>>,
     Expect<
@@ -51,18 +50,18 @@ type T1 = [
             [DesignToken.Values.Dimension, DesignToken.Values.Dimension]
         >
     >,
-    // T1.4
+    // Literal type names, including inherited ones
     Expect<Equal<Tokens["elevation"]["low"]["type"], "elevation">>,
     Expect<Equal<Tokens["elevation"]["raised"]["top"]["type"], "elevation">>,
     Expect<Equal<Tokens["elevation"]["scale"]["step"]["type"], "ratio">>,
     Expect<Equal<Tokens["elevation"]["type"], "elevation">>,
-    // T1.5
+    // Standard tokens are unchanged
     Expect<
         Equal<Tokens["colors"]["accent"]["value"], DesignToken.Values.Color>
     >,
     Expect<Equal<Tokens["colors"]["accent"]["type"], DesignToken.Type.Color>>,
     Expect<Equal<Tokens["unit"]["value"], DesignToken.Values.Dimension>>,
-    // T1.6
+    // Nothing public is `any` or `unknown`
     Expect<IsKnown<Tokens["elevation"]["low"]["value"]>>,
     Expect<IsKnown<Tokens["elevation"]["low"]["type"]>>,
     Expect<IsKnown<Library.Context<CustomTheme>["elevation"]["low"]["value"]>>,
@@ -71,7 +70,7 @@ type T1 = [
     Expect<IsKnown<Parameters<CSSConverters<CustomTheme>["elevation"]>[0]>>,
 ];
 
-// T1.7: subscriber records are a union discriminated by `type`
+// Subscriber records are a union discriminated by `type`
 library.subscribe({
     onChange(records) {
         for (const record of records) {
@@ -90,7 +89,7 @@ library.subscribe({
         }
     },
 });
-type T1_7 = Expect<
+type RecordTypes = Expect<
     Equal<
         Library.TokenRecord<CustomTheme>["type"],
         | DesignToken.Type.Color
@@ -104,14 +103,14 @@ type T1_7 = Expect<
     >
 >;
 
-/* T2: config values. T2.1–T2.6 are covered by `customConfig`. */
+/* Config values. Static values, aliases and deep aliases are covered by `customConfig`. */
 interface Standard {
     a: DesignToken.Color;
     n: DesignToken.Number;
     gradient: DesignToken.Gradient;
     curve: DesignToken.CubicBezier;
 }
-// T2.7: Gradient stop aliases (#28) and CubicBezier number aliases (#29)
+// Gradient stop aliases (#28) and CubicBezier number aliases (#29)
 const standardAliases: Library.Config<Standard> = {
     a: { type: C, value: "#111111" },
     n: { type: DesignToken.Type.Number, value: 0.5 },
@@ -147,7 +146,7 @@ function configValueNegatives() {
         r: { type: "ratio", value: 1 },
     };
 
-    // T2.8: wrong static field type
+    // wrong static field type
     const wrongField: Library.Config<Theme> = {
         ...valid,
         e: {
@@ -160,19 +159,19 @@ function configValueNegatives() {
             },
         },
     };
-    // T2.8: wrong static value
+    // wrong static value
     const wrongValue: Library.Config<Theme> = {
         ...valid,
         // @ts-expect-error a ratio is a number
         r: { type: "ratio", value: "1" },
     };
-    // T2.9: alias resolving to an incompatible token
+    // alias resolving to an incompatible token
     const wrongAlias: Library.Config<Theme> = {
         ...valid,
         // @ts-expect-error a Color token is not a number
         r: { type: "ratio", value: (context) => context.c },
     };
-    // T2.9: deep alias resolving to an incompatible token
+    // deep alias resolving to an incompatible token
     const wrongDeepAlias: Library.Config<Theme> = {
         ...valid,
         e: {
@@ -186,7 +185,7 @@ function configValueNegatives() {
         },
     };
 
-    // T2.10: set() rejects wrong values
+    // set() rejects wrong values
     const lib = Library.create(valid);
     // @ts-expect-error missing properties
     lib.tokens.e.set({ level: 1 });
@@ -198,9 +197,9 @@ function configValueNegatives() {
     return [wrongField, wrongValue, wrongAlias, wrongDeepAlias];
 }
 
-/* T3: declaration constraints */
+/* Declaration constraints */
 function declarationNegatives() {
-    // T3.1: reserved names
+    // reserved names
     const reserved: Library.Config<{
         c: DesignToken.Custom<"color", string>;
         b: DesignToken.Custom<"border", string>;
@@ -217,7 +216,7 @@ function declarationNegatives() {
         >
     >;
 
-    // T3.2: function values, top-level and nested
+    // function values, top-level and nested
     const functions: Library.Config<{
         f: DesignToken.Custom<"fn", () => void>;
         n: DesignToken.Custom<"nestedFn", { a: { b: () => void } }>;
@@ -228,7 +227,7 @@ function declarationNegatives() {
         n: { type: "nestedFn", value: { a: { b: () => {} } } },
     };
 
-    // T3.3: the config type must match the declared name
+    // the config type must match the declared name
     const mismatched: Library.Config<{ r: RatioToken }> = {
         // @ts-expect-error 'label' is not 'ratio'
         r: { type: "label", value: 1 },
@@ -237,9 +236,9 @@ function declarationNegatives() {
     return [reserved, functions, mismatched];
 }
 
-/* T4: group type inheritance. T4.1–T4.3 are covered by `customConfig`. */
+/* Group type inheritance. Inheriting, nested inheritance and overriding are covered by `customConfig`. */
 function inheritanceNegatives() {
-    // T4.4: a group of a different type
+    // a group of a different type
     const differentGroup: Library.Config<{
         g: { type: "elevation"; r: RatioToken };
     }> = {
@@ -247,13 +246,13 @@ function inheritanceNegatives() {
         g: { type: "elevation", r: { value: 1 } },
     };
 
-    // T4.5: no ancestor group type
+    // no ancestor group type
     const noGroup: Library.Config<{ r: RatioToken }> = {
         // @ts-expect-error no type to inherit
         r: { value: 1 },
     };
 
-    // T4.6: wide, union and optional group types pass on nothing
+    // wide, union and optional group types pass on nothing
     interface Groups {
         wide: { type: string; r: RatioToken };
         union: { type: "ratio" | "label"; r: RatioToken };
@@ -283,7 +282,7 @@ function inheritanceNegatives() {
         },
     };
 
-    // T4.7: the group type must match the interface
+    // the group type must match the interface
     const wrongGroupType: Library.Config<{
         g: { type: "ratio"; r: RatioToken };
     }> = {
@@ -291,7 +290,7 @@ function inheritanceNegatives() {
         g: { type: "label", r: { value: 1 } },
     };
 
-    // T4.8: standard tokens follow the same rules
+    // standard tokens follow the same rules
     const standard: Library.Config<{
         borders: { type: DesignToken.Type.Border; c: DesignToken.Color };
         colors: { type: DesignToken.Type.Color; c: DesignToken.Color };
@@ -311,7 +310,7 @@ function inheritanceNegatives() {
     ];
 }
 
-/* T5: extended libraries */
+/* Extended libraries */
 interface Extension {
     elevation: { floating: ElevationToken };
     spacing: { type: "ratio"; tight: RatioToken };
@@ -319,7 +318,7 @@ interface Extension {
 }
 const extended = library.extend<Extension>({
     elevation: {
-        // T5.1: static, alias and deep alias overrides
+        // static, alias and deep alias overrides
         low: {
             value: {
                 level: 0,
@@ -337,7 +336,7 @@ const extended = library.extend<Extension>({
                 },
             },
         },
-        // T5.4: inherits the source group's type
+        // inherits the source group's type
         floating: {
             value: {
                 level: 3,
@@ -346,13 +345,12 @@ const extended = library.extend<Extension>({
             },
         },
     },
-    // T5.3
+    // New groups and tokens
     spacing: { type: "ratio", tight: { value: 0.5 } },
     z: { type: "z-index", value: 10 },
 });
 type ExtendedTokens = typeof extended.tokens;
-type T5 = [
-    // T5.3, T5.4, T5.6
+type Extended = [
     Expect<Equal<ExtendedTokens["elevation"]["floating"]["value"], Elevation>>,
     Expect<Equal<ExtendedTokens["elevation"]["floating"]["type"], "elevation">>,
     Expect<Equal<ExtendedTokens["spacing"]["tight"]["type"], "ratio">>,
@@ -368,19 +366,19 @@ type T5 = [
 ];
 
 function extendNegatives() {
-    // T5.2: incompatible override
+    // incompatible override
     library.extend({
         // @ts-expect-error a ratio is a number
         ratio: { value: "1" },
     });
-    // T5.5: a source group of a different type
+    // a source group of a different type
     library.extend<{ elevation: { r: LabelToken } }>({
         // @ts-expect-error 'label' isn't inherited from an 'elevation' group
         elevation: { r: { value: "x" } },
     });
 }
 
-/* T6: CSS */
+/* CSS */
 const converters: CSSConverters<CustomTheme> = {
     elevation: (value) => `${value.level}`,
     ratio: (value) => `${value}`,
@@ -389,8 +387,8 @@ const converters: CSSConverters<CustomTheme> = {
     steps: (value) => value.join(" "),
     nested: (value) => value.outer.inner.size,
 };
-type T6 = [
-    // T6.5
+type CSSTypes = [
+    // Converter arguments
     Expect<
         Equal<Parameters<CSSConverters<CustomTheme>["elevation"]>[0], Elevation>
     >,
@@ -402,7 +400,7 @@ type T6 = [
             "elevation" | "ratio" | "label" | "flag" | "steps" | "nested"
         >
     >,
-    // T6.7
+    // toProperties
     Expect<
         Equal<
             CSSPropertiesLibrary<Tokens>["elevation"]["low"]["var"],
@@ -418,7 +416,7 @@ function cssCases() {
     const standardOnly = Library.create<{ c: DesignToken.Color }>({
         c: { type: C, value: "#111111" },
     });
-    // T6.1
+    // No custom types: options are optional and take no converters
     toCSS(standardOnly);
     toCSS(standardOnly, {});
     toCSS(standardOnly, {
@@ -426,17 +424,17 @@ function cssCases() {
         converters: { color: () => "" },
     });
 
-    // T6.2
+    // Custom types: converters are required
     toCSS(library, { converters });
     // @ts-expect-error options are required
     toCSS(library);
     // @ts-expect-error converters are required
     toCSS(library, {});
-    // T6.3
+    // Every custom type needs a converter
     const { nested, ...withoutNested } = converters;
     // @ts-expect-error a converter for 'nested' is missing
     toCSS(library, { converters: withoutNested });
-    // T6.4
+    // Only custom types in the library are accepted
     toCSS(library, {
         converters: {
             ...converters,
@@ -444,7 +442,7 @@ function cssCases() {
             unknown: (value: unknown) => "",
         },
     });
-    // T6.5: converters receive the token
+    // converters receive the token
     toCSS(library, {
         converters: {
             ...converters,
@@ -456,14 +454,14 @@ function cssCases() {
             },
         },
     });
-    // T6.6
+    // Extended libraries need converters for new custom types
     toCSS(extended, {
         converters: { ...converters, "z-index": (value) => `${value}` },
     });
     // @ts-expect-error a converter for 'z-index' is missing
     toCSS(extended, { converters });
 
-    // T6.7
+    // toProperties
     const properties = toProperties(library);
     const top: `var(--${string})` = properties.elevation.raised.top.var;
     return top;

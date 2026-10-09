@@ -1,6 +1,5 @@
 /**
- * Runtime tests for custom token types. IDs refer to
- * `test-plans/custom-token-types.md`.
+ * Runtime tests for custom token types.
  */
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
@@ -32,7 +31,7 @@ const lowElevation = {
     offsets: ["4px", "0px"],
 };
 
-Create("a static custom value is exposed with its metadata (R1.1)", () => {
+Create("a static custom value is exposed with its metadata", () => {
     const library = Library.create<{ r: RatioToken }>({
         r: {
             type: "ratio",
@@ -49,7 +48,7 @@ Create("a static custom value is exposed with its metadata (R1.1)", () => {
     Assert.equal(library.tokens.r.extensions, { e: "e" });
 });
 
-Create("primitive, array and nested custom values resolve (R1.2)", () => {
+Create("primitive, array and nested custom values resolve", () => {
     const library = custom();
 
     Assert.is(library.tokens.flag.value, true);
@@ -68,7 +67,7 @@ Create("the example design system resolves custom tokens", () => {
     Assert.is(library.tokens.elevations.raised.value.shadow.color, "#FFFFFF");
 });
 
-Alias("a whole-value alias resolves to the target's value (R2.1)", () => {
+Alias("a whole-value alias resolves to the target's value", () => {
     const library = custom();
 
     Assert.equal(library.tokens.elevation.raised.top.value, {
@@ -77,29 +76,26 @@ Alias("a whole-value alias resolves to the target's value (R2.1)", () => {
     });
 });
 
-Alias(
-    "deep aliases in fields, tuples and nested objects resolve (R2.2)",
-    () => {
-        const library = custom();
+Alias("deep aliases in fields, tuples and nested objects resolve", () => {
+    const library = custom();
 
-        Assert.equal(library.tokens.elevation.low.value, lowElevation);
-        Assert.equal(
-            library.tokens.nested.value.outer.inner.size,
-            "4px",
-            "nested object",
-        );
-        Assert.equal(library.tokens.steps.value[1], 1.5, "array element");
-    },
-);
+    Assert.equal(library.tokens.elevation.low.value, lowElevation);
+    Assert.equal(
+        library.tokens.nested.value.outer.inner.size,
+        "4px",
+        "nested object",
+    );
+    Assert.equal(library.tokens.steps.value[1], 1.5, "array element");
+});
 
-Alias("aliases to standard tokens resolve (R2.3)", () => {
+Alias("aliases to standard tokens resolve", () => {
     const library = custom();
 
     Assert.is(library.tokens.elevation.low.value.shadowColor, "#111111");
     Assert.is(library.tokens.label.value, "#111111");
 });
 
-Alias("a custom value with a 'value' key is data, not a token (R2.4)", () => {
+Alias("a custom value with a 'value' key is data, not a token", () => {
     interface Wrapped {
         value: number;
         unit: string;
@@ -136,27 +132,27 @@ Alias("a custom value with a 'value' key is data, not a token (R2.4)", () => {
     Assert.equal(library.tokens.toToken.value, { value: 1, unit: "px" });
 });
 
-Groups("a custom token inherits its group's custom type (R3.1)", () => {
+Groups("a custom token inherits its group's custom type", () => {
     const library = custom();
 
     Assert.is(library.tokens.elevation.low.type, "elevation");
 });
 
-Groups("the nearest ancestor group's type is inherited (R3.2)", () => {
+Groups("the nearest ancestor group's type is inherited", () => {
     const library = custom();
 
     Assert.is(library.tokens.elevation.raised.top.type, "elevation");
     Assert.is(library.tokens.elevation.scale.step.type, "ratio");
 });
 
-Groups("a custom group exposes its type, non-enumerably (R3.3)", () => {
+Groups("a custom group exposes its type, non-enumerably", () => {
     const library = custom();
 
     Assert.is(library.tokens.elevation.type, "elevation");
     Assert.not.ok(Object.keys(library.tokens.elevation).includes("type"));
 });
 
-Groups("a custom token without an inherited type throws (R3.4)", () => {
+Groups("a custom token without an inherited type throws", () => {
     Assert.throws(
         () =>
             Library.create<{ r: RatioToken }>({
@@ -167,7 +163,7 @@ Groups("a custom token without an inherited type throws (R3.4)", () => {
     );
 });
 
-Changes("set() with a static value and an alias (R4.1)", async () => {
+Changes("set() with a static value and an alias", async () => {
     const library = custom();
     const subscriber = recorder();
     library.subscribe(subscriber);
@@ -181,44 +177,38 @@ Changes("set() with a static value and an alias (R4.1)", async () => {
     Assert.is(library.tokens.ratio.value, 1.25);
 });
 
-Changes(
-    "dependents of a custom token recompute and notify (R4.2)",
-    async () => {
-        const library = custom();
-        library.tokens.elevation.raised.top.value;
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+Changes("dependents of a custom token recompute and notify", async () => {
+    const library = custom();
+    library.tokens.elevation.raised.top.value;
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.ratio.set(4);
+    library.tokens.ratio.set(4);
 
-        Assert.is(library.tokens.elevation.high.value.level, 8);
-        Assert.is(library.tokens.elevation.raised.top.value.level, 8);
-        await nextUpdate();
-        Assert.equal(subscriber.batches[0].sort(), [
-            "elevation.high",
-            "elevation.raised.top",
-            "ratio",
-        ]);
-    },
-);
+    Assert.is(library.tokens.elevation.high.value.level, 8);
+    Assert.is(library.tokens.elevation.raised.top.value.level, 8);
+    await nextUpdate();
+    Assert.equal(subscriber.batches[0].sort(), [
+        "elevation.high",
+        "elevation.raised.top",
+        "ratio",
+    ]);
+});
 
-Changes(
-    "a custom token deep-aliasing a standard token updates (R4.3)",
-    async () => {
-        const library = custom();
-        library.tokens.elevation.low.value;
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+Changes("a custom token deep-aliasing a standard token updates", async () => {
+    const library = custom();
+    library.tokens.elevation.low.value;
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.colors.accent.set("#222222");
+    library.tokens.colors.accent.set("#222222");
 
-        Assert.is(library.tokens.elevation.low.value.shadowColor, "#222222");
-        await nextUpdate();
-        Assert.ok(subscriber.batches[0].includes("elevation.low"));
-    },
-);
+    Assert.is(library.tokens.elevation.low.value.shadowColor, "#222222");
+    await nextUpdate();
+    Assert.ok(subscriber.batches[0].includes("elevation.low"));
+});
 
-Extend("inherited custom tokens track source changes (R5.1)", () => {
+Extend("inherited custom tokens track source changes", () => {
     const source = custom();
     const extended = source.extend<{}>({});
 
@@ -229,7 +219,7 @@ Extend("inherited custom tokens track source changes (R5.1)", () => {
     Assert.is(extended.tokens.ratio.value, 5);
 });
 
-Extend("custom tokens can be overridden (R5.2)", () => {
+Extend("custom tokens can be overridden", () => {
     const source = custom();
     const extended = source.extend<{}>({
         ratio: { value: 3 },
@@ -259,7 +249,7 @@ Extend("custom tokens can be overridden (R5.2)", () => {
     Assert.equal(source.tokens.elevation.low.value, lowElevation);
 });
 
-Extend("new custom tokens can be added (R5.3)", () => {
+Extend("new custom tokens can be added", () => {
     const extended = custom().extend<{
         elevation: { floating: ElevationToken };
         z: DesignToken.Custom<"z-index", number>;
@@ -282,7 +272,7 @@ Extend("new custom tokens can be added (R5.3)", () => {
     Assert.is(extended.tokens.elevation.floating.value.shadowColor, "#111111");
 });
 
-Extend("inherited custom aliases resolve against overrides (R5.4)", () => {
+Extend("inherited custom aliases resolve against overrides", () => {
     const extended = custom().extend<{}>({ ratio: { value: 10 } });
 
     Assert.is(extended.tokens.elevation.high.value.level, 20);
@@ -313,14 +303,14 @@ const flatConverters = {
     ratio: (value: number) => `${value * 100}%`,
 };
 
-CSS("custom converters receive resolved values (R6.1, R6.2)", () => {
+CSS("custom converters receive resolved values", () => {
     Assert.is(
         toCSS(flat(), { converters: flatConverters }),
         "--c:#111111;--e:2 #111111;--r:200%;",
     );
 });
 
-CSS("custom converters receive the token (R6.1)", () => {
+CSS("custom converters receive the token", () => {
     const tokens: string[] = [];
     toCSS(flat(), {
         converters: {
@@ -335,7 +325,7 @@ CSS("custom converters receive the token (R6.1)", () => {
     Assert.equal(tokens, ["e:elevation"]);
 });
 
-CSS("a custom token without a converter throws (R6.3)", () => {
+CSS("a custom token without a converter throws", () => {
     Assert.throws(
         // @ts-expect-error simulates an untyped caller
         () => toCSS(flat()),
@@ -343,7 +333,7 @@ CSS("a custom token without a converter throws (R6.3)", () => {
     );
 });
 
-CSS("an extended library uses converters for new custom types (R6.4)", () => {
+CSS("an extended library uses converters for new custom types", () => {
     const extended = flat().extend<{
         z: DesignToken.Custom<"z-index", number>;
     }>({ z: { type: "z-index", value: 3 } });
@@ -359,7 +349,7 @@ CSS("an extended library uses converters for new custom types (R6.4)", () => {
     );
 });
 
-CSS("toProperties includes custom tokens (R6.5)", () => {
+CSS("toProperties includes custom tokens", () => {
     const properties = toProperties(custom());
 
     Assert.equal(properties.elevation.raised.top, {
