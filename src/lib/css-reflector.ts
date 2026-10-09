@@ -41,6 +41,23 @@ type ConvertersOf<C> = {
 };
 
 /**
+ * Options that control how custom properties are named.
+ *
+ * @public
+ */
+export interface CSSPropertiesOptions {
+    /**
+     * Derives a token's custom property name, without the leading `--`.
+     *
+     * @remarks
+     * Defaults to the token's name with `.` replaced by `-`. Pass the same
+     * function to {@link toCSS} and {@link toProperties} to keep the names
+     * aligned.
+     */
+    name?(token: Library.Token<any, any>): string;
+}
+
+/**
  * Options accepted by {@link toCSS}.
  *
  * @remarks
@@ -49,9 +66,10 @@ type ConvertersOf<C> = {
  *
  * @public
  */
-export type CSSOptions<T> = [CustomTokensOf<T>] extends [never]
-    ? { converters?: { readonly [type: string]: never } }
-    : { converters: CSSConverters<T> };
+export type CSSOptions<T> = CSSPropertiesOptions &
+    ([CustomTokensOf<T>] extends [never]
+        ? { converters?: { readonly [type: string]: never } }
+        : { converters: CSSConverters<T> });
 
 /**
  * The trailing arguments of {@link toCSS}: {@link CSSOptions} are
@@ -78,8 +96,16 @@ export function toCSS<T extends {}, R extends {}>(
 ): string {
     // Converters are checked by `ToCSSArgs`; at runtime they're keyed by type.
     const converters: unknown = options?.converters ?? {};
-    return recurseToCss(library.tokens, converters as RuntimeConverters);
+    return recurseToCss(
+        library.tokens,
+        converters as RuntimeConverters,
+        options?.name ?? defaultName,
+    );
 }
+
+type NameFn = (token: Library.Token<any, any>) => string;
+
+const defaultName: NameFn = (token) => token.name.replaceAll(".", "-");
 
 type RuntimeConverters = Readonly<Record<string, CSSConverter<any>>>;
 
@@ -109,7 +135,9 @@ export type CSSPropertiesLibrary<T extends {}> = {
  */
 export function toProperties<T extends Library.Library<any>>(
     library: T,
+    options: CSSPropertiesOptions = {},
 ): CSSPropertiesLibrary<T["tokens"]> {
+    const getName = options.name ?? defaultName;
     const recurse = (
         section: Library.TokenLibrary<any>,
         properties: CSSPropertiesLibrary<any>,
@@ -118,8 +146,7 @@ export function toProperties<T extends Library.Library<any>>(
             const sectionValue = section[key];
 
             if (isToken(sectionValue)) {
-                // TODO add a strategy for name conversion
-                const property = `--${sectionValue.name.replaceAll(".", "-")}`;
+                const property = `--${getName(sectionValue)}`;
                 const propertyValue = Object.freeze({
                     var: `var(${property})`,
                     property,
@@ -158,6 +185,7 @@ const standardTypes: ReadonlySet<string> = new Set(
 const recurseToCss = (
     librarySection: { readonly [key: string]: any },
     customConverters: RuntimeConverters,
+    getName: NameFn,
 ): string => {
     let result = "";
     for (const key in librarySection) {
@@ -176,9 +204,9 @@ const recurseToCss = (
                     `No CSS converter provided for custom type '${type}' of token '${name}'.`,
                 );
             }
-            result += `--${name}:${value};`;
+            result += `--${getName(tokenOrGroup)}:${value};`;
         } else {
-            result = recurseToCss(tokenOrGroup, customConverters);
+            result += recurseToCss(tokenOrGroup, customConverters, getName);
         }
     }
 

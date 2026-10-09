@@ -236,26 +236,23 @@ toCssSuite("concatenates multiple flat tokens in order", () => {
     Assert.is(toCSS(library), "--a:#111111;--b:#222222;");
 });
 
-toCssSuite.skip(
-    "emits tokens declared before a nested group (fails: #10)",
-    () => {
-        interface Theme {
-            a: DesignToken.Color;
-            g: { type: DesignToken.Type.Color; b: DesignToken.Color };
-        }
-        const result = toCSS(
-            Library.create<Theme>({
-                a: { type: C, value: "#111111" },
-                g: { type: C, b: { value: "#222222" } },
-            }),
-        );
+toCssSuite("emits tokens declared before a nested group", () => {
+    interface Theme {
+        a: DesignToken.Color;
+        g: { type: DesignToken.Type.Color; b: DesignToken.Color };
+    }
+    const result = toCSS(
+        Library.create<Theme>({
+            a: { type: C, value: "#111111" },
+            g: { type: C, b: { value: "#222222" } },
+        }),
+    );
 
-        Assert.ok(result.includes("--a:#111111;"), result);
-        Assert.ok(result.includes(":#222222;"), result);
-    },
-);
+    Assert.ok(result.includes("--a:#111111;"), result);
+    Assert.ok(result.includes(":#222222;"), result);
+});
 
-toCssSuite.skip("emits tokens from sibling groups (fails: #10)", () => {
+toCssSuite("emits tokens from sibling groups", () => {
     interface Theme {
         g1: { type: DesignToken.Type.Color; x: DesignToken.Color };
         g2: { type: DesignToken.Type.Color; y: DesignToken.Color };
@@ -271,15 +268,23 @@ toCssSuite.skip("emits tokens from sibling groups (fails: #10)", () => {
     Assert.ok(result.includes(":#222222;"), result);
 });
 
-toCssSuite.skip(
-    "nested names use '-' separators, matching toProperties (fails: #10)",
+toCssSuite(
+    "name option customizes property names in toCSS and toProperties",
     () => {
         const library = grouped();
+        const name = (token: { name: string }) => `x_${token.name}`;
 
-        Assert.is(toCSS(library), "--g-a:#111111;");
-        Assert.is(toProperties(library).g.a.property, "--g-a");
+        Assert.is(toCSS(library, { name }), "--x_g.a:#111111;");
+        Assert.is(toProperties(library, { name }).g.a.property, "--x_g.a");
     },
 );
+
+toCssSuite("nested names use '-' separators, matching toProperties", () => {
+    const library = grouped();
+
+    Assert.is(toCSS(library), "--g-a:#111111;");
+    Assert.is(toProperties(library).g.a.property, "--g-a");
+});
 
 toCssSuite.skip(
     "converts Transition with a cubic-bezier() timing function (fails: #12)",
