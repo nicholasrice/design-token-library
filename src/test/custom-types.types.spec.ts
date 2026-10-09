@@ -95,6 +95,7 @@ type RecordTypes = Expect<
         Library.TokenRecord<CustomTheme>["$type"],
         | DesignToken.Type.Color
         | DesignToken.Type.Dimension
+        | DesignToken.Type.FontFamily
         | "elevation"
         | "ratio"
         | "label"

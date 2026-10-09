@@ -34,6 +34,7 @@ export interface CustomTheme {
         muted: DesignToken.Color;
     };
     unit: DesignToken.Dimension;
+    font: DesignToken.FontFamily;
     elevation: {
         $type: "elevation";
         low: ElevationToken;
@@ -59,6 +60,10 @@ export const customConfig = (): Library.Config<CustomTheme> => ({
         muted: { $value: (context) => context.colors.accent },
     },
     unit: { $type: DesignToken.Type.Dimension, $value: px(4) },
+    font: {
+        $type: DesignToken.Type.FontFamily,
+        $value: ["Inter", "sans-serif"],
+    },
     elevation: {
         $type: "elevation",
         // Inherits "elevation"; deep aliases to standard tokens
@@ -82,10 +87,10 @@ export const customConfig = (): Library.Config<CustomTheme> => ({
         scale: { $type: "ratio", step: { $value: 1.25 } },
     },
     ratio: { $type: "ratio", $value: 1.5 },
-    // A custom token aliasing a standard token's compatible value
+    // A custom token aliasing a standard token's value
     label: {
         $type: "label",
-        $value: (context) => context.colors.accent.$value.colorSpace,
+        $value: (context) => [context.font.$value].flat().join(", "),
     },
     flag: { $type: "flag", $value: true },
     // Array elements aliasing another custom type's compatible value

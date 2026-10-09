@@ -100,7 +100,7 @@ Alias("aliases to standard tokens resolve", () => {
         library.tokens.elevation.low.$value.shadowColor,
         hex("#111111"),
     );
-    Assert.is(library.tokens.label.$value, "srgb");
+    Assert.is(library.tokens.label.$value, "Inter, sans-serif");
 });
 
 Alias("a custom value with a 'value' key is data, not a token", () => {
