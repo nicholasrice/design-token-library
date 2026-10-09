@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Reading a token whose value throws (e.g. a circular alias) no longer leaves dependency tracking active, which caused later unrelated reads to be tracked and could make `set()` recurse indefinitely.
 - `Library.extend()` no longer throws when the source library contains groups.
 - `Library.extend()` supports adding new groups, and new tokens inherit the type of their ancestor group.
 - `Library.extend()` accepts alias values when overriding existing tokens, and resolves them against the extending library.
