@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** token values use the [DTCG 2025.10](https://www.designtokens.org/tr/2025.10/format/) shapes. A color is `{ colorSpace, components, alpha?, hex? }`, a dimension is `{ value, unit: "px" | "rem" }` and a duration is `{ value, unit: "ms" | "s" }`. A shadow may be an array of layers and may be `inset`, the font weight keyword `"smi-bold"` is corrected to `"semi-bold"`, and a list inside a value (such as a stroke style's dash array) can contain aliases.
+- `toCSS` and `toProperties` convert the new shapes: sRGB colors become hex and other color spaces the CSS color function, font weight keywords become numbers, `cubic-bezier()` and transition shorthand order are corrected, and a standard type with no converter is written as JSON instead of `[object Object]`. A top-level `$root` token is named `root`.
 - **Breaking:** tokens and groups use the DTCG property names: `$value`, `$type`, `$description`, `$extensions` and `$deprecated` on tokens, and `$type`, `$description`, `$extensions` and `$deprecated` on groups, both in a config and on `library.tokens`. `name`, `set()` and `toString()` are unchanged. A token is told apart from a group by having a `$value`.
 - Group type inheritance is checked at compile time: a token may omit `type` in a config only when its nearest ancestor group declares a single, required, literal `type` that matches. Groups declared with `type: DesignToken.Type`, a union, or an optional `type` no longer let their tokens omit `type`.
 - `type` is required on standard token types (e.g. `DesignToken.Color`). It may still be omitted in a `Library.Config` when inherited.

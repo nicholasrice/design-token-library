@@ -26,6 +26,7 @@ import {
     customConfig,
 } from "./custom-types.fixtures.js";
 import { Equal, Expect, IsKnown } from "./helpers.js";
+import { hex, px } from "./values.js";
 
 const Types = suite("Custom token types: type-level API");
 
@@ -112,13 +113,13 @@ interface Standard {
 }
 // Gradient stop aliases (#28) and CubicBezier number aliases (#29)
 const standardAliases: Library.Config<Standard> = {
-    a: { $type: C, $value: "#111111" },
+    a: { $type: C, $value: hex("#111111") },
     n: { $type: DesignToken.Type.Number, $value: 0.5 },
     gradient: {
         $type: DesignToken.Type.Gradient,
         $value: [
             { color: (context) => context.a, position: 0 },
-            { color: "#222222", position: (context) => context.n },
+            { color: hex("#222222"), position: (context) => context.n },
         ],
     },
     curve: {
@@ -134,13 +135,13 @@ function configValueNegatives() {
         r: RatioToken;
     }
     const valid: Library.Config<Theme> = {
-        c: { $type: C, $value: "#111111" },
+        c: { $type: C, $value: hex("#111111") },
         e: {
             $type: "elevation",
             $value: {
                 level: 1,
-                shadowColor: "#111111",
-                offsets: ["0px", "0px"],
+                shadowColor: hex("#111111"),
+                offsets: [px(0), px(0)],
             },
         },
         r: { $type: "ratio", $value: 1 },
@@ -154,8 +155,8 @@ function configValueNegatives() {
             $value: {
                 // @ts-expect-error level is a number
                 level: "1",
-                shadowColor: "#111111",
-                offsets: ["0px", "0px"],
+                shadowColor: hex("#111111"),
+                offsets: [px(0), px(0)],
             },
         },
     };
@@ -179,8 +180,8 @@ function configValueNegatives() {
             $value: {
                 // @ts-expect-error a Color token is not a number
                 level: (context) => context.c,
-                shadowColor: "#111111",
-                offsets: ["0px", "0px"],
+                shadowColor: hex("#111111"),
+                offsets: [px(0), px(0)],
             },
         },
     };
@@ -207,7 +208,7 @@ function declarationNegatives() {
         // @ts-expect-error 'color' is a reserved DTCG type name
         c: { $type: "color", $value: "red" },
         // @ts-expect-error 'border' is a reserved DTCG type name
-        b: { $type: "border", $value: "1px" },
+        b: { $type: "border", $value: px(1) },
     };
     type ReservedMessage = Expect<
         Equal<
@@ -269,7 +270,7 @@ function inheritanceNegatives() {
         standardWide: {
             $type: DesignToken.Type.Dimension,
             // @ts-expect-error DesignToken.Type passes on nothing
-            d: { $value: "1px" },
+            d: { $value: px(1) },
         },
     };
     const groupsWithTypes: Library.Config<Groups> = {
@@ -278,7 +279,7 @@ function inheritanceNegatives() {
         optional: { r: { $type: "ratio", $value: 1 } },
         standardWide: {
             $type: DesignToken.Type.Dimension,
-            d: { $type: DesignToken.Type.Dimension, $value: "1px" },
+            d: { $type: DesignToken.Type.Dimension, $value: px(1) },
         },
     };
 
@@ -295,9 +296,12 @@ function inheritanceNegatives() {
         borders: { $type: DesignToken.Type.Border; c: DesignToken.Color };
         colors: { $type: DesignToken.Type.Color; c: DesignToken.Color };
     }> = {
-        // @ts-expect-error a Color isn't inherited from a Border group
-        borders: { $type: DesignToken.Type.Border, c: { $value: "#111111" } },
-        colors: { $type: C, c: { $value: "#111111" } },
+        borders: {
+            $type: DesignToken.Type.Border,
+            // @ts-expect-error a Color isn't inherited from a Border group
+            c: { $value: hex("#111111") },
+        },
+        colors: { $type: C, c: { $value: hex("#111111") } },
     };
 
     return [
@@ -322,8 +326,8 @@ const extended = library.extend<Extension>({
         low: {
             $value: {
                 level: 0,
-                shadowColor: "#000000",
-                offsets: ["0px", "0px"],
+                shadowColor: hex("#000000"),
+                offsets: [px(0), px(0)],
             },
         },
         high: { $value: (context) => context.elevation.low },
@@ -331,8 +335,8 @@ const extended = library.extend<Extension>({
             top: {
                 $value: {
                     level: (context) => context.ratio,
-                    shadowColor: "#000000",
-                    offsets: ["0px", "0px"],
+                    shadowColor: hex("#000000"),
+                    offsets: [px(0), px(0)],
                 },
             },
         },
@@ -341,7 +345,7 @@ const extended = library.extend<Extension>({
             $value: {
                 level: 3,
                 shadowColor: (context) => context.colors.muted,
-                offsets: ["0px", "1px"],
+                offsets: [px(0), px(1)],
             },
         },
     },
@@ -387,7 +391,7 @@ const converters: CSSConverters<CustomTheme> = {
     label: (value) => value,
     flag: (value) => (value ? "1" : "0"),
     steps: (value) => value.join(" "),
-    nested: (value) => value.outer.inner.size,
+    nested: (value) => String(value.outer.inner.size.value),
 };
 type CSSTypes = [
     // Converter arguments
@@ -416,7 +420,7 @@ type CSSTypes = [
 
 function cssCases() {
     const standardOnly = Library.create<{ c: DesignToken.Color }>({
-        c: { $type: C, $value: "#111111" },
+        c: { $type: C, $value: hex("#111111") },
     });
     // No custom types: options are optional and take no converters
     toCSS(standardOnly);

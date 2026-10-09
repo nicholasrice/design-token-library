@@ -1,10 +1,11 @@
 import { DesignToken } from "../../lib/design-token.js";
 import { Library } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
+import { px } from "../values.js";
 
 export interface Elevation {
     level: number;
-    shadow: DesignToken.Values.Shadow;
+    shadow: DesignToken.Values.ShadowLayer;
 }
 
 export type ElevationToken = DesignToken.Custom<"elevation", Elevation>;
@@ -22,10 +23,10 @@ export const elevations: Library.Config<Elevations, Theme> = {
             level: 0,
             shadow: {
                 color: (theme) => theme.colors.neutral,
-                offsetX: "0px",
-                offsetY: "0px",
-                blur: "0px",
-                spread: "0px",
+                offsetX: px(0),
+                offsetY: px(0),
+                blur: px(0),
+                spread: px(0),
             },
         },
     },

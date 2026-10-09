@@ -3,6 +3,7 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
+import { hex } from "./values.js";
 
 const Props = suite("$-prefixed properties");
 const C = DesignToken.Type.Color;
@@ -12,10 +13,10 @@ Props("a token is told apart from a group by its $value", () => {
         g: { $type: DesignToken.Type.Color; a: DesignToken.Color };
     }
     const library = Library.create<Theme>({
-        g: { $type: C, a: { $value: "#111111" } },
+        g: { $type: C, a: { $value: hex("#111111") } },
     });
 
-    Assert.is(library.tokens.g.a.$value, "#111111");
+    Assert.equal(library.tokens.g.a.$value, hex("#111111"));
     Assert.is(library.tokens.g.a.name, "g.a");
 });
 
@@ -23,7 +24,11 @@ Props("a token cannot have children", () => {
     Assert.throws(
         () =>
             Library.create<any>({
-                a: { $type: C, $value: "#111111", b: { $value: "#222222" } },
+                a: {
+                    $type: C,
+                    $value: hex("#111111"),
+                    b: { $value: hex("#222222") },
+                },
             }),
         /"a" has a \$value, so it is a token and cannot have a child "b"/,
     );
@@ -45,7 +50,7 @@ Props("group metadata is not enumerable and is readable from the group", () => {
             $description: "group",
             $extensions: { k: 1 },
             $deprecated: "old",
-            a: { $value: "#111111" },
+            a: { $value: hex("#111111") },
         },
     });
 
@@ -60,7 +65,7 @@ Props("a group $type applies regardless of key order", () => {
         g: { a: DesignToken.Color; $type: DesignToken.Type.Color };
     }
     const library = Library.create<Theme>({
-        g: { a: { $value: "#111111" }, $type: C },
+        g: { a: { $value: hex("#111111") }, $type: C },
     });
 
     Assert.is(library.tokens.g.a.$type, C);
@@ -75,9 +80,9 @@ Props("group metadata survives extend()", () => {
         };
     }
     const source = Library.create<Theme>({
-        g: { $type: C, $description: "group", a: { $value: "#111111" } },
+        g: { $type: C, $description: "group", a: { $value: hex("#111111") } },
     });
-    const extended = source.extend({ g: { a: { $value: "#222222" } } });
+    const extended = source.extend({ g: { a: { $value: hex("#222222") } } });
 
     Assert.is(extended.tokens.g.$type, C);
     Assert.is(extended.tokens.g.$description, "group");
@@ -96,12 +101,12 @@ Props("$root is a token in its group", () => {
     const library = Library.create<Theme>({
         color: {
             $type: C,
-            $root: { $value: "#111111" },
-            light: { $value: "#EEEEEE" },
+            $root: { $value: hex("#111111") },
+            light: { $value: hex("#EEEEEE") },
         },
     });
 
-    Assert.is(library.tokens.color.$root.$value, "#111111");
+    Assert.equal(library.tokens.color.$root.$value, hex("#111111"));
     Assert.is(library.tokens.color.$root.name, "color.$root");
     Assert.equal(Object.keys(library.tokens.color), ["$root", "light"]);
 });
@@ -120,7 +125,7 @@ Props("$root is not allowed at the top level", () => {
     Assert.throws(() => Library.create({ $root: root }), message);
 
     const source = Library.create<{ a: DesignToken.Color }>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
     });
     Assert.throws(
         // @ts-expect-error extending cannot add a top-level $root
@@ -136,9 +141,9 @@ Props("a token exposes $deprecated, false by default", () => {
         c: DesignToken.Color;
     }
     const library = Library.create<Theme>({
-        a: { $type: C, $value: "#111111" },
-        b: { $type: C, $value: "#111111", $deprecated: true },
-        c: { $type: C, $value: "#111111", $deprecated: "use a" },
+        a: { $type: C, $value: hex("#111111") },
+        b: { $type: C, $value: hex("#111111"), $deprecated: true },
+        c: { $type: C, $value: hex("#111111"), $deprecated: "use a" },
     });
 
     Assert.is(library.tokens.a.$deprecated, false);
@@ -151,11 +156,11 @@ Props("an extension can restate a token's metadata", () => {
         a: DesignToken.Color;
     }
     const source = Library.create<Theme>({
-        a: { $type: C, $value: "#111111", $description: "source" },
+        a: { $type: C, $value: hex("#111111"), $description: "source" },
     });
     const extended = source.extend({
         a: {
-            $value: "#222222",
+            $value: hex("#222222"),
             $description: "extended",
             $deprecated: true,
         },
@@ -179,8 +184,8 @@ Props("a circular reference throws instead of overflowing the stack", () => {
 
     Assert.throws(() => library.tokens.a.$value, /Circular reference/);
     // The token can recover once the cycle is broken.
-    library.tokens.b.set("#111111");
-    Assert.is(library.tokens.a.$value, "#111111");
+    library.tokens.b.set(hex("#111111"));
+    Assert.equal(library.tokens.a.$value, hex("#111111"));
 });
 
 Props("toCSS emits the $-prefixed token values", () => {
@@ -188,7 +193,7 @@ Props("toCSS emits the $-prefixed token values", () => {
         g: { $type: DesignToken.Type.Color; a: DesignToken.Color };
     }
     const library = Library.create<Theme>({
-        g: { $type: C, a: { $value: "#111111" } },
+        g: { $type: C, a: { $value: hex("#111111") } },
     });
 
     Assert.is(toCSS(library), "--g-a:#111111;");
@@ -205,12 +210,12 @@ Props("toCSS names a $root token for its group", () => {
     const library = Library.create<Theme>({
         color: {
             $type: C,
-            $root: { $value: "#111111" },
-            light: { $value: "#EEEEEE" },
+            $root: { $value: hex("#111111") },
+            light: { $value: hex("#EEEEEE") },
         },
     });
 
-    Assert.is(toCSS(library), "--color:#111111;--color-light:#EEEEEE;");
+    Assert.is(toCSS(library), "--color:#111111;--color-light:#eeeeee;");
     Assert.is(toProperties(library).color.$root.property, "--color");
 });
 

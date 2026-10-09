@@ -3,6 +3,7 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { A, AB, ABC, aliasedPair, nextUpdate, recorder } from "./helpers.js";
+import { hex, px } from "./values.js";
 
 const Extend = suite("Library.extend");
 const C = DesignToken.Type.Color;
@@ -12,14 +13,15 @@ interface Grouped {
 }
 
 const grouped = () =>
-    Library.create<Grouped>({ g: { $type: C, a: { $value: "#111111" } } });
+    Library.create<Grouped>({ g: { $type: C, a: { $value: hex("#111111") } } });
 
-const single = () => Library.create<A>({ a: { $type: C, $value: "#111111" } });
+const single = () =>
+    Library.create<A>({ a: { $type: C, $value: hex("#111111") } });
 
 Extend("extend({}) works on a library with a group", () => {
     const extended = grouped().extend<{}>({});
 
-    Assert.is(extended.tokens.g.a.$value, "#111111");
+    Assert.equal(extended.tokens.g.a.$value, hex("#111111"));
 });
 
 Extend("extend({}) preserves names in a deeply nested library", () => {
@@ -31,12 +33,12 @@ Extend("extend({}) preserves names in a deeply nested library", () => {
         };
     }
     const source = Library.create<Theme>({
-        g: { h: { i: { $type: C, t: { $value: "#111111" } } } },
+        g: { h: { i: { $type: C, t: { $value: hex("#111111") } } } },
     });
     const extended = source.extend<{}>({});
 
     Assert.is(extended.tokens.g.h.i.t.name, "g.h.i.t");
-    Assert.is(extended.tokens.g.h.i.t.$value, "#111111");
+    Assert.equal(extended.tokens.g.h.i.t.$value, hex("#111111"));
 });
 
 Extend("overrides a token inside a nested group", () => {
@@ -48,26 +50,32 @@ Extend("overrides a token inside a nested group", () => {
         };
     }
     const source = Library.create<Theme>({
-        g: { $type: C, a: { $value: "#111111" }, b: { $value: "#222222" } },
+        g: {
+            $type: C,
+            a: { $value: hex("#111111") },
+            b: { $value: hex("#222222") },
+        },
     });
-    const extended = source.extend<{}>({ g: { a: { $value: "#999999" } } });
+    const extended = source.extend<{}>({
+        g: { a: { $value: hex("#999999") } },
+    });
 
-    Assert.is(extended.tokens.g.a.$value, "#999999");
-    Assert.is(extended.tokens.g.b.$value, "#222222");
+    Assert.equal(extended.tokens.g.a.$value, hex("#999999"));
+    Assert.equal(extended.tokens.g.b.$value, hex("#222222"));
 });
 
 Extend("adds a new group", () => {
     const extended = single().extend<{ g: { b: DesignToken.Color } }>({
-        g: { b: { $type: C, $value: "#222222" } },
+        g: { b: { $type: C, $value: hex("#222222") } },
     });
 
-    Assert.is(extended.tokens.g.b.$value, "#222222");
+    Assert.equal(extended.tokens.g.b.$value, hex("#222222"));
     Assert.is(extended.tokens.g.b.name, "g.b");
 });
 
 Extend("a new token in an existing group inherits the group's type", () => {
     const extended = grouped().extend<{ g: { b: DesignToken.Color } }>({
-        g: { b: { $value: "#222222" } },
+        g: { b: { $value: hex("#222222") } },
     });
 
     Assert.is(extended.tokens.g.b.$type, C);
@@ -75,14 +83,14 @@ Extend("a new token in an existing group inherits the group's type", () => {
 
 Extend("an override can be an alias function", () => {
     const source = Library.create<AB>({
-        a: { $type: C, $value: "#111111" },
-        b: { $type: C, $value: "#222222" },
+        a: { $type: C, $value: hex("#111111") },
+        b: { $type: C, $value: hex("#222222") },
     });
     const extended = source.extend<{}>({
         b: { $value: (context) => context.a },
     });
 
-    Assert.is(extended.tokens.b.$value, "#111111");
+    Assert.equal(extended.tokens.b.$value, hex("#111111"));
 });
 
 Extend("an override can contain a deep alias", () => {
@@ -91,25 +99,25 @@ Extend("an override can contain a deep alias", () => {
         border: DesignToken.Border;
     }
     const source = Library.create<Theme>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         border: {
             $type: DesignToken.Type.Border,
-            $value: { color: "#000000", width: "1px", style: "solid" },
+            $value: { color: hex("#000000"), width: px(1), style: "solid" },
         },
     });
     const extended = source.extend<{}>({
         border: {
             $value: {
                 color: (context: Library.Context<Theme>) => context.a,
-                width: "2px",
+                width: px(2),
                 style: "solid",
             },
         },
     });
 
     Assert.equal(extended.tokens.border.$value, {
-        color: "#111111",
-        width: "2px",
+        color: hex("#111111"),
+        width: px(2),
         style: "solid",
     });
 });
@@ -119,7 +127,7 @@ Extend("a new token without a resolvable type throws, matching create", () => {
         () =>
             single().extend<{ c: DesignToken.Color }>({
                 // @ts-expect-error a token without an inherited type must declare one
-                c: { $value: "#222222" },
+                c: { $value: hex("#222222") },
             }),
         /'c'/,
     );
@@ -128,30 +136,32 @@ Extend("a new token without a resolvable type throws, matching create", () => {
 Extend(
     "inherited aliases resolve against the extending library's overrides",
     () => {
-        const extended = aliasedPair().extend<{}>({ a: { $value: "#999999" } });
+        const extended = aliasedPair().extend<{}>({
+            a: { $value: hex("#999999") },
+        });
 
-        Assert.is(extended.tokens.b.$value, "#999999");
+        Assert.equal(extended.tokens.b.$value, hex("#999999"));
     },
 );
 
 Extend("overriding does not mutate the source library", () => {
     const source = aliasedPair();
-    const extended = source.extend<{}>({ a: { $value: "#999999" } });
+    const extended = source.extend<{}>({ a: { $value: hex("#999999") } });
     extended.tokens.b.$value;
 
-    Assert.is(source.tokens.a.$value, "#111111");
-    Assert.is(source.tokens.b.$value, "#111111");
+    Assert.equal(source.tokens.a.$value, hex("#111111"));
+    Assert.equal(source.tokens.b.$value, hex("#111111"));
 });
 
 Extend("set() on an inherited token detaches it from the source", () => {
     const source = single();
     const extended = source.extend<{}>({});
 
-    extended.tokens.a.set("#222222");
-    source.tokens.a.set("#333333");
+    extended.tokens.a.set(hex("#222222"));
+    source.tokens.a.set(hex("#333333"));
 
-    Assert.is(source.tokens.a.$value, "#333333");
-    Assert.is(extended.tokens.a.$value, "#222222");
+    Assert.equal(source.tokens.a.$value, hex("#333333"));
+    Assert.equal(extended.tokens.a.$value, hex("#222222"));
 });
 
 Extend(
@@ -164,7 +174,7 @@ Extend(
         source.subscribe(sourceSubscriber);
         extended.subscribe(extendedSubscriber);
 
-        extended.tokens.a.set("#222222");
+        extended.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.equal(sourceSubscriber.batches, []);
@@ -180,7 +190,7 @@ Extend(
         const subscriber = recorder();
         extended.subscribe(subscriber);
 
-        source.tokens.a.set("#222222");
+        source.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["a"]]);
@@ -191,21 +201,21 @@ Extend("chained extends propagate source changes to the last library", () => {
     const source = aliasedPair();
     const grandchild = source.extend<{}>({}).extend<{}>({});
 
-    source.tokens.a.set("#333333");
+    source.tokens.a.set(hex("#333333"));
 
-    Assert.is(grandchild.tokens.a.$value, "#333333");
-    Assert.is(grandchild.tokens.b.$value, "#333333");
+    Assert.equal(grandchild.tokens.a.$value, hex("#333333"));
+    Assert.equal(grandchild.tokens.b.$value, hex("#333333"));
 });
 
 Extend(
     "in chained extends, the middle library's override reaches the last library",
     () => {
         const grandchild = aliasedPair()
-            .extend<{}>({ a: { $value: "#999999" } })
+            .extend<{}>({ a: { $value: hex("#999999") } })
             .extend<{}>({});
 
-        Assert.is(grandchild.tokens.a.$value, "#999999");
-        Assert.is(grandchild.tokens.b.$value, "#999999");
+        Assert.equal(grandchild.tokens.a.$value, hex("#999999"));
+        Assert.equal(grandchild.tokens.b.$value, hex("#999999"));
     },
 );
 
@@ -213,7 +223,7 @@ const withExtensions = (extensions: Record<string, unknown>) =>
     Library.create<A>({
         a: {
             $type: C,
-            $value: "#111111",
+            $value: hex("#111111"),
             $description: "source",
             $extensions: extensions,
         },
@@ -224,7 +234,7 @@ Extend.skip(
     () => {
         const extended = withExtensions({ s: 1 }).extend<{}>({
             a: {
-                $value: "#222222",
+                $value: hex("#222222"),
                 $description: "extended",
                 $extensions: { e: 1 },
             },
@@ -237,7 +247,7 @@ Extend.skip(
 
 Extend.skip("when merging extensions, override keys win (fails: #15)", () => {
     const extended = withExtensions({ k: 1, s: 1 }).extend<{}>({
-        a: { $value: "#222222", $extensions: { k: 2 } },
+        a: { $value: hex("#222222"), $extensions: { k: 2 } },
     });
 
     Assert.equal(extended.tokens.a.$extensions, { k: 2, s: 1 });
@@ -249,7 +259,7 @@ Extend.skip(
         const override = { k: 2 };
         const source = withExtensions({ s: 1 });
         const extended = source.extend<{}>({
-            a: { $value: "#222222", $extensions: override },
+            a: { $value: hex("#222222"), $extensions: override },
         });
 
         Assert.equal(extended.tokens.a.$extensions, { s: 1, k: 2 }, "merged");
@@ -263,7 +273,7 @@ Extend.skip(
     "extensions merge shallowly: a nested override object replaces the source's (fails: #15)",
     () => {
         const extended = withExtensions({ theme: { a: 1 }, s: 1 }).extend<{}>({
-            a: { $value: "#222222", $extensions: { theme: { b: 1 } } },
+            a: { $value: hex("#222222"), $extensions: { theme: { b: 1 } } },
         });
 
         Assert.equal(extended.tokens.a.$extensions, {
@@ -277,7 +287,7 @@ Extend.skip(
     "overrides without description or extensions keep the source's (fails: #15)",
     () => {
         const source = withExtensions({ s: 1 });
-        const extended = source.extend<{}>({ a: { $value: "#222222" } });
+        const extended = source.extend<{}>({ a: { $value: hex("#222222") } });
 
         Assert.is(extended.tokens.a.$description, "source");
         Assert.equal(extended.tokens.a.$extensions, { s: 1 });
@@ -295,7 +305,7 @@ Extend.skip("an override with a different type throws (fails: #16)", () => {
         () =>
             source.extend<{}>({
                 // @ts-expect-error an override can't change a token's type
-                a: { $type: DesignToken.Type.Dimension, $value: "1px" },
+                a: { $type: DesignToken.Type.Dimension, $value: px(1) },
             }),
         /'a'/,
     );
@@ -303,11 +313,11 @@ Extend.skip("an override with a different type throws (fails: #16)", () => {
 
 Extend("an override restating the same type is allowed", () => {
     const extended = single().extend<{}>({
-        a: { $type: C, $value: "#222222" },
+        a: { $type: C, $value: hex("#222222") },
     });
 
     Assert.is(extended.tokens.a.$type, C);
-    Assert.is(extended.tokens.a.$value, "#222222");
+    Assert.equal(extended.tokens.a.$value, hex("#222222"));
 });
 
 Extend.skip(
@@ -342,7 +352,7 @@ Extend("tokens of a flat extended library cannot be reassigned", () => {
     // @ts-expect-error tokens are readonly
     Assert.throws(() => (extended.tokens.a = {}), "token");
     // @ts-expect-error token values are readonly
-    Assert.throws(() => (extended.tokens.a.$value = "#222222"), "value");
+    Assert.throws(() => (extended.tokens.a.$value = hex("#222222")), "value");
     // @ts-expect-error token types are readonly
     Assert.throws(() => (extended.tokens.a.$type = C), "type");
     // @ts-expect-error token extensions are readonly
@@ -356,8 +366,8 @@ Extend.skip(
             b: DesignToken.Color;
         }
         const extended = Library.create<Theme>({
-            b: { $type: C, $value: "#111111" },
-            g: { $type: C, a: { $value: "#222222" } },
+            b: { $type: C, $value: hex("#111111") },
+            g: { $type: C, a: { $value: hex("#222222") } },
         }).extend<{}>({});
 
         Assert.ok(Object.isFrozen(extended.tokens), "root");
@@ -369,7 +379,7 @@ Extend.skip(
 
 Extend("extended library keys are source keys followed by new keys", () => {
     const extended = aliasedPair().extend<{ c: DesignToken.Color }>({
-        c: { $type: C, $value: "#333333" },
+        c: { $type: C, $value: hex("#333333") },
     });
 
     Assert.equal(Object.keys(extended.tokens), ["a", "b", "c"]);
@@ -377,14 +387,14 @@ Extend("extended library keys are source keys followed by new keys", () => {
 
 Extend("sibling extensions of one source are independent", () => {
     const source = aliasedPair();
-    const first = source.extend<{}>({ a: { $value: "#AAAAAA" } });
+    const first = source.extend<{}>({ a: { $value: hex("#AAAAAA") } });
     const second = source.extend<{}>({});
 
-    second.tokens.a.set("#BBBBBB");
+    second.tokens.a.set(hex("#BBBBBB"));
 
-    Assert.is(first.tokens.b.$value, "#AAAAAA");
-    Assert.is(second.tokens.b.$value, "#BBBBBB");
-    Assert.is(source.tokens.b.$value, "#111111");
+    Assert.equal(first.tokens.b.$value, hex("#AAAAAA"));
+    Assert.equal(second.tokens.b.$value, hex("#BBBBBB"));
+    Assert.equal(source.tokens.b.$value, hex("#111111"));
 });
 
 Extend(
@@ -392,12 +402,12 @@ Extend(
     async () => {
         const source = single();
         const extended = source.extend<{}>({});
-        extended.tokens.a.set("#222222");
+        extended.tokens.a.set(hex("#222222"));
         await nextUpdate();
         const subscriber = recorder();
         extended.subscribe(subscriber);
 
-        source.tokens.a.set("#333333");
+        source.tokens.a.set(hex("#333333"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, []);
@@ -408,8 +418,8 @@ Extend.skip(
     "reading an extended token does not corrupt the source token's dependency tracking (fails: #19)",
     async () => {
         const source = Library.create<ABC>({
-            a: { $type: C, $value: "#111111" },
-            c: { $type: C, $value: "#333333" },
+            a: { $type: C, $value: hex("#111111") },
+            c: { $type: C, $value: hex("#333333") },
             b: { $type: C, $value: (context) => context.a },
         });
         source.tokens.b.$value;
@@ -421,7 +431,7 @@ Extend.skip(
         const subscriber = recorder();
         source.subscribe(subscriber);
 
-        source.tokens.a.set("#222222");
+        source.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["a"]]);
@@ -437,7 +447,7 @@ Extend(
         }
         const extended = Library.create<Theme>({
             g: {},
-            b: { $type: C, $value: "#111111" },
+            b: { $type: C, $value: hex("#111111") },
         }).extend<{ h: {} }>({ h: {} });
 
         Assert.equal(Object.keys(extended.tokens), ["g", "b", "h"]);
@@ -454,15 +464,15 @@ Extend(
         }
         const source = Library.create<Theme>({
             g: { $type: C },
-            b: { $type: C, $value: "#111111" },
+            b: { $type: C, $value: hex("#111111") },
         });
         const extended = source.extend<{ g: { t: DesignToken.Color } }>({
-            g: { t: { $value: "#222222" } },
+            g: { t: { $value: hex("#222222") } },
         });
 
         Assert.ok("g" in source.tokens, "kept in the source");
         Assert.is(extended.tokens.g.t.$type, C);
-        Assert.is(extended.tokens.g.t.$value, "#222222");
+        Assert.equal(extended.tokens.g.t.$value, hex("#222222"));
     },
 );
 
