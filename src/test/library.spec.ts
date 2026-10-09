@@ -746,6 +746,49 @@ Extend("Should allow adding new tokens to an extending library", async () => {
     Assert.is(extending.tokens.c.value, "#111111");
 });
 
+interface GroupedTheme {
+    colors: {
+        type: DesignToken.Type.Color;
+        primary: DesignToken.Color;
+    };
+}
+
+const groupedConfig = (): Library.Config<GroupedTheme> => ({
+    colors: {
+        type: DesignToken.Type.Color,
+        primary: { value: "#FFFFFF" },
+    },
+});
+
+Type("A group should expose its declared type", () => {
+    const library = Library.create(groupedConfig());
+
+    Assert.is(library.tokens.colors.type, DesignToken.Type.Color);
+});
+
+Extend("should type-check token overrides against the source library", () => {
+    const source = Library.create(groupedConfig());
+
+    // @ts-expect-error a Color token cannot be overridden with a Dimension value
+    source.extend({ colors: { primary: { value: "4px" } } });
+});
+
+Extend("extending library groups should be immutable", () => {
+    const source = Library.create(groupedConfig());
+    const extending = source.extend({});
+
+    Assert.throws(
+        // @ts-expect-error
+        () => (extending.tokens.colors = {}),
+        "Assigning a group should throw",
+    );
+    Assert.throws(
+        // @ts-expect-error
+        () => (extending.tokens.colors.primary = { value: "#FFF000" }),
+        "Assigning a token field should throw",
+    );
+});
+
 Description.run();
 Lib.run();
 Extend.run();

@@ -16,33 +16,30 @@ const grouped = () =>
 
 const single = () => Library.create<A>({ a: { type: C, value: "#111111" } });
 
-Extend.skip("extend({}) works on a library with a group (fails: #14)", () => {
+Extend("extend({}) works on a library with a group", () => {
     const extended = grouped().extend<{}>({});
 
     Assert.is(extended.tokens.g.a.value, "#111111");
 });
 
-Extend.skip(
-    "extend({}) preserves names in a deeply nested library (fails: #14)",
-    () => {
-        interface Theme {
-            g: {
-                h: {
-                    i: { type: DesignToken.Type.Color; t: DesignToken.Color };
-                };
+Extend("extend({}) preserves names in a deeply nested library", () => {
+    interface Theme {
+        g: {
+            h: {
+                i: { type: DesignToken.Type.Color; t: DesignToken.Color };
             };
-        }
-        const source = Library.create<Theme>({
-            g: { h: { i: { type: C, t: { value: "#111111" } } } },
-        });
-        const extended = source.extend<{}>({});
+        };
+    }
+    const source = Library.create<Theme>({
+        g: { h: { i: { type: C, t: { value: "#111111" } } } },
+    });
+    const extended = source.extend<{}>({});
 
-        Assert.is(extended.tokens.g.h.i.t.name, "g.h.i.t");
-        Assert.is(extended.tokens.g.h.i.t.value, "#111111");
-    },
-);
+    Assert.is(extended.tokens.g.h.i.t.name, "g.h.i.t");
+    Assert.is(extended.tokens.g.h.i.t.value, "#111111");
+});
 
-Extend.skip("overrides a token inside a nested group (fails: #14)", () => {
+Extend("overrides a token inside a nested group", () => {
     interface Theme {
         g: {
             type: DesignToken.Type.Color;
@@ -59,7 +56,7 @@ Extend.skip("overrides a token inside a nested group (fails: #14)", () => {
     Assert.is(extended.tokens.g.b.value, "#222222");
 });
 
-Extend.skip("adds a new group (fails: #14)", () => {
+Extend("adds a new group", () => {
     const extended = single().extend<{ g: { b: DesignToken.Color } }>({
         g: { b: { type: C, value: "#222222" } },
     });
@@ -68,24 +65,20 @@ Extend.skip("adds a new group (fails: #14)", () => {
     Assert.is(extended.tokens.g.b.name, "g.b");
 });
 
-Extend.skip(
-    "a new token in an existing group inherits the group's type (fails: #14)",
-    () => {
-        const extended = grouped().extend<{ g: { b: DesignToken.Color } }>({
-            g: { b: { value: "#222222" } },
-        });
+Extend("a new token in an existing group inherits the group's type", () => {
+    const extended = grouped().extend<{ g: { b: DesignToken.Color } }>({
+        g: { b: { value: "#222222" } },
+    });
 
-        Assert.is(extended.tokens.g.b.type, C);
-    },
-);
+    Assert.is(extended.tokens.g.b.type, C);
+});
 
-Extend.skip("an override can be an alias function (fails: #14)", () => {
+Extend("an override can be an alias function", () => {
     const source = Library.create<AB>({
         a: { type: C, value: "#111111" },
         b: { type: C, value: "#222222" },
     });
     const extended = source.extend<{}>({
-        // @ts-expect-error alias overrides aren't typed yet (#14)
         b: { value: (context) => context.a },
     });
 
@@ -107,7 +100,6 @@ Extend("an override can contain a deep alias", () => {
     const extended = source.extend<{}>({
         border: {
             value: {
-                // @ts-expect-error alias overrides aren't typed yet (#14)
                 color: (context: Library.Context<Theme>) => context.a,
                 width: "2px",
                 style: "solid",
@@ -122,18 +114,15 @@ Extend("an override can contain a deep alias", () => {
     });
 });
 
-Extend.skip(
-    "a new token without a resolvable type throws, matching create (fails: #14)",
-    () => {
-        Assert.throws(
-            () =>
-                single().extend<{ c: DesignToken.Color }>({
-                    c: { value: "#222222" },
-                }),
-            /'c'/,
-        );
-    },
-);
+Extend("a new token without a resolvable type throws, matching create", () => {
+    Assert.throws(
+        () =>
+            single().extend<{ c: DesignToken.Color }>({
+                c: { value: "#222222" },
+            }),
+        /'c'/,
+    );
+});
 
 Extend(
     "inherited aliases resolve against the extending library's overrides",
@@ -354,7 +343,7 @@ Extend("tokens of a flat extended library cannot be reassigned", () => {
 });
 
 Extend.skip(
-    "the extended library root and groups are frozen (fails: #14, #23)",
+    "the extended library root and groups are frozen (fails: #23)",
     () => {
         interface Theme extends Grouped {
             b: DesignToken.Color;
@@ -432,8 +421,8 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "tokenless groups from the source and the extend config are kept (fails: #14)",
+Extend(
+    "tokenless groups from the source and the extend config are kept",
     () => {
         interface Theme {
             g: {};
@@ -449,8 +438,8 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "a token added via extend to a type-only source group inherits its type (fails: #14)",
+Extend(
+    "a token added via extend to a type-only source group inherits its type",
     () => {
         interface Theme {
             g: { type: DesignToken.Type.Color };

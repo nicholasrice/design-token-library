@@ -566,10 +566,9 @@ Circular("a non-cyclic diamond does not throw", () => {
 });
 
 Circular.skip(
-    "a cycle introduced by an extend override throws in the extended library (fails: #21, #14)",
+    "a cycle introduced by an extend override throws in the extended library (fails: #21)",
     () => {
         const extended = aliasedPair().extend({
-            // @ts-expect-error alias overrides aren't typed yet (#14)
             a: { value: (context) => context.b },
         });
 
@@ -582,7 +581,6 @@ Circular(
     () => {
         const source = aliasedPair();
         const extended = source.extend({
-            // @ts-expect-error alias overrides aren't typed yet (#14)
             a: { value: (context) => context.b },
         });
 

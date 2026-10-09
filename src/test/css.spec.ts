@@ -411,16 +411,13 @@ toCssSuite("emits overrides for a flat extended library", () => {
     Assert.is(toCSS(extended), "--a:#999999;--b:#999999;");
 });
 
-toCssSuite.skip(
-    "emits tokens for an extended library with groups (fails: #14)",
-    () => {
-        const extended = grouped().extend<{}>({
-            g: { a: { value: "#999999" } },
-        });
+toCssSuite("emits tokens for an extended library with groups", () => {
+    const extended = grouped().extend<{}>({
+        g: { a: { value: "#999999" } },
+    });
 
-        Assert.ok(toCSS(extended).includes(":#999999;"));
-    },
-);
+    Assert.ok(toCSS(extended).includes(":#999999;"));
+});
 
 toCssSuite("an empty library emits an empty string", () => {
     Assert.is(toCSS(Library.create<{}>({})), "");
@@ -473,14 +470,11 @@ toPropertiesSuite("supports a flat extended library with new tokens", () => {
     Assert.is(properties.b.property, "--b");
 });
 
-toPropertiesSuite.skip(
-    "supports an extended library with groups (fails: #14)",
-    () => {
-        const properties = toProperties(grouped().extend<{}>({}));
+toPropertiesSuite("supports an extended library with groups", () => {
+    const properties = toProperties(grouped().extend<{}>({}));
 
-        Assert.is(properties.g.a.property, "--g-a");
-    },
-);
+    Assert.is(properties.g.a.property, "--g-a");
+});
 
 toPropertiesSuite("keeps tokenless groups as empty groups", () => {
     const properties = toProperties(
