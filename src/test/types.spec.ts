@@ -7,7 +7,7 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { Equal, Expect } from "./helpers.js";
-import { hex, px, rem } from "./values.js";
+import { hex, px } from "./values.js";
 
 const Types = suite("Type-level API");
 
@@ -97,11 +97,10 @@ type GroupedTypes = [
 // Tighten to `DesignToken.Values.Color` once inferred values are validated (#37).
 const newToken: DesignToken.Values.Color = groupedExtended.tokens.c.$value;
 
-// Enable once Dimension accepts "rem" and rejects "rm" (#26).
-// This can't be skipped at runtime because it is a compile-time check.
-// const rem: DesignToken.Values.Dimension = rem(1);
-// // @ts-expect-error
-// const rm: DesignToken.Values.Dimension = rem(1);
+// A dimension's unit is "px" or "rem" (#26).
+const remDimension: DesignToken.Values.Dimension = { value: 1, unit: "rem" };
+// @ts-expect-error "rm" is not a dimension unit
+const rmDimension: DesignToken.Values.Dimension = { value: 1, unit: "rm" };
 
 // Enable once token values are deeply readonly at compile time (#24).
 // // @ts-expect-error top-level property is readonly
@@ -117,7 +116,16 @@ const newToken: DesignToken.Values.Color = groupedExtended.tokens.c.$value;
 // gradient.tokens.g.$value[0].position = 1;
 
 Types("type-level assertions compile", () => {
-    Assert.ok([invalidConfig, color, notNumber, sourceKey, newKey, newToken]);
+    Assert.ok([
+        invalidConfig,
+        color,
+        notNumber,
+        sourceKey,
+        newKey,
+        newToken,
+        remDimension,
+        rmDimension,
+    ]);
 });
 
 Types.run();
