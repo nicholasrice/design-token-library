@@ -204,15 +204,15 @@ function declarationNegatives() {
         c: DesignToken.Custom<"color", string>;
         b: DesignToken.Custom<"border", string>;
     }> = {
-        // @ts-expect-error 'color' is a reserved DTWG type name
+        // @ts-expect-error 'color' is a reserved DTCG type name
         c: { $type: "color", $value: "red" },
-        // @ts-expect-error 'border' is a reserved DTWG type name
+        // @ts-expect-error 'border' is a reserved DTCG type name
         b: { $type: "border", $value: "1px" },
     };
     type ReservedMessage = Expect<
         Equal<
             DesignToken.Custom<"color", string>["$type"],
-            "Error: 'color' is a reserved DTWG type name"
+            "Error: 'color' is a reserved DTCG type name"
         >
     >;
 

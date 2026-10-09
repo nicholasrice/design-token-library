@@ -180,7 +180,7 @@ export namespace Library {
 
     /**
      * The type a group passes on to its descendant tokens, following
-     * {@link https://tr.designtokens.org/format/#type-1 | DTWG group type inheritance}.
+     * {@link https://tr.designtokens.org/format/#type-1 | DTCG group type inheritance}.
      *
      * @remarks
      * A group passes on its own `$type` only when the group's shape declares a

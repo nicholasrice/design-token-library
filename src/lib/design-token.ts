@@ -328,7 +328,7 @@ export namespace DesignToken {
         Name extends string,
         Value,
     > = Name extends ReservedTypeName
-        ? `Error: '${Name}' is a reserved DTWG type name`
+        ? `Error: '${Name}' is a reserved DTCG type name`
         : HasFunction<Value> extends true
           ? "Error: custom token values must be serializable and cannot contain functions"
           : Name;
