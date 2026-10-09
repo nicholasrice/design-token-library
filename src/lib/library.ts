@@ -497,17 +497,22 @@ class LibraryToken<T extends DesignToken.Any>
 
         this.disconnect();
         const stopWatching = Watcher.use(this);
-        const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
-        const normalized = isToken(raw) ? raw.value : raw;
+        try {
+            const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
+            const normalized = isToken(raw) ? raw.value : raw;
 
-        const value = isObject(normalized)
-            ? recurseResolve(normalized, this.context)
-            : normalized;
+            const value = isObject(normalized)
+                ? recurseResolve(normalized, this.context)
+                : normalized;
 
-        this.cached = value;
-        stopWatching();
+            this.cached = value;
 
-        return value;
+            return value;
+        } finally {
+            // Restore the previous watcher even if resolving throws, so a
+            // failed read doesn't track unrelated tokens afterwards.
+            stopWatching();
+        }
     }
 
     public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {

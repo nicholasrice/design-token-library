@@ -464,6 +464,30 @@ Alias("the alias context is the root token library for nested tokens", () => {
     Assert.is(alias.firstCall.args[0], library.tokens);
 });
 
+Alias(
+    "a throwing alias does not track tokens read after it fails",
+    async () => {
+        const library = Library.create<AB>({
+            a: {
+                type: C,
+                value: () => {
+                    throw new Error("alias failed");
+                },
+            },
+            b: { type: C, value: "#111111" },
+        });
+        Assert.throws(() => library.tokens.a.value, /alias failed/);
+
+        library.tokens.b.value;
+        const subscriber = recorder();
+        library.subscribe(subscriber);
+        library.tokens.b.set("#222222");
+        await nextUpdate();
+
+        Assert.equal(subscriber.batches, [["b"]], "only b changed");
+    },
+);
+
 const cyclicPair = () =>
     Library.create<AB>({
         a: { type: C, value: (context) => context.b },
