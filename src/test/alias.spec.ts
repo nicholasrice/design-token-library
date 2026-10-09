@@ -89,6 +89,61 @@ Alias("deep aliases resolve inside array values", () => {
     Assert.equal(library.tokens.curve.$value, [0.5, 0, 1, 1]);
 });
 
+interface ArrayTheme {
+    n: DesignToken.Number;
+    steps: DesignToken.Custom<"steps", number[]>;
+    grid: DesignToken.Custom<"grid", number[][]>;
+}
+
+const arrayTheme = (steps: ArrayTheme["steps"]["$value"]) =>
+    Library.create<ArrayTheme>({
+        n: { $type: DesignToken.Type.Number, $value: 1 },
+        steps: { $type: "steps", $value: steps },
+        grid: {
+            $type: "grid",
+            $value: [
+                [(context) => context.n, 2],
+                [3, (context) => context.n.$value * 4],
+            ],
+        },
+    });
+
+Alias("an array value resolves to a new array", () => {
+    const steps = [1, 2, 3];
+    const value = arrayTheme(steps).tokens.steps.$value;
+
+    Assert.ok(Array.isArray(value));
+    Assert.is.not(value, steps);
+    Assert.equal(value, [1, 2, 3]);
+});
+
+Alias("deep aliases resolve inside nested arrays", () => {
+    Assert.equal(arrayTheme([]).tokens.grid.$value, [
+        [1, 2],
+        [3, 4],
+    ]);
+});
+
+Alias("holes in a sparse array value resolve to undefined", () => {
+    const value = arrayTheme([1, , 3] as number[]).tokens.steps.$value;
+
+    Assert.is(value.length, 3);
+    Assert.ok(1 in value, "the hole becomes an element");
+    Assert.is(value[1], undefined);
+});
+
+Alias("an array value re-resolves when a token it aliases changes", () => {
+    const library = arrayTheme([]);
+    library.tokens.grid.$value;
+
+    library.tokens.n.set(2);
+
+    Assert.equal(library.tokens.grid.$value, [
+        [2, 2],
+        [3, 8],
+    ]);
+});
+
 /**
  * Narrows a Border's stroke style to its object form.
  */
