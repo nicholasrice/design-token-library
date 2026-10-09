@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Library.Subscriber` records are a union of the library's tokens, discriminated by `type`, instead of `Token<DesignToken.Any>`.
 - Token values that are plain objects with a `value` key are no longer unwrapped as tokens; only library tokens are.
 - Array values resolve faster: they are copied with an indexed loop instead of `for...in`. Holes in a sparse array value now resolve to `undefined` elements.
+- Recomputing a token keeps its subscriptions to the dependencies it reads again, instead of unsubscribing from all of them and subscribing again, which makes updates faster.
 
 ### Fixed
 
