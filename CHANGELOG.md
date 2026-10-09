@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aliases are typed by value: an alias may return any value, or any token, whose value matches. Replaces the internal `TokenByValue`, `TokenByType` and `ValueByType` types.
 - `Library.Subscriber` records are a union of the library's tokens, discriminated by `type`, instead of `Token<DesignToken.Any>`.
 - Token values that are plain objects with a `value` key are no longer unwrapped as tokens; only library tokens are.
+- Array values resolve faster: they are copied with an indexed loop instead of `for...in`. Holes in a sparse array value now resolve to `undefined` elements.
 
 ### Fixed
 

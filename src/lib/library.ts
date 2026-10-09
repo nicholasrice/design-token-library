@@ -617,8 +617,26 @@ function extendToken(
     return extendingToken;
 }
 
-const recurseResolve = (value: any, context: Library.Context<any>) => {
-    const r: any = Array.isArray(value) ? [] : {};
+const recurseResolve = (value: any, context: Library.Context<any>): any => {
+    if (Array.isArray(value)) {
+        const r = new Array(value.length);
+        for (let i = 0; i < value.length; i++) {
+            let v = value[i];
+
+            if (isAlias(v)) {
+                v = v(context);
+            }
+
+            if (v instanceof LibraryToken) {
+                v = v.$value;
+            }
+
+            r[i] = isObject(v) ? recurseResolve(v, context) : v;
+        }
+        return r;
+    }
+
+    const r: any = {};
     for (const key in value) {
         let v = value[key];
 
