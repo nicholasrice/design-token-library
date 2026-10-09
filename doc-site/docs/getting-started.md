@@ -175,8 +175,9 @@ const library = Library.create<MyLibrary>({
   },
 });
 
-library.tokens.elevations.raised.value; // Elevation
-library.tokens.elevations.raised.type; // "elevation"
+library.tokens.elevations.raised.value;
+// { level: 1, shadow: { color: "#FFFFFF", offsetX: "0px", offsetY: "0px", blur: "0px", spread: "0px" } }
+library.tokens.elevations.raised.type; // "elevation", inherited from the group
 ```
 
 Custom types have two restrictions, both enforced at compile time:
