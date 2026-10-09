@@ -28,17 +28,17 @@ export type NestedToken = DesignToken.Custom<"nested", Nested>;
 
 export interface CustomTheme {
     colors: {
-        type: DesignToken.Type.Color;
+        $type: DesignToken.Type.Color;
         accent: DesignToken.Color;
         muted: DesignToken.Color;
     };
     unit: DesignToken.Dimension;
     elevation: {
-        type: "elevation";
+        $type: "elevation";
         low: ElevationToken;
         high: ElevationToken;
         raised: { top: ElevationToken };
-        scale: { type: "ratio"; step: RatioToken };
+        scale: { $type: "ratio"; step: RatioToken };
     };
     ratio: RatioToken;
     label: LabelToken;
@@ -53,16 +53,16 @@ export interface CustomTheme {
  */
 export const customConfig = (): Library.Config<CustomTheme> => ({
     colors: {
-        type: DesignToken.Type.Color,
-        accent: { value: "#111111" },
-        muted: { value: (context) => context.colors.accent },
+        $type: DesignToken.Type.Color,
+        accent: { $value: "#111111" },
+        muted: { $value: (context) => context.colors.accent },
     },
-    unit: { type: DesignToken.Type.Dimension, value: "4px" },
+    unit: { $type: DesignToken.Type.Dimension, $value: "4px" },
     elevation: {
-        type: "elevation",
+        $type: "elevation",
         // Inherits "elevation"; deep aliases to standard tokens
         low: {
-            value: {
+            $value: {
                 level: 1,
                 shadowColor: (context) => context.colors.accent,
                 offsets: [(context) => context.unit, "0px"],
@@ -70,25 +70,28 @@ export const customConfig = (): Library.Config<CustomTheme> => ({
         },
         // Alias resolving to a raw value
         high: {
-            value: (context) => ({
-                ...context.elevation.low.value,
-                level: context.ratio.value * 2,
+            $value: (context) => ({
+                ...context.elevation.low.$value,
+                level: context.ratio.$value * 2,
             }),
         },
         // Inherits "elevation" through a nested group; alias to a token
-        raised: { top: { value: (context) => context.elevation.high } },
+        raised: { top: { $value: (context) => context.elevation.high } },
         // A nested group overrides the inherited type
-        scale: { type: "ratio", step: { value: 1.25 } },
+        scale: { $type: "ratio", step: { $value: 1.25 } },
     },
-    ratio: { type: "ratio", value: 1.5 },
+    ratio: { $type: "ratio", $value: 1.5 },
     // A custom token aliasing a standard token's compatible value
-    label: { type: "label", value: (context) => context.colors.accent.value },
-    flag: { type: "flag", value: true },
+    label: {
+        $type: "label",
+        $value: (context) => context.colors.accent.$value,
+    },
+    flag: { $type: "flag", $value: true },
     // Array elements aliasing another custom type's compatible value
-    steps: { type: "steps", value: [1, (context) => context.ratio, 3] },
+    steps: { $type: "steps", $value: [1, (context) => context.ratio, 3] },
     nested: {
-        type: "nested",
-        value: {
+        $type: "nested",
+        $value: {
             outer: {
                 inner: { size: (context) => context.unit, tags: ["a", "b"] },
             },

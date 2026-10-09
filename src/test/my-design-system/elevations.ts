@@ -10,15 +10,15 @@ export interface Elevation {
 export type ElevationToken = DesignToken.Custom<"elevation", Elevation>;
 
 export interface Elevations {
-    type: "elevation";
+    $type: "elevation";
     flat: ElevationToken;
     raised: ElevationToken;
 }
 
 export const elevations: Library.Config<Elevations, Theme> = {
-    type: "elevation",
+    $type: "elevation",
     flat: {
-        value: {
+        $value: {
             level: 0,
             shadow: {
                 color: (theme) => theme.colors.neutral,
@@ -30,11 +30,11 @@ export const elevations: Library.Config<Elevations, Theme> = {
         },
     },
     raised: {
-        value: (theme) => ({
-            level: theme.elevations.flat.value.level + 1,
+        $value: (theme) => ({
+            level: theme.elevations.flat.$value.level + 1,
             shadow: {
-                ...theme.elevations.flat.value.shadow,
-                offsetY: theme.dimensions.unit.value,
+                ...theme.elevations.flat.$value.shadow,
+                offsetY: theme.dimensions.unit.$value,
             },
         }),
     },
