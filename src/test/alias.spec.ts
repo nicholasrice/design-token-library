@@ -66,7 +66,7 @@ Alias("deep aliases resolve inside array values", () => {
             color: (context: Library.Context<Theme>) => context.a,
             position: 0,
         },
-        { color: "#222222" as const, position: 1 },
+        { color: "#222222" as DesignToken.Values.Color, position: 1 },
     ];
     const library = Library.create<Theme>({
         a: { type: C, value: "#111111" },
