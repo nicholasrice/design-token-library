@@ -4,7 +4,7 @@
 export namespace DesignToken {
     /**
      * An enumeration of all supported types defined
-     * by {@link https://tr.designtokens.org/format/#types}
+     * by {@link https://www.designtokens.org/tr/2025.10/format/#types}
      */
     export enum Type {
         Border = "border",
@@ -27,43 +27,75 @@ export namespace DesignToken {
      */
     export namespace Values {
         /**
-         * A six or 8 digit hexadecimal string.
-         *
-         * @see {@link https://tr.designtokens.org/format/#color}
-         *
-         * @remarks
-         * Ideally we would be able to enumerate a-zA-Z1-9 * 6 | 8 chars
-         * and narrow this type, however TypeScript cannot handle that
-         * many type union combinations and will fail to compile. This
-         * is the best representation of a 6 or 8 digit hex char that
-         * can be accomplished
-         *
+         * The color spaces of the {@link https://www.designtokens.org/tr/2025.10/color/ | Color module}.
          */
-        export type Color = `#${string}`;
+        export type ColorSpace =
+            | "srgb"
+            | "srgb-linear"
+            | "hsl"
+            | "hwb"
+            | "lab"
+            | "lch"
+            | "oklab"
+            | "oklch"
+            | "display-p3"
+            | "a98-rgb"
+            | "prophoto-rgb"
+            | "rec2020"
+            | "xyz-d65"
+            | "xyz-d50";
 
         /**
-         * A dimension value (floating or integer) with a 'px' or 'rm' unit.
-         *
-         * @see {@link https://tr.designtokens.org/format/#dimension}
+         * A color component: a number, or `"none"` for a missing component.
          */
-        export type Dimension = `${Values.Number}px` | `${Values.Number}rm`;
+        export type ColorComponent = Values.Number | "none";
 
         /**
-         * The name of the font family;
+         * A color in a color space. Every color space has three components,
+         * whose ranges depend on the color space.
          *
-         * @see {@link https://tr.designtokens.org/format/#font-family}
+         * @see {@link https://www.designtokens.org/tr/2025.10/color/}
+         */
+        export interface Color {
+            colorSpace: ColorSpace;
+            components: [ColorComponent, ColorComponent, ColorComponent];
+            /**
+             * From 0 (transparent) to 1 (opaque). Defaults to 1.
+             */
+            alpha?: Values.Number;
+            /**
+             * A fallback in six digit CSS hex notation.
+             */
+            hex?: `#${string}`;
+        }
+
+        /**
+         * A number with a unit, which is required even when the number is 0.
+         *
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#dimension}
+         */
+        export interface Dimension {
+            value: Values.Number;
+            unit: "px" | "rem";
+        }
+
+        /**
+         * The name of the font family, or an array of names in order of
+         * preference.
+         *
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#font-family}
          */
         export type FontFamily = string | string[];
 
         /**
-         * @see {@link https://tr.designtokens.org/format/#number}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#number}
          */
         export type Number = number;
 
         /**
-         * A number between 0 and 1000, or a font-weight keyword.
+         * A number from 1 to 1000, or a font-weight keyword.
          *
-         * @see {@link https://tr.designtokens.org/format/#font-weight}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#font-weight}
          */
         export type FontWeight =
             | Values.Number
@@ -76,7 +108,7 @@ export namespace DesignToken {
             | "regular"
             | "book"
             | "medium"
-            | "smi-bold"
+            | "semi-bold"
             | "demi-bold"
             | "bold"
             | "extra-bold"
@@ -85,17 +117,21 @@ export namespace DesignToken {
             | "heavy"
             | "extra-black"
             | "ultra-black";
-        /**
-         * A duration value in milliseconds
-         *
-         * @see {@link https://tr.designtokens.org/format/#duration}
-         */
-        export type Duration = `${Values.Number}ms`;
 
         /**
-         * Cubic Bézier coordinates.
+         * A length of time in milliseconds or seconds.
          *
-         * @see {@link https://tr.designtokens.org/format/#cubic-bezier}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#duration}
+         */
+        export interface Duration {
+            value: Values.Number;
+            unit: "ms" | "s";
+        }
+
+        /**
+         * Cubic Bézier coordinates. The x coordinates are within [0, 1].
+         *
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#cubic-bezier}
          */
         export type CubicBezier = [
             P1x: Values.Number,
@@ -105,18 +141,31 @@ export namespace DesignToken {
         ];
 
         /**
-         * @see {@link https://tr.designtokens.org/format/#shadow}
+         * One shadow.
+         *
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#shadow}
          */
-        export interface Shadow {
+        export interface ShadowLayer {
             color: Values.Color;
             offsetX: Values.Dimension;
             offsetY: Values.Dimension;
             blur: Values.Dimension;
             spread: Values.Dimension;
+            /**
+             * An inner shadow. Defaults to `false`.
+             */
+            inset?: boolean;
         }
+
         /**
+         * One shadow, or several layered shadows.
          *
-         * @see {@link https://tr.designtokens.org/format/#stroke-style}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#shadow}
+         */
+        export type Shadow = ShadowLayer | ShadowLayer[];
+
+        /**
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#stroke-style}
          */
         export type StrokeStyle =
             | "solid"
@@ -133,7 +182,7 @@ export namespace DesignToken {
               };
 
         /**
-         * @see {@link https://tr.designtokens.org/format/#border}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#border}
          */
         export interface Border {
             color: Values.Color;
@@ -142,7 +191,7 @@ export namespace DesignToken {
         }
 
         /**
-         * @see {@link https://tr.designtokens.org/format/#transition}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#transition}
          */
         export interface Transition {
             duration: Values.Duration;
@@ -151,9 +200,9 @@ export namespace DesignToken {
         }
 
         /**
-         * @see {@link https://tr.designtokens.org/format/#gradient}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#gradient}
          * @remarks
-         * Position values must be a number withing [0, 1].
+         * Position values must be a number within [0, 1].
          */
         export type Gradient = Array<{
             color: Values.Color;
@@ -161,7 +210,7 @@ export namespace DesignToken {
         }>;
 
         /**
-         * @see {@link https://tr.designtokens.org/format/#typography}
+         * @see {@link https://www.designtokens.org/tr/2025.10/format/#typography}
          */
         export interface Typography {
             fontFamily: Values.FontFamily;
@@ -299,7 +348,7 @@ export namespace DesignToken {
     >;
 
     /**
-     * Type names reserved by {@link https://tr.designtokens.org/format/#types}.
+     * Type names reserved by {@link https://www.designtokens.org/tr/2025.10/format/#types}.
      * Custom types cannot use these names.
      */
     export type ReservedTypeName = `${DesignToken.Type}`;
@@ -328,14 +377,14 @@ export namespace DesignToken {
         Name extends string,
         Value,
     > = Name extends ReservedTypeName
-        ? `Error: '${Name}' is a reserved DTWG type name`
+        ? `Error: '${Name}' is a reserved DTCG type name`
         : HasFunction<Value> extends true
           ? "Error: custom token values must be serializable and cannot contain functions"
           : Name;
 
     /**
      * A token of a custom type that is not defined by
-     * {@link https://tr.designtokens.org/format/#types}.
+     * {@link https://www.designtokens.org/tr/2025.10/format/#types}.
      *
      * @remarks
      * `Name` identifies the type and must not be a {@link DesignToken.ReservedTypeName}.
@@ -384,7 +433,7 @@ export namespace DesignToken {
     };
 
     /**
-     * All tokens of a type defined by {@link https://tr.designtokens.org/format/#types}.
+     * All tokens of a type defined by {@link https://www.designtokens.org/tr/2025.10/format/#types}.
      *
      * @internal
      */

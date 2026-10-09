@@ -14,6 +14,7 @@ import {
 } from "./custom-types.fixtures.js";
 import { nextUpdate, recorder } from "./helpers.js";
 import { theme } from "./my-design-system/theme.js";
+import { hex, px, toHex } from "./values.js";
 
 const Create = suite("Custom types: create");
 const Alias = suite("Custom types: aliases");
@@ -27,8 +28,8 @@ const custom = () => Library.create(customConfig());
 
 const lowElevation = {
     level: 1,
-    shadowColor: "#111111",
-    offsets: ["4px", "0px"],
+    shadowColor: hex("#111111"),
+    offsets: [px(4), px(0)],
 };
 
 Create("a static custom value is exposed with its metadata", () => {
@@ -54,7 +55,7 @@ Create("primitive, array and nested custom values resolve", () => {
     Assert.is(library.tokens.flag.$value, true);
     Assert.equal(library.tokens.steps.$value, [1, 1.5, 3]);
     Assert.equal(library.tokens.nested.$value, {
-        outer: { inner: { size: "4px", tags: ["a", "b"] } },
+        outer: { inner: { size: px(4), tags: ["a", "b"] } },
     });
 });
 
@@ -63,8 +64,12 @@ Create("the example design system resolves custom tokens", () => {
 
     Assert.is(library.tokens.elevations.raised.$type, "elevation");
     Assert.is(library.tokens.elevations.raised.$value.level, 1);
-    Assert.is(library.tokens.elevations.raised.$value.shadow.offsetY, "4px");
-    Assert.is(library.tokens.elevations.raised.$value.shadow.color, "#FFFFFF");
+    const [layer, ...rest] = [
+        library.tokens.elevations.raised.$value.shadow,
+    ].flat();
+    Assert.is(rest.length, 0);
+    Assert.equal(layer.offsetY, px(4));
+    Assert.equal(layer.color, hex("#FFFFFF"));
 });
 
 Alias("a whole-value alias resolves to the target's value", () => {
@@ -82,7 +87,7 @@ Alias("deep aliases in fields, tuples and nested objects resolve", () => {
     Assert.equal(library.tokens.elevation.low.$value, lowElevation);
     Assert.equal(
         library.tokens.nested.$value.outer.inner.size,
-        "4px",
+        px(4),
         "nested object",
     );
     Assert.equal(library.tokens.steps.$value[1], 1.5, "array element");
@@ -91,8 +96,11 @@ Alias("deep aliases in fields, tuples and nested objects resolve", () => {
 Alias("aliases to standard tokens resolve", () => {
     const library = custom();
 
-    Assert.is(library.tokens.elevation.low.$value.shadowColor, "#111111");
-    Assert.is(library.tokens.label.$value, "#111111");
+    Assert.equal(
+        library.tokens.elevation.low.$value.shadowColor,
+        hex("#111111"),
+    );
+    Assert.is(library.tokens.label.$value, "Inter, sans-serif");
 });
 
 Alias("a custom value with a 'value' key is data, not a token", () => {
@@ -204,9 +212,12 @@ Changes("a custom token deep-aliasing a standard token updates", async () => {
     const subscriber = recorder();
     library.subscribe(subscriber);
 
-    library.tokens.colors.accent.set("#222222");
+    library.tokens.colors.accent.set(hex("#222222"));
 
-    Assert.is(library.tokens.elevation.low.$value.shadowColor, "#222222");
+    Assert.equal(
+        library.tokens.elevation.low.$value.shadowColor,
+        hex("#222222"),
+    );
     await nextUpdate();
     Assert.ok(subscriber.batches[0].includes("elevation.low"));
 });
@@ -230,8 +241,8 @@ Extend("custom tokens can be overridden", () => {
             low: {
                 $value: {
                     level: (context) => context.ratio,
-                    shadowColor: "#000000",
-                    offsets: ["0px", "0px"],
+                    shadowColor: hex("#000000"),
+                    offsets: [px(0), px(0)],
                 },
             },
             raised: { top: { $value: (context) => context.elevation.low } },
@@ -241,8 +252,8 @@ Extend("custom tokens can be overridden", () => {
     Assert.is(extended.tokens.ratio.$value, 3);
     Assert.equal(extended.tokens.elevation.low.$value, {
         level: 3,
-        shadowColor: "#000000",
-        offsets: ["0px", "0px"],
+        shadowColor: hex("#000000"),
+        offsets: [px(0), px(0)],
     });
     Assert.equal(
         extended.tokens.elevation.raised.top.$value,
@@ -262,7 +273,7 @@ Extend("new custom tokens can be added", () => {
                 $value: {
                     level: 4,
                     shadowColor: (context) => context.colors.muted,
-                    offsets: ["0px", "2px"],
+                    offsets: [px(0), px(2)],
                 },
             },
         },
@@ -272,7 +283,10 @@ Extend("new custom tokens can be added", () => {
     Assert.is(extended.tokens.z.$value, 10);
     Assert.is(extended.tokens.z.$type, "z-index");
     Assert.is(extended.tokens.elevation.floating.$type, "elevation");
-    Assert.is(extended.tokens.elevation.floating.$value.shadowColor, "#111111");
+    Assert.equal(
+        extended.tokens.elevation.floating.$value.shadowColor,
+        hex("#111111"),
+    );
 });
 
 Extend("inherited custom aliases resolve against overrides", () => {
@@ -289,20 +303,22 @@ interface Flat {
 }
 const flat = () =>
     Library.create<Flat>({
-        c: { $type: C, $value: "#111111" },
+        c: { $type: C, $value: hex("#111111") },
         e: {
             $type: "elevation",
             $value: {
                 level: (context) => context.r,
                 shadowColor: (context) => context.c,
-                offsets: ["0px", "2px"],
+                offsets: [px(0), px(2)],
             },
         },
         r: { $type: "ratio", $value: 2 },
     });
 const flatConverters = {
-    elevation: (value: { level: number; shadowColor: string }) =>
-        `${value.level} ${value.shadowColor}`,
+    elevation: (value: {
+        level: number;
+        shadowColor: DesignToken.Values.Color;
+    }) => `${value.level} ${toHex(value.shadowColor)}`,
     ratio: (value: number) => `${value * 100}%`,
 };
 

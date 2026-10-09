@@ -1,5 +1,6 @@
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
+import { hex, px } from "./values.js";
 
 /**
  * Custom token types and a library shape shared by the custom type specs.
@@ -33,6 +34,7 @@ export interface CustomTheme {
         muted: DesignToken.Color;
     };
     unit: DesignToken.Dimension;
+    font: DesignToken.FontFamily;
     elevation: {
         $type: "elevation";
         low: ElevationToken;
@@ -54,10 +56,14 @@ export interface CustomTheme {
 export const customConfig = (): Library.Config<CustomTheme> => ({
     colors: {
         $type: DesignToken.Type.Color,
-        accent: { $value: "#111111" },
+        accent: { $value: hex("#111111") },
         muted: { $value: (context) => context.colors.accent },
     },
-    unit: { $type: DesignToken.Type.Dimension, $value: "4px" },
+    unit: { $type: DesignToken.Type.Dimension, $value: px(4) },
+    font: {
+        $type: DesignToken.Type.FontFamily,
+        $value: ["Inter", "sans-serif"],
+    },
     elevation: {
         $type: "elevation",
         // Inherits "elevation"; deep aliases to standard tokens
@@ -65,7 +71,7 @@ export const customConfig = (): Library.Config<CustomTheme> => ({
             $value: {
                 level: 1,
                 shadowColor: (context) => context.colors.accent,
-                offsets: [(context) => context.unit, "0px"],
+                offsets: [(context) => context.unit, px(0)],
             },
         },
         // Alias resolving to a raw value
@@ -81,10 +87,10 @@ export const customConfig = (): Library.Config<CustomTheme> => ({
         scale: { $type: "ratio", step: { $value: 1.25 } },
     },
     ratio: { $type: "ratio", $value: 1.5 },
-    // A custom token aliasing a standard token's compatible value
+    // A custom token aliasing a standard token's value
     label: {
         $type: "label",
-        $value: (context) => context.colors.accent.$value,
+        $value: (context) => [context.font.$value].flat().join(", "),
     },
     flag: { $type: "flag", $value: true },
     // Array elements aliasing another custom type's compatible value

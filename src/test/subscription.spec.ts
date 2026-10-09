@@ -12,33 +12,38 @@ import {
     recorder,
     settle,
 } from "./helpers.js";
+import { hex, px } from "./values.js";
 
 const Subscription = suite("Library subscriptions");
 const SameValue = suite("Library subscriptions: unchanged values");
 const C = DesignToken.Type.Color;
 
 Subscription("unsubscribe stops notifications", async () => {
-    const library = Library.create<A>({ a: { $type: C, $value: "#111111" } });
+    const library = Library.create<A>({
+        a: { $type: C, $value: hex("#111111") },
+    });
     const subscriber = recorder();
     library.subscribe(subscriber);
 
-    library.tokens.a.set("#222222");
+    library.tokens.a.set(hex("#222222"));
     await nextUpdate();
     library.unsubscribe(subscriber);
-    library.tokens.a.set("#333333");
+    library.tokens.a.set(hex("#333333"));
     await nextUpdate();
 
     Assert.equal(subscriber.batches, [["a"]]);
 });
 
 Subscription("unsubscribing an unknown subscriber is a no-op", async () => {
-    const library = Library.create<A>({ a: { $type: C, $value: "#111111" } });
+    const library = Library.create<A>({
+        a: { $type: C, $value: hex("#111111") },
+    });
     const subscriber = recorder();
     library.subscribe(subscriber);
 
     Assert.not.throws(() => library.unsubscribe(recorder()));
 
-    library.tokens.a.set("#222222");
+    library.tokens.a.set(hex("#222222"));
     await nextUpdate();
     Assert.equal(subscriber.batches, [["a"]]);
 });
@@ -47,13 +52,13 @@ Subscription(
     "a token set twice in one microtask appears once in the batch",
     async () => {
         const library = Library.create<A>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
         });
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.a.set("#222222");
-        library.tokens.a.set("#333333");
+        library.tokens.a.set(hex("#222222"));
+        library.tokens.a.set(hex("#333333"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["a"]]);
@@ -64,7 +69,7 @@ Subscription(
     "a read alias token is included when its dependency changes",
     async () => {
         const library = Library.create<AB>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             b: {
                 $type: C,
                 $value: (context: Library.Context<AB>) => context.a,
@@ -74,7 +79,7 @@ Subscription(
         library.subscribe(subscriber);
         library.tokens.b.$value;
 
-        library.tokens.a.set("#222222");
+        library.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["a", "b"]]);
@@ -85,7 +90,7 @@ Subscription(
     "an alias token that was never read is not included (lazy tracking)",
     async () => {
         const library = Library.create<AB>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             b: {
                 $type: C,
                 $value: (context: Library.Context<AB>) => context.a,
@@ -94,7 +99,7 @@ Subscription(
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.a.set("#222222");
+        library.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["a"]]);
@@ -105,12 +110,12 @@ Subscription(
     "a deep alias dependent is included when its dependency changes",
     async () => {
         const library = Library.create<ColorAndBorder>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             b: {
                 $type: DesignToken.Type.Border,
                 $value: {
                     color: (context) => context.a,
-                    width: "1px",
+                    width: px(1),
                     style: "solid",
                 },
             },
@@ -119,7 +124,7 @@ Subscription(
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.a.set("#222222");
+        library.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["a", "b"]]);
@@ -128,7 +133,7 @@ Subscription(
 
 Subscription("transitive dependents are all included", async () => {
     const library = Library.create<ABC>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: (context: Library.Context<AB>) => context.a },
         c: { $type: C, $value: (context) => context.b },
     });
@@ -136,7 +141,7 @@ Subscription("transitive dependents are all included", async () => {
     const subscriber = recorder();
     library.subscribe(subscriber);
 
-    library.tokens.a.set("#222222");
+    library.tokens.a.set(hex("#222222"));
     await nextUpdate();
 
     Assert.equal(subscriber.batches, [["a", "b", "c"]]);
@@ -146,14 +151,14 @@ Subscription(
     "multiple subscribers receive the same records array",
     async () => {
         const library = Library.create<A>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
         });
         const first = spy();
         const second = spy();
         library.subscribe({ onChange: first });
         library.subscribe({ onChange: second });
 
-        library.tokens.a.set("#222222");
+        library.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.ok(first.calledOnce);
@@ -163,24 +168,28 @@ Subscription(
 );
 
 Subscription("the records array is frozen", async () => {
-    const library = Library.create<A>({ a: { $type: C, $value: "#111111" } });
+    const library = Library.create<A>({
+        a: { $type: C, $value: hex("#111111") },
+    });
     const onChange = spy();
     library.subscribe({ onChange });
 
-    library.tokens.a.set("#222222");
+    library.tokens.a.set(hex("#222222"));
     await nextUpdate();
 
     Assert.ok(Object.isFrozen(onChange.firstCall.args[0]));
 });
 
 Subscription("a subscriber subscribed twice is notified once", async () => {
-    const library = Library.create<A>({ a: { $type: C, $value: "#111111" } });
+    const library = Library.create<A>({
+        a: { $type: C, $value: hex("#111111") },
+    });
     const onChange = spy();
     const subscriber = { onChange };
     library.subscribe(subscriber);
     library.subscribe(subscriber);
 
-    library.tokens.a.set("#222222");
+    library.tokens.a.set(hex("#222222"));
     await nextUpdate();
 
     Assert.ok(onChange.calledOnce);
@@ -207,13 +216,13 @@ Subscription.skip(
         const uncaught = captureUncaughtErrors();
         try {
             const library = Library.create<A>({
-                a: { $type: C, $value: "#111111" },
+                a: { $type: C, $value: hex("#111111") },
             });
             const second = spy();
             library.subscribe(throwingSubscriber(new Error("first")));
             library.subscribe({ onChange: second });
 
-            library.tokens.a.set("#222222");
+            library.tokens.a.set(hex("#222222"));
             await settle();
 
             Assert.ok(second.calledOnce);
@@ -229,12 +238,12 @@ Subscription(
         const uncaught = captureUncaughtErrors();
         try {
             const library = Library.create<A>({
-                a: { $type: C, $value: "#111111" },
+                a: { $type: C, $value: hex("#111111") },
             });
             const error = new Error("subscriber error");
             library.subscribe(throwingSubscriber(error));
 
-            library.tokens.a.set("#222222");
+            library.tokens.a.set(hex("#222222"));
             await settle();
 
             Assert.equal(uncaught.errors.length, 1);
@@ -251,7 +260,7 @@ Subscription.skip(
         const uncaught = captureUncaughtErrors();
         try {
             const library = Library.create<A>({
-                a: { $type: C, $value: "#111111" },
+                a: { $type: C, $value: hex("#111111") },
             });
             const first = new Error("first");
             const third = new Error("third");
@@ -262,7 +271,7 @@ Subscription.skip(
             library.subscribe(throwingSubscriber(third));
             library.subscribe({ onChange: fourth });
 
-            library.tokens.a.set("#222222");
+            library.tokens.a.set(hex("#222222"));
             await settle();
 
             Assert.ok(second.calledOnce, "second called");
@@ -280,7 +289,7 @@ Subscription(
         const uncaught = captureUncaughtErrors();
         try {
             const library = Library.create<A>({
-                a: { $type: C, $value: "#111111" },
+                a: { $type: C, $value: hex("#111111") },
             });
             let calls = 0;
             library.subscribe({
@@ -290,13 +299,13 @@ Subscription(
                 },
             });
 
-            library.tokens.a.set("#222222");
+            library.tokens.a.set(hex("#222222"));
             await settle();
-            library.tokens.a.set("#333333");
+            library.tokens.a.set(hex("#333333"));
             await settle();
 
             Assert.is(calls, 2);
-            Assert.is(library.tokens.a.$value, "#333333");
+            Assert.equal(library.tokens.a.$value, hex("#333333"));
         } finally {
             uncaught.restore();
         }
@@ -306,14 +315,16 @@ Subscription(
 Subscription(
     "changes in one library do not notify another library's subscribers",
     async () => {
-        const first = Library.create<A>({ a: { $type: C, $value: "#111111" } });
+        const first = Library.create<A>({
+            a: { $type: C, $value: hex("#111111") },
+        });
         const second = Library.create<A>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
         });
         const subscriber = recorder();
         second.subscribe(subscriber);
 
-        first.tokens.a.set("#222222");
+        first.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, []);
@@ -324,12 +335,12 @@ SameValue.skip(
     "setting the same primitive does not notify (fails: #22)",
     async () => {
         const library = Library.create<A>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
         });
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.a.set("#111111");
+        library.tokens.a.set(hex("#111111"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, []);
@@ -341,7 +352,7 @@ SameValue.skip(
     async () => {
         const alias = (context: Library.Context<AB>) => context.a;
         const library = Library.create<AB>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             b: { $type: C, $value: alias },
         });
         const subscriber = recorder();
@@ -358,8 +369,8 @@ SameValue.skip(
     "setting the same object reference does not notify (fails: #22)",
     async () => {
         const value: DesignToken.Values.Border = {
-            color: "#111111",
-            width: "1px",
+            color: hex("#111111"),
+            width: px(1),
             style: "solid",
         };
         const library = Library.create<BorderTheme>({
@@ -379,15 +390,15 @@ SameValue("setting a structurally equal but new object notifies", async () => {
     const library = Library.create<BorderTheme>({
         a: {
             $type: DesignToken.Type.Border,
-            $value: { color: "#111111", width: "1px", style: "solid" },
+            $value: { color: hex("#111111"), width: px(1), style: "solid" },
         },
     });
     const subscriber = recorder();
     library.subscribe(subscriber);
 
     library.tokens.a.set({
-        color: "#111111",
-        width: "1px",
+        color: hex("#111111"),
+        width: px(1),
         style: "solid",
     });
     await nextUpdate();
@@ -397,7 +408,7 @@ SameValue("setting a structurally equal but new object notifies", async () => {
 
 SameValue("setting a new function with the same body notifies", async () => {
     const library = Library.create<AB>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: (context: Library.Context<AB>) => context.a },
     });
     const subscriber = recorder();
@@ -412,7 +423,7 @@ SameValue("setting a new function with the same body notifies", async () => {
 SameValue.skip("a no-op set does not invalidate the cache (fails: #22)", () => {
     const alias = spy((context: Library.Context<AB>) => context.a);
     const library = Library.create<AB>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: alias },
     });
     library.tokens.b.$value;
@@ -427,14 +438,14 @@ SameValue(
     "setting an inherited value on an extended token detaches it from the source",
     () => {
         const source = Library.create<A>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
         });
         const extended = source.extend<{}>({});
 
-        extended.tokens.a.set("#111111");
-        source.tokens.a.set("#222222");
+        extended.tokens.a.set(hex("#111111"));
+        source.tokens.a.set(hex("#222222"));
 
-        Assert.is(extended.tokens.a.$value, "#111111");
+        Assert.equal(extended.tokens.a.$value, hex("#111111"));
     },
 );
 
@@ -442,18 +453,18 @@ SameValue(
     "after detaching, source changes neither change nor notify the extended token",
     async () => {
         const source = Library.create<A>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
         });
         const extended = source.extend<{}>({});
-        extended.tokens.a.set("#111111");
+        extended.tokens.a.set(hex("#111111"));
         await nextUpdate();
         const subscriber = recorder();
         extended.subscribe(subscriber);
 
-        source.tokens.a.set("#222222");
+        source.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
-        Assert.is(extended.tokens.a.$value, "#111111");
+        Assert.equal(extended.tokens.a.$value, hex("#111111"));
         Assert.equal(subscriber.batches, []);
     },
 );
@@ -463,7 +474,7 @@ SameValue.skip(
     async () => {
         const alias = (context: Library.Context<AB>) => context.a;
         const source = Library.create<AB>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             b: { $type: C, $value: alias },
         });
         const extended = source.extend<{}>({});
@@ -471,7 +482,7 @@ SameValue.skip(
         const subscriber = recorder();
         extended.subscribe(subscriber);
 
-        extended.tokens.a.set("#111111");
+        extended.tokens.a.set(hex("#111111"));
         extended.tokens.b.set(alias);
         await nextUpdate();
 
@@ -484,34 +495,50 @@ SameValue(
     async () => {
         const aliasB = (context: Library.Context<AB>) => context.a;
         const source = Library.create<AB>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             b: { $type: C, $value: aliasB },
         });
-        const extended = source.extend<{}>({ a: { $value: "#999999" } });
+        const extended = source.extend<{}>({ a: { $value: hex("#999999") } });
 
         // Before assignment
-        Assert.is(extended.tokens.b.$value, "#999999", "extended before");
-        Assert.is(source.tokens.b.$value, "#111111", "source before");
+        Assert.equal(
+            extended.tokens.b.$value,
+            hex("#999999"),
+            "extended before",
+        );
+        Assert.equal(source.tokens.b.$value, hex("#111111"), "source before");
 
         // Assign the same alias reference
         extended.tokens.b.set(aliasB);
-        Assert.is(extended.tokens.b.$value, "#999999", "extended after");
+        Assert.equal(
+            extended.tokens.b.$value,
+            hex("#999999"),
+            "extended after",
+        );
         await nextUpdate();
 
         const subscriber = recorder();
         extended.subscribe(subscriber);
 
         // Source changes no longer reach the extended token
-        source.tokens.a.set("#222222");
+        source.tokens.a.set(hex("#222222"));
         await nextUpdate();
-        Assert.is(source.tokens.b.$value, "#222222", "source updated");
-        Assert.is(extended.tokens.b.$value, "#999999", "extended unchanged");
+        Assert.equal(source.tokens.b.$value, hex("#222222"), "source updated");
+        Assert.equal(
+            extended.tokens.b.$value,
+            hex("#999999"),
+            "extended unchanged",
+        );
         Assert.equal(subscriber.batches, [], "extended not notified");
 
         // Dependency tracking within the extended library survives detaching
-        extended.tokens.a.set("#AAAAAA");
+        extended.tokens.a.set(hex("#AAAAAA"));
         await nextUpdate();
-        Assert.is(extended.tokens.b.$value, "#AAAAAA", "extended dependency");
+        Assert.equal(
+            extended.tokens.b.$value,
+            hex("#AAAAAA"),
+            "extended dependency",
+        );
         Assert.equal(subscriber.batches, [["a", "b"]], "extended notified");
     },
 );
@@ -520,23 +547,27 @@ SameValue(
     "an inherited static value resolves the same before and after assignment",
     async () => {
         const source = Library.create<A>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
         });
         const extended = source.extend<{}>({});
 
-        Assert.is(extended.tokens.a.$value, "#111111", "before");
+        Assert.equal(extended.tokens.a.$value, hex("#111111"), "before");
 
-        extended.tokens.a.set("#111111");
-        Assert.is(extended.tokens.a.$value, "#111111", "after");
+        extended.tokens.a.set(hex("#111111"));
+        Assert.equal(extended.tokens.a.$value, hex("#111111"), "after");
         await nextUpdate();
 
         const subscriber = recorder();
         extended.subscribe(subscriber);
-        source.tokens.a.set("#222222");
+        source.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
-        Assert.is(source.tokens.a.$value, "#222222", "source updated");
-        Assert.is(extended.tokens.a.$value, "#111111", "extended unchanged");
+        Assert.equal(source.tokens.a.$value, hex("#222222"), "source updated");
+        Assert.equal(
+            extended.tokens.a.$value,
+            hex("#111111"),
+            "extended unchanged",
+        );
         Assert.equal(subscriber.batches, [], "extended not notified");
     },
 );

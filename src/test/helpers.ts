@@ -1,5 +1,6 @@
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
+import { hex } from "./values.js";
 
 /**
  * Resolves after microtasks queued before this call have run,
@@ -34,7 +35,7 @@ export interface ABC {
  */
 export function aliasedPair() {
     return Library.create<AB>({
-        a: { $type: DesignToken.Type.Color, $value: "#111111" },
+        a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
         b: { $type: DesignToken.Type.Color, $value: (context) => context.a },
     });
 }

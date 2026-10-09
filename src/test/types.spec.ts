@@ -7,6 +7,7 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { Equal, Expect } from "./helpers.js";
+import { hex, px } from "./values.js";
 
 const Types = suite("Type-level API");
 
@@ -17,7 +18,7 @@ interface Theme {
 }
 
 const config: Library.Config<Theme> = {
-    a: { $type: DesignToken.Type.Color, $value: "#111111" },
+    a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
     // Alias values are accepted
     b: { $type: DesignToken.Type.Color, $value: (context) => context.a },
     border: {
@@ -25,7 +26,7 @@ const config: Library.Config<Theme> = {
         // Deep alias values are accepted
         $value: {
             color: (context) => context.a,
-            width: "1px",
+            width: px(1),
             style: "solid",
         },
     },
@@ -34,7 +35,7 @@ const config: Library.Config<Theme> = {
 const invalidConfig: Library.Config<Theme> = {
     // @ts-expect-error a Color token rejects a number value
     a: { $type: DesignToken.Type.Color, $value: 12 },
-    b: { $type: DesignToken.Type.Color, $value: "#111111" },
+    b: { $type: DesignToken.Type.Color, $value: hex("#111111") },
     border: config.border,
 };
 
@@ -50,7 +51,7 @@ interface Extension {
     c: DesignToken.Color;
 }
 const extended = library.extend<Extension>({
-    c: { $type: DesignToken.Type.Color, $value: "#333333" },
+    c: { $type: DesignToken.Type.Color, $value: hex("#333333") },
 });
 const sourceKey: DesignToken.Values.Color = extended.tokens.a.$value;
 const newKey: DesignToken.Values.Color = extended.tokens.c.$value;
@@ -60,7 +61,7 @@ library.tokens.a.set(12);
 
 // Overriding a source token with a static value keeps the source token type
 const overridden = library.extend({
-    a: { $value: "#000000" },
+    a: { $value: hex("#000000") },
     b: {
         $value: (context) => {
             type Check = Expect<
@@ -70,7 +71,7 @@ const overridden = library.extend({
         },
     },
 });
-overridden.tokens.a.set("#123456");
+overridden.tokens.a.set(hex("#123456"));
 type OverrideTypes = [
     Expect<Equal<typeof overridden.tokens, typeof library.tokens>>,
 ];
@@ -80,13 +81,13 @@ interface GroupedTheme {
     g: { $type: DesignToken.Type.Color; a: DesignToken.Color };
 }
 const grouped = Library.create<GroupedTheme>({
-    g: { $type: DesignToken.Type.Color, a: { $value: "#111111" } },
+    g: { $type: DesignToken.Type.Color, a: { $value: hex("#111111") } },
 });
 const groupedExtended = grouped.extend({
-    g: { a: { $value: "#000000" }, b: { $value: "#222222" } },
-    c: { $type: DesignToken.Type.Color, $value: "#333333" },
+    g: { a: { $value: hex("#000000") }, b: { $value: hex("#222222") } },
+    c: { $type: DesignToken.Type.Color, $value: hex("#333333") },
 });
-groupedExtended.tokens.g.a.set("#123456");
+groupedExtended.tokens.g.a.set(hex("#123456"));
 type GroupedTypes = [
     Expect<
         Equal<typeof groupedExtended.tokens.g.b.$type, DesignToken.Type.Color>
@@ -94,29 +95,37 @@ type GroupedTypes = [
 ];
 // Inferred token values are typed by their literal, not their declared type.
 // Tighten to `DesignToken.Values.Color` once inferred values are validated (#37).
-const newToken: string = groupedExtended.tokens.c.$value;
+const newToken: DesignToken.Values.Color = groupedExtended.tokens.c.$value;
 
-// Enable once Dimension accepts "rem" and rejects "rm" (#26).
-// This can't be skipped at runtime because it is a compile-time check.
-// const rem: DesignToken.Values.Dimension = "1rem";
-// // @ts-expect-error
-// const rm: DesignToken.Values.Dimension = "1rm";
+// A dimension's unit is "px" or "rem" (#26).
+const remDimension: DesignToken.Values.Dimension = { value: 1, unit: "rem" };
+// @ts-expect-error "rm" is not a dimension unit
+const rmDimension: DesignToken.Values.Dimension = { value: 1, unit: "rm" };
 
 // Enable once token values are deeply readonly at compile time (#24).
 // // @ts-expect-error top-level property is readonly
-// library.tokens.border.$value.width = "2px";
+// library.tokens.border.$value.width = px(2);
 // // @ts-expect-error nested properties are readonly
 // library.tokens.border.$value.style = "dashed";
 // const gradient = Library.create({
-//     g: { $type: DesignToken.Type.Gradient, $value: [{ color: "#111111", position: 0 }] },
+//     g: { $type: DesignToken.Type.Gradient, $value: [{ color: hex("#111111"), position: 0 }] },
 // });
 // // @ts-expect-error arrays are readonly
-// gradient.tokens.g.$value.push({ color: "#222222", position: 1 });
+// gradient.tokens.g.$value.push({ color: hex("#222222"), position: 1 });
 // // @ts-expect-error array items are readonly
 // gradient.tokens.g.$value[0].position = 1;
 
 Types("type-level assertions compile", () => {
-    Assert.ok([invalidConfig, color, notNumber, sourceKey, newKey, newToken]);
+    Assert.ok([
+        invalidConfig,
+        color,
+        notNumber,
+        sourceKey,
+        newKey,
+        newToken,
+        remDimension,
+        rmDimension,
+    ]);
 });
 
 Types.run();

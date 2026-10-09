@@ -5,6 +5,7 @@ import * as Package from "../lib/index.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { A, AB, ABC, aliasedPair, nextUpdate, recorder } from "./helpers.js";
+import { hex, px } from "./values.js";
 
 const Alias = suite("Library aliases");
 const Circular = suite("Library circular aliases");
@@ -22,13 +23,13 @@ Alias(
             raw: DesignToken.Color;
         }
         const library = Library.create<Theme>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             token: { $type: C, $value: (context) => context.a },
             raw: { $type: C, $value: (context) => context.a.$value },
         });
 
-        Assert.is(library.tokens.token.$value, "#111111");
-        Assert.is(library.tokens.raw.$value, "#111111");
+        Assert.equal(library.tokens.token.$value, hex("#111111"));
+        Assert.equal(library.tokens.raw.$value, hex("#111111"));
     },
 );
 
@@ -38,20 +39,20 @@ Alias("an alias can reference a token in a different group", () => {
         borders: { $type: DesignToken.Type.Border; x: DesignToken.Border };
     }
     const library = Library.create<Theme>({
-        colors: { $type: C, primary: { $value: "#111111" } },
+        colors: { $type: C, primary: { $value: hex("#111111") } },
         borders: {
             $type: DesignToken.Type.Border,
             x: {
                 $value: {
                     color: (context) => context.colors.primary,
-                    width: "1px",
+                    width: px(1),
                     style: "solid",
                 },
             },
         },
     });
 
-    Assert.is(library.tokens.borders.x.$value.color, "#111111");
+    Assert.equal(library.tokens.borders.x.$value.color, hex("#111111"));
 });
 
 Alias("deep aliases resolve inside array values", () => {
@@ -66,10 +67,10 @@ Alias("deep aliases resolve inside array values", () => {
             color: (context: Library.Context<Theme>) => context.a,
             position: 0,
         },
-        { color: "#222222" as DesignToken.Values.Color, position: 1 },
+        { color: hex("#222222") as DesignToken.Values.Color, position: 1 },
     ];
     const library = Library.create<Theme>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         n: { $type: DesignToken.Type.Number, $value: 0.5 },
         gradient: {
             $type: DesignToken.Type.Gradient,
@@ -82,8 +83,8 @@ Alias("deep aliases resolve inside array values", () => {
     });
 
     Assert.equal(library.tokens.gradient.$value, [
-        { color: "#111111", position: 0 },
-        { color: "#222222", position: 1 },
+        { color: hex("#111111"), position: 0 },
+        { color: hex("#222222"), position: 1 },
     ]);
     Assert.equal(library.tokens.curve.$value, [0.5, 0, 1, 1]);
 });
@@ -106,7 +107,7 @@ Alias("a deep alias can reference a token that is itself an alias", () => {
         border: DesignToken.Border;
     }
     const library = Library.create<Theme>({
-        d1: { $type: DesignToken.Type.Dimension, $value: "2px" },
+        d1: { $type: DesignToken.Type.Dimension, $value: px(2) },
         d2: {
             $type: DesignToken.Type.Dimension,
             $value: (context) => context.d1,
@@ -114,10 +115,10 @@ Alias("a deep alias can reference a token that is itself an alias", () => {
         border: {
             $type: DesignToken.Type.Border,
             $value: {
-                color: "#111111",
-                width: "1px",
+                color: hex("#111111"),
+                width: px(1),
                 style: {
-                    dashArray: [(context) => context.d2, "4px"],
+                    dashArray: [(context) => context.d2, px(4)],
                     lineCap: "round",
                 },
             },
@@ -125,8 +126,8 @@ Alias("a deep alias can reference a token that is itself an alias", () => {
     });
 
     Assert.equal(dashedStyle(library.tokens.border.$value).dashArray, [
-        "2px",
-        "4px",
+        px(2),
+        px(4),
     ]);
 });
 
@@ -139,12 +140,12 @@ Alias(
             raw: DesignToken.Border;
         }
         const library = Library.create<Theme>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             token: {
                 $type: DesignToken.Type.Border,
                 $value: {
                     color: (context) => context.a,
-                    width: "1px",
+                    width: px(1),
                     style: "solid",
                 },
             },
@@ -152,21 +153,21 @@ Alias(
                 $type: DesignToken.Type.Border,
                 $value: {
                     color: (context) => context.a.$value,
-                    width: "1px",
+                    width: px(1),
                     style: "solid",
                 },
             },
         });
 
-        Assert.is(library.tokens.token.$value.color, "#111111");
-        Assert.is(library.tokens.raw.$value.color, "#111111");
+        Assert.equal(library.tokens.token.$value.color, hex("#111111"));
+        Assert.equal(library.tokens.raw.$value.color, hex("#111111"));
     },
 );
 
 Alias("an alias is invoked once across repeated reads", () => {
     const alias = spy((context: Library.Context<AB>) => context.a);
     const library = Library.create<AB>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: alias },
     });
 
@@ -182,17 +183,17 @@ Alias(
     () => {
         const alias = spy((context: Library.Context<AB>) => context.a);
         const library = Library.create<AB>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             b: { $type: C, $value: alias },
         });
 
         library.tokens.b.$value;
-        library.tokens.a.set("#222222");
+        library.tokens.a.set(hex("#222222"));
         library.tokens.b.$value;
         library.tokens.b.$value;
 
         Assert.is(alias.callCount, 2);
-        Assert.is(library.tokens.b.$value, "#222222");
+        Assert.equal(library.tokens.b.$value, hex("#222222"));
     },
 );
 
@@ -200,8 +201,8 @@ Alias(
     "re-aliasing tracks the new dependency and drops the old one",
     async () => {
         const library = Library.create<ABC>({
-            a: { $type: C, $value: "#111111" },
-            b: { $type: C, $value: "#222222" },
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: hex("#222222") },
             c: { $type: C, $value: (context) => context.a },
         });
         library.tokens.c.$value;
@@ -212,18 +213,18 @@ Alias(
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.a.set("#333333");
+        library.tokens.a.set(hex("#333333"));
         await nextUpdate();
         Assert.equal(subscriber.batches, [["a"]], "old dependency ignored");
 
-        library.tokens.b.set("#444444");
+        library.tokens.b.set(hex("#444444"));
         await nextUpdate();
         Assert.equal(
             subscriber.batches[1],
             ["b", "c"],
             "new dependency tracked",
         );
-        Assert.is(library.tokens.c.$value, "#444444");
+        Assert.equal(library.tokens.c.$value, hex("#444444"));
     },
 );
 
@@ -235,8 +236,8 @@ Alias(
         }
         const library = Library.create<Theme>({
             flag: { $type: DesignToken.Type.Number, $value: 0 },
-            a: { $type: C, $value: "#111111" },
-            b: { $type: C, $value: "#222222" },
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: hex("#222222") },
             c: {
                 $type: C,
                 $value: (context) =>
@@ -244,21 +245,21 @@ Alias(
             },
         });
 
-        Assert.is(library.tokens.c.$value, "#222222");
+        Assert.equal(library.tokens.c.$value, hex("#222222"));
 
         library.tokens.flag.set(1);
-        Assert.is(library.tokens.c.$value, "#111111");
+        Assert.equal(library.tokens.c.$value, hex("#111111"));
         await nextUpdate();
 
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.b.set("#333333");
+        library.tokens.b.set(hex("#333333"));
         await nextUpdate();
         Assert.equal(subscriber.batches, [["b"]], "inactive branch ignored");
 
-        library.tokens.a.set("#444444");
-        Assert.is(library.tokens.c.$value, "#444444");
+        library.tokens.a.set(hex("#444444"));
+        Assert.equal(library.tokens.c.$value, hex("#444444"));
     },
 );
 
@@ -267,17 +268,17 @@ Alias(
     async () => {
         const library = aliasedPair();
         library.tokens.b.$value;
-        library.tokens.b.set("#222222");
+        library.tokens.b.set(hex("#222222"));
         library.tokens.b.$value;
         await nextUpdate();
 
         const subscriber = recorder();
         library.subscribe(subscriber);
-        library.tokens.a.set("#333333");
+        library.tokens.a.set(hex("#333333"));
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["a"]]);
-        Assert.is(library.tokens.b.$value, "#222222");
+        Assert.equal(library.tokens.b.$value, hex("#222222"));
     },
 );
 
@@ -293,7 +294,7 @@ Alias("a diamond dependency updates once with the correct value", async () => {
         { color: second, position: 1 },
     ];
     const library = Library.create<Diamond>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: (context) => context.a },
         c: { $type: C, $value: (context) => context.a },
         d: {
@@ -305,15 +306,15 @@ Alias("a diamond dependency updates once with the correct value", async () => {
 
     const subscriber = recorder();
     library.subscribe(subscriber);
-    library.tokens.a.set("#222222");
+    library.tokens.a.set(hex("#222222"));
     await nextUpdate();
 
     const batch = subscriber.batches[0];
     Assert.is(batch.filter((name) => name === "d").length, 1);
     Assert.equal([...batch].sort(), ["a", "b", "c", "d"]);
     Assert.equal(library.tokens.d.$value, [
-        { color: "#222222", position: 0 },
-        { color: "#222222", position: 1 },
+        { color: hex("#222222"), position: 0 },
+        { color: hex("#222222"), position: 1 },
     ]);
     Assert.is(first.callCount, 2);
     Assert.is(second.callCount, 2);
@@ -326,9 +327,9 @@ interface BorderTheme {
 const borderWithDashes = (): DesignToken.Border => ({
     $type: DesignToken.Type.Border,
     $value: {
-        color: "#111111",
-        width: "1px",
-        style: { dashArray: ["1px", "2px"], lineCap: "round" },
+        color: hex("#111111"),
+        width: px(1),
+        style: { dashArray: [px(1), px(2)], lineCap: "round" },
     },
 });
 
@@ -346,14 +347,15 @@ Alias.skip(
     () => {
         const library = Library.create<BorderTheme>({ a: borderWithDashes() });
         // Typed as mutable so this compiles before and after #24.
-        const value: { width: string } = library.tokens.a.$value;
+        const value: { width: DesignToken.Values.Dimension } =
+            library.tokens.a.$value;
 
-        Assert.throws(() => (value.width = "9px"), "top level");
+        Assert.throws(() => (value.width = px(9)), "top level");
         Assert.throws(
             () =>
                 Array.prototype.push.call(
                     dashedStyle(library.tokens.a.$value).dashArray,
-                    "3px",
+                    px(3),
                 ),
             "nested array",
         );
@@ -373,7 +375,7 @@ Alias.skip("array values and their items are frozen (fails: #24)", () => {
         },
         gradient: {
             $type: DesignToken.Type.Gradient,
-            $value: [{ color: "#111111", position: 0 }],
+            $value: [{ color: hex("#111111"), position: 0 }],
         },
     });
 
@@ -390,13 +392,13 @@ Alias.skip(
             border: DesignToken.Border;
         }
         const library = Library.create<Theme>({
-            a: { $type: C, $value: "#111111" },
+            a: { $type: C, $value: hex("#111111") },
             border: {
                 $type: DesignToken.Type.Border,
                 $value: {
                     color: (context) => context.a,
-                    width: "1px",
-                    style: { dashArray: ["1px"], lineCap: "round" },
+                    width: px(1),
+                    style: { dashArray: [px(1)], lineCap: "round" },
                 },
             },
         });
@@ -424,7 +426,7 @@ Alias.skip(
     () => {
         const extensions = { k: 1 };
         const library = Library.create<A>({
-            a: { $type: C, $value: "#111111", $extensions: extensions },
+            a: { $type: C, $value: hex("#111111"), $extensions: extensions },
         });
 
         extensions.k = 2;
@@ -437,7 +439,7 @@ Alias.skip(
 Alias.skip("nested extension objects are copied too (fails: #25)", () => {
     const extensions = { nested: { k: 1 } };
     const library = Library.create<A>({
-        a: { $type: C, $value: "#111111", $extensions: extensions },
+        a: { $type: C, $value: hex("#111111"), $extensions: extensions },
     });
 
     extensions.nested.k = 2;
@@ -452,7 +454,7 @@ Alias("the alias context is the root token library for nested tokens", () => {
     }
     const alias = spy((context: Library.Context<Theme>) => context.a);
     const library = Library.create<Theme>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         g: { $type: C, t: { $value: alias } },
     });
 
@@ -503,7 +505,7 @@ Circular.skip("a cycle through a deep alias throws (fails: #21)", () => {
             $value: {
                 // @ts-expect-error a Border is not a valid Color alias target
                 color: (context) => context.self,
-                width: "1px",
+                width: px(1),
                 style: "solid",
             },
         },
@@ -530,10 +532,10 @@ Circular.skip(
         const library = cyclicPair();
         Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
 
-        library.tokens.a.set("#111111");
+        library.tokens.a.set(hex("#111111"));
 
-        Assert.is(library.tokens.a.$value, "#111111");
-        Assert.is(library.tokens.b.$value, "#111111");
+        Assert.equal(library.tokens.a.$value, hex("#111111"));
+        Assert.equal(library.tokens.b.$value, hex("#111111"));
     },
 );
 
@@ -549,7 +551,7 @@ Circular("a non-cyclic diamond does not throw", () => {
         },
     ];
     const library = Library.create<Diamond>({
-        a: { $type: C, $value: "#111111" },
+        a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: (context) => context.a },
         c: { $type: C, $value: (context) => context.a },
         d: {
@@ -584,8 +586,8 @@ Circular(
             extended.tokens.a.$value;
         } catch {}
 
-        Assert.is(source.tokens.a.$value, "#111111");
-        Assert.is(source.tokens.b.$value, "#111111");
+        Assert.equal(source.tokens.a.$value, hex("#111111"));
+        Assert.equal(source.tokens.b.$value, hex("#111111"));
     },
 );
 

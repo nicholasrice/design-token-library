@@ -39,6 +39,8 @@ export interface IMyLibrary {
 
 With the Library interface defined, the concrete library config can be constructed. This config will serve as the initial configuration of the library.
 
+Token values use the shapes of the [DTCG 2025.10 format](https://www.designtokens.org/tr/2025.10/format/): a color is `{ colorSpace, components, alpha?, hex? }`, and a dimension and a duration are a number with a unit, `{ value: 14, unit: "px" }` and `{ value: 200, unit: "ms" }`.
+
 ```ts
 import { Library } from "design-token-library";
 
@@ -46,11 +48,11 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
   colors: {
     foreground: {
       $type: DesignToken.Type.Color,
-      $value: "#010101",
+      $value: { colorSpace: "srgb", components: [0, 0, 0] },
     },
     background: {
       $type: DesignToken.Type.Color,
-      $value: "#FEFEFE",
+      $value: { colorSpace: "srgb", components: [1, 1, 1] },
     },
   },
   typography: {
@@ -62,10 +64,10 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
       $type: DesignToken.Type.Typography
       $value: {
         fontFamily: (tokens) => tokens.typography.fonts.base, // Alias
-        fontSize: "14px",
-        fontWeight: 400;
-        letterSpacing: "0px";
-        lineHeight: "18px";
+        fontSize: { value: 14, unit: "px" },
+        fontWeight: 400,
+        letterSpacing: { value: 0, unit: "px" },
+        lineHeight: 1.3,
       }
     },
   }
@@ -86,7 +88,7 @@ interface Colors {
 const config: Library.Config<Colors> = {
   static: {
     $type: DesignToken.Type.Color,
-    $value: "#FFFFFF",
+    $value: { colorSpace: "srgb", components: [1, 1, 1] },
   },
   alias: {
     $type: DesignToken.Type.Color,
@@ -102,7 +104,7 @@ const config: Library.Config<Colors> = {
 
 ### Groups
 
-In alignment with the [DTCG Group](https://design-tokens.github.io/community-group/format/#type-1) specification, token groups _may_ define a `$type` field. All tokens part of the group will infer their type from the group unless they define their own type.
+In alignment with the [DTCG Group](https://www.designtokens.org/tr/2025.10/format/#type-1) specification, token groups _may_ define a `$type` field. All tokens part of the group will infer their type from the group unless they define their own type.
 
 Type inheritance is checked at compile time. A token may omit its `$type` only when its nearest ancestor group declares a single, literal `$type` in the library interface that matches the token's type:
 
@@ -118,10 +120,16 @@ interface Colors {
 
 const config: Library.Config<Colors> = {
   $type: DesignToken.Type.Color,
-  primary: { $value: "#FFFFFF" }, // inherits "color"
+  primary: { $value: { colorSpace: "srgb", components: [1, 1, 1] } }, // inherits "color"
   borders: {
     $type: DesignToken.Type.Border,
-    thin: { $value: { color: "#000000", width: "1px", style: "solid" } },
+    thin: {
+      $value: {
+        color: { colorSpace: "srgb", components: [0, 0, 0] },
+        width: { value: 1, unit: "px" },
+        style: "solid",
+      },
+    },
   },
 };
 ```
@@ -132,7 +140,7 @@ A group declared with a non-literal `$type` (such as `DesignToken.Type`), a unio
 
 Tokens and groups share the DTCG property names: `$type`, `$description`, `$extensions` and `$deprecated`. A token's `$deprecated` is `false` unless it is set to `true` or to a string explaining why. A group's properties are available on the group but are not enumerable, so they never appear when iterating a group's tokens. Group properties are kept when a library is extended.
 
-A group can have a token of its own named `$root`. Its CSS custom property is named for the group:
+A group can have a token of its own named `$root`. It must be in a group: a library cannot have a `$root` token at its top level, and `Library.create` and `extend` reject one at compile time and at runtime. Its CSS custom property is named for the group:
 
 ```ts
 interface Theme {
@@ -146,8 +154,11 @@ interface Theme {
 const library = Library.create<Theme>({
   color: {
     $type: DesignToken.Type.Color,
-    $root: { $value: "#111111" }, // --color
-    light: { $value: "#EEEEEE", $deprecated: "use $root" }, // --color-light
+    $root: { $value: { colorSpace: "srgb", components: [0, 0, 0] } }, // --color
+    light: {
+      $value: { colorSpace: "srgb", components: [1, 1, 1] },
+      $deprecated: "use $root", // --color-light
+    },
   },
 });
 
@@ -181,7 +192,12 @@ Custom tokens support everything standard tokens do: static values, aliases, dee
 
 ```ts
 const library = Library.create<MyLibrary>({
-  colors: { neutral: { $type: DesignToken.Type.Color, $value: "#FFFFFF" } },
+  colors: {
+    neutral: {
+      $type: DesignToken.Type.Color,
+      $value: { colorSpace: "srgb", components: [1, 1, 1] },
+    },
+  },
   elevations: {
     $type: "elevation",
     flat: {
@@ -189,10 +205,10 @@ const library = Library.create<MyLibrary>({
         level: 0,
         shadow: {
           color: (tokens) => tokens.colors.neutral, // deep alias
-          offsetX: "0px",
-          offsetY: "0px",
-          blur: "0px",
-          spread: "0px",
+          offsetX: { value: 0, unit: "px" },
+          offsetY: { value: 0, unit: "px" },
+          blur: { value: 0, unit: "px" },
+          spread: { value: 0, unit: "px" },
         },
       },
     },
@@ -203,7 +219,16 @@ const library = Library.create<MyLibrary>({
 });
 
 library.tokens.elevations.raised.$value;
-// { level: 1, shadow: { color: "#FFFFFF", offsetX: "0px", offsetY: "0px", blur: "0px", spread: "0px" } }
+// {
+//   level: 1,
+//   shadow: {
+//     color: { colorSpace: "srgb", components: [1, 1, 1] },
+//     offsetX: { value: 0, unit: "px" },
+//     offsetY: { value: 0, unit: "px" },
+//     blur: { value: 0, unit: "px" },
+//     spread: { value: 0, unit: "px" },
+//   },
+// }
 library.tokens.elevations.raised.$type; // "elevation", inherited from the group
 ```
 
@@ -245,7 +270,7 @@ const value = library.tokens.colors.foreground.$value;
 The value of a token can be set via the `.set()` method:
 
 ```ts
-library.tokens.colors.foreground.set("#EEEEEE");
+library.tokens.colors.foreground.set({ colorSpace: "srgb", components: [0.93, 0.93, 0.93] });
 ```
 
 ### Subscribing to Changes
@@ -261,14 +286,14 @@ const subscriber: Library.Subscriber<IMyLibrary> = {
 library.subscribe(subscriber);
 
 // Will notify subscribers
-library.tokens.foreground.set("#878787");
+library.tokens.foreground.set({ colorSpace: "srgb", components: [0.53, 0.53, 0.53] });
 ```
 
 Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
 
 ```ts
 const library = Library.create({
-  a: { $type: DesignToken.Type.Color, $value: "#000000" },
+  a: { $type: DesignToken.Type.Color, $value: { colorSpace: "srgb", components: [0, 0, 0] } },
   b: { $type: DesignToken.Type.Color, $value: (tokens) => tokens.a },
 });
 
@@ -279,10 +304,16 @@ library.subscribe({
 });
 
 // Will only notify 'library.tokens.a'
-library.tokens.a.set("#FFFFFF");
+library.tokens.a.set({ colorSpace: "srgb", components: [1, 1, 1] });
 
 const b = library.tokens.b.$value;
 
 // Will now notify with 'library.tokens.a' and 'library.tokens.b'
-library.tokens.a.set("#111111");
+library.tokens.a.set({ colorSpace: "srgb", components: [0.07, 0.07, 0.07] });
 ```
+
+### CSS
+
+`toCSS` and `toProperties` convert the DTCG value shapes to CSS. An sRGB color becomes hex (`#ff8000`) and a color in another color space becomes the CSS `color()` function, or `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()` or `oklch()`. Dimensions and durations are written with their unit, font weight keywords become numbers, a cubic Bézier becomes `cubic-bezier()`, a transition uses CSS shorthand order, and a shadow may be layered and inset. A standard type with no converter, such as typography, is written as JSON.
+
+A group's `$root` token is named for the group, so `color.$root` is `--color`.
