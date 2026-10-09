@@ -6,6 +6,7 @@ import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
+import { Equal, Expect } from "./helpers.js";
 
 const Types = suite("Type-level API");
 
@@ -57,6 +58,44 @@ const newKey: DesignToken.Values.Color = extended.tokens.c.value;
 // @ts-expect-error set() rejects a mismatched value type
 library.tokens.a.set(12);
 
+// Overriding a source token with a static value keeps the source token type
+const overridden = library.extend({
+    a: { value: "#000000" },
+    b: {
+        value: (context) => {
+            type Check = Expect<
+                Equal<typeof context.a.value, DesignToken.Values.Color>
+            >;
+            return context.a;
+        },
+    },
+});
+overridden.tokens.a.set("#123456");
+type OverrideTypes = [
+    Expect<Equal<typeof overridden.tokens, typeof library.tokens>>,
+];
+
+// New tokens are inferred, including inside existing groups
+interface GroupedTheme {
+    g: { type: DesignToken.Type.Color; a: DesignToken.Color };
+}
+const grouped = Library.create<GroupedTheme>({
+    g: { type: DesignToken.Type.Color, a: { value: "#111111" } },
+});
+const groupedExtended = grouped.extend({
+    g: { a: { value: "#000000" }, b: { value: "#222222" } },
+    c: { type: DesignToken.Type.Color, value: "#333333" },
+});
+groupedExtended.tokens.g.a.set("#123456");
+type GroupedTypes = [
+    Expect<
+        Equal<typeof groupedExtended.tokens.g.b.type, DesignToken.Type.Color>
+    >,
+];
+// Inferred token values are typed by their literal, not their declared type.
+// Tighten to `DesignToken.Values.Color` once inferred values are validated (#37).
+const newToken: string = groupedExtended.tokens.c.value;
+
 // Enable once Dimension accepts "rem" and rejects "rm" (#26).
 // This can't be skipped at runtime because it is a compile-time check.
 // const rem: DesignToken.Values.Dimension = "1rem";
@@ -77,7 +116,7 @@ library.tokens.a.set(12);
 // gradient.tokens.g.value[0].position = 1;
 
 Types("type-level assertions compile", () => {
-    Assert.ok([invalidConfig, color, notNumber, sourceKey, newKey]);
+    Assert.ok([invalidConfig, color, notNumber, sourceKey, newKey, newToken]);
 });
 
 Types.run();

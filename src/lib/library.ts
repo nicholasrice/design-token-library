@@ -13,9 +13,25 @@ export namespace Library {
         subscribe(subscriber: Library.Subscriber<R>): void;
         unsubscribe(subscriber: Library.Subscriber<R>): void;
         extend<K extends {} = {}>(
-            config: ExtendConfig<T, R & K> & Config<K, R & K, never, T>,
-        ): Library<T & K, R & K>;
+            config: ExtendConfig<T, R & NewTokens<K, T>> &
+                Config<K, R & NewTokens<K, T>, never, T>,
+        ): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
     }
+
+    /**
+     * The tokens and groups of `K` that are new relative to a source library
+     * of shape `T`. Overrides of tokens in `T` are removed so that they keep
+     * the source token's type.
+     *
+     * @public
+     */
+    export type NewTokens<K, T> = {
+        [P in keyof K as P extends keyof T
+            ? T[P] extends DesignToken.Shape
+                ? never
+                : P
+            : P]: P extends keyof T ? NewTokens<K[P], T[P]> : K[P];
+    };
 
     export interface Subscriber<R extends {}> {
         onChange(records: ReadonlyArray<Library.TokenRecord<R>>): void;
@@ -236,23 +252,29 @@ export namespace Library {
         S = {},
     > = ConfigGroup<T, R, GroupType<T, GroupType<S, G>>, S>;
 
+    // Overrides of source tokens map to `unknown` so they are validated only
+    // by `ExtendConfig` and are not inferred as new tokens by `extend`.
     type ConfigGroup<T extends {}, R extends {}, G extends string, S> = {
-        [K in keyof T]: T[K] extends DesignToken.Shape
-            ? ConfigValue<
-                  T[K],
-                  R,
-                  K extends keyof S
-                      ? S[K] extends DesignToken.Shape
-                          ? DesignToken.TypeByToken<S[K], G>
-                          : G
-                      : G
-              >
-            : K extends "type"
-              ? T[K]
-              : T[K] extends {}
-                ? Config<T[K], R, G, K extends keyof S ? S[K] : {}>
-                : never;
+        [K in keyof T]: K extends keyof S
+            ? S[K] extends DesignToken.Shape
+                ? unknown
+                : ConfigEntry<T, R, G, S, K>
+            : ConfigEntry<T, R, G, S, K>;
     };
+
+    type ConfigEntry<
+        T extends {},
+        R extends {},
+        G extends string,
+        S,
+        K extends keyof T,
+    > = T[K] extends DesignToken.Shape
+        ? ConfigValue<T[K], R, G>
+        : K extends "type"
+          ? T[K]
+          : T[K] extends {}
+            ? Config<T[K], R, G, K extends keyof S ? S[K] : {}>
+            : never;
 
     /**
      * A configuration object provided to {@link (Library:namespace).Library.extend}.
