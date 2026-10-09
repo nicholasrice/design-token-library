@@ -61,6 +61,7 @@ Create(
         Assert.throws(
             () =>
                 Library.create<Theme>({
+                    // @ts-expect-error a token without an inherited type must declare one
                     g: { h: { t: { value: "#111111" } } },
                 }),
             /'t'/,

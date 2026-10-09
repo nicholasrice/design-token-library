@@ -2,11 +2,86 @@ import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
 
 /**
+ * Converts a token value to a CSS value.
+ *
  * @public
  */
-export function toCSS(library: Library.Library<any, any>): string {
-    return recurseToCss(library.tokens);
+export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (
+    value: V,
+    token: Library.Token<T, {}>,
+) => string;
+
+/**
+ * A union of the custom tokens in a library of shape `T`: tokens whose
+ * type is not defined by {@link https://tr.designtokens.org/format/#types}.
+ *
+ * @public
+ */
+export type CustomTokensOf<T> = Exclude<
+    Library.TokensOf<T>,
+    { type?: DesignToken.Type }
+>;
+
+/**
+ * A {@link CSSConverter} for each custom token type in a library of shape `T`,
+ * keyed by type name.
+ *
+ * @public
+ */
+export type CSSConverters<T> = ConvertersOf<CustomTokensOf<T>>;
+
+type ConvertersOf<C> = {
+    [N in C extends { type: infer N extends string } ? N : never]: C extends {
+        type: N;
+    }
+        ? C extends DesignToken.Shape
+            ? CSSConverter<DesignToken.ValueByToken<C>, C>
+            : never
+        : never;
+};
+
+/**
+ * Options accepted by {@link toCSS}.
+ *
+ * @remarks
+ * `converters` is required when the library contains custom token types,
+ * and must provide a converter for each of them.
+ *
+ * @public
+ */
+export type CSSOptions<T> = [CustomTokensOf<T>] extends [never]
+    ? { converters?: { readonly [type: string]: never } }
+    : { converters: CSSConverters<T> };
+
+/**
+ * The trailing arguments of {@link toCSS}: {@link CSSOptions} are
+ * required when the library contains custom token types.
+ *
+ * @public
+ */
+export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never]
+    ? [options?: CSSOptions<T>]
+    : [options: CSSOptions<T>];
+
+/**
+ * Convert a library to CSS custom property declarations.
+ *
+ * @remarks
+ * Libraries with custom token types must provide a converter for each
+ * custom type.
+ *
+ * @public
+ */
+export function toCSS<T extends {}, R extends {}>(
+    library: Library.Library<T, R>,
+    ...[options]: ToCSSArgs<NoInfer<T>>
+): string {
+    // Converters are checked by `ToCSSArgs`; at runtime they're keyed by type.
+    const converters: unknown = options?.converters ?? {};
+    return recurseToCss(library.tokens, converters as RuntimeConverters);
 }
+
+type RuntimeConverters = Readonly<Record<string, CSSConverter<any>>>;
 
 interface CSSPropertyValues {
     readonly var: `var(--${string})`;
@@ -19,10 +94,10 @@ interface CSSPropertyValues {
  * @public
  */
 export type CSSPropertiesLibrary<T extends {}> = {
-    [K in keyof Readonly<T>]: T[K] extends DesignToken.Any
+    [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape
         ? CSSPropertyValues
         : K extends "type"
-          ? DesignToken.Type
+          ? T[K]
           : T[K] extends {}
             ? CSSPropertiesLibrary<T[K]>
             : never;
@@ -76,25 +151,34 @@ const isToken = (
     return "value" in value;
 };
 
+const standardTypes: ReadonlySet<string> = new Set(
+    Object.values(DesignToken.Type),
+);
+
 const recurseToCss = (
-    librarySection: Library.TokenLibrary<any, any>,
+    librarySection: { readonly [key: string]: any },
+    customConverters: RuntimeConverters,
 ): string => {
     let result = "";
     for (const key in librarySection) {
         const tokenOrGroup = librarySection[key];
 
         if (isToken(tokenOrGroup)) {
+            const { type, name } = tokenOrGroup;
             let value = tokenOrGroup.value;
 
-            if (
-                tokenOrGroup.type !== undefined &&
-                Reflect.has(TokenConverters, tokenOrGroup.type)
-            ) {
-                value = Reflect.get(TokenConverters, tokenOrGroup.type)(value);
+            if (Reflect.has(TokenConverters, type)) {
+                value = Reflect.get(TokenConverters, type)(value);
+            } else if (Reflect.has(customConverters, type)) {
+                value = customConverters[type](value, tokenOrGroup);
+            } else if (!standardTypes.has(type)) {
+                throw new Error(
+                    `No CSS converter provided for custom type '${type}' of token '${name}'.`,
+                );
             }
-            result += `--${tokenOrGroup.name}:${value};`;
+            result += `--${name}:${value};`;
         } else {
-            result = recurseToCss(tokenOrGroup);
+            result = recurseToCss(tokenOrGroup, customConverters);
         }
     }
 

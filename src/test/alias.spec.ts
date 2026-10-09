@@ -66,19 +66,17 @@ Alias("deep aliases resolve inside array values", () => {
             color: (context: Library.Context<Theme>) => context.a,
             position: 0,
         },
-        { color: "#222222", position: 1 },
+        { color: "#222222" as DesignToken.Values.Color, position: 1 },
     ];
     const library = Library.create<Theme>({
         a: { type: C, value: "#111111" },
         n: { type: DesignToken.Type.Number, value: 0.5 },
         gradient: {
             type: DesignToken.Type.Gradient,
-            // @ts-expect-error type gap: DeepAlias doesn't support aliases in gradient stops (#28)
             value: stops,
         },
         curve: {
             type: DesignToken.Type.CubicBezier,
-            // @ts-expect-error type gap: number elements alias FontWeight tokens, not Number tokens (#29)
             value: [(context) => context.n, 0, 1, 1],
         },
     });
@@ -300,7 +298,6 @@ Alias("a diamond dependency updates once with the correct value", async () => {
         c: { type: C, value: (context) => context.a },
         d: {
             type: DesignToken.Type.Gradient,
-            // @ts-expect-error type gap: DeepAlias doesn't support aliases in gradient stops (#28)
             value: stops,
         },
     });
@@ -557,7 +554,6 @@ Circular("a non-cyclic diamond does not throw", () => {
         c: { type: C, value: (context) => context.a },
         d: {
             type: DesignToken.Type.Gradient,
-            // @ts-expect-error type gap: DeepAlias doesn't support aliases in gradient stops (#28)
             value: stops,
         },
     });

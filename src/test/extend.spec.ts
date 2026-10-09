@@ -118,6 +118,7 @@ Extend("a new token without a resolvable type throws, matching create", () => {
     Assert.throws(
         () =>
             single().extend<{ c: DesignToken.Color }>({
+                // @ts-expect-error a token without an inherited type must declare one
                 c: { value: "#222222" },
             }),
         /'c'/,
