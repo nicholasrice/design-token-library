@@ -195,10 +195,10 @@ export namespace DesignToken {
      *
      * @internal
      */
-    export type ValueByToken<T extends DesignToken.Shape> = T["value"];
+    export type ValueByToken<T extends DesignToken.Shape> = T["$value"];
 
     /**
-     * The type of a token. Tokens that don't declare a `type` resolve to
+     * The type of a token. Tokens that don't declare a `$type` resolve to
      * the type inherited from their ancestor groups, `G`.
      *
      * @internal
@@ -206,19 +206,20 @@ export namespace DesignToken {
     export type TypeByToken<
         T extends DesignToken.Shape,
         G extends string = never,
-    > = "type" extends keyof T ? NonNullable<T["type"]> : G;
+    > = "$type" extends keyof T ? NonNullable<T["$type"]> : G;
 
     /**
-     * The structural shape of any token: an object with a `value`.
+     * The structural shape of any token: an object with a `$value`.
      * This mirrors how tokens are distinguished from groups at runtime.
      *
      * @internal
      */
     export interface Shape {
-        description?: string;
-        type?: string;
-        extensions?: Record<string, any>;
-        value: unknown;
+        $description?: string;
+        $type?: string;
+        $extensions?: Record<string, any>;
+        $deprecated?: boolean | string;
+        $value: unknown;
     }
 
     /**
@@ -228,14 +229,18 @@ export namespace DesignToken {
         Type extends DesignToken.Type,
         Value extends DesignToken.Values.Any,
     > {
-        description?: string;
+        $description?: string;
         /**
          * The token's type. In a {@link (Library:namespace).Config}, it may be omitted
          * when it's inherited from an ancestor group.
          */
-        type: Type;
-        extensions?: Record<string, any>;
-        value: Value;
+        $type: Type;
+        $extensions?: Record<string, any>;
+        /**
+         * `true`, or a string explaining why, when the token is deprecated.
+         */
+        $deprecated?: boolean | string;
+        $value: Value;
     }
 
     export type Border = Properties<
@@ -313,7 +318,7 @@ export namespace DesignToken {
           : false;
 
     /**
-     * The `type` of a {@link DesignToken.Custom} token. Resolves to an error
+     * The `$type` of a {@link DesignToken.Custom} token. Resolves to an error
      * message type when `Name` is reserved or `Value` is not serializable, so
      * that invalid custom tokens cannot be configured.
      *
@@ -344,10 +349,11 @@ export namespace DesignToken {
      * ```
      */
     export interface Custom<Name extends string, Value> {
-        description?: string;
-        type: CustomTypeName<Name, Value>;
-        extensions?: Record<string, any>;
-        value: Value;
+        $description?: string;
+        $type: CustomTypeName<Name, Value>;
+        $extensions?: Record<string, any>;
+        $deprecated?: boolean | string;
+        $value: Value;
     }
 
     /**
@@ -356,10 +362,11 @@ export namespace DesignToken {
      * @internal
      */
     export interface AnyCustom {
-        description?: string;
-        type: string;
-        extensions?: Record<string, any>;
-        value: unknown;
+        $description?: string;
+        $type: string;
+        $extensions?: Record<string, any>;
+        $deprecated?: boolean | string;
+        $value: unknown;
     }
 
     /**
@@ -370,7 +377,10 @@ export namespace DesignToken {
          * If the group has a type, the type is inferred for all descendent design tokens,
          * unless specified by the token.
          */
-        type?: string;
+        $type?: string;
+        $description?: string;
+        $extensions?: Record<string, any>;
+        $deprecated?: boolean | string;
     };
 
     /**

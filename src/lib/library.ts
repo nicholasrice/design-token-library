@@ -1,7 +1,7 @@
 import { DesignToken } from "./design-token.js";
 import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
 import { IQueue, Queue } from "./queue.js";
-import { empty } from "./utilities.js";
+import { empty, isToken } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
 /**
@@ -45,7 +45,7 @@ export namespace Library {
     export type TokensOf<T> = {
         [K in keyof T]-?: T[K] extends DesignToken.Shape
             ? T[K]
-            : K extends "type"
+            : K extends keyof DesignToken.Group
               ? never
               : T[K] extends object
                 ? TokensOf<T[K]>
@@ -83,7 +83,7 @@ export namespace Library {
     type TokenGroup<T extends {}, R extends {}, G extends string> = {
         [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape
             ? Token<T[K], R, G>
-            : K extends "type"
+            : K extends keyof DesignToken.Group
               ? T[K]
               : T[K] extends {}
                 ? TokenLibrary<T[K], R, G>
@@ -91,12 +91,12 @@ export namespace Library {
     };
 
     /**
-     * Any object with a `value` of type `V`, such as a token.
+     * Any object with a `$value` of type `V`, such as a token.
      *
      * @public
      */
     export interface ValueSource<V> {
-        readonly value: V;
+        readonly $value: V;
     }
 
     /**
@@ -138,7 +138,7 @@ export namespace Library {
     export type Context<T extends {}, R extends {} = T> = {
         [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape
             ? Readonly<T[K]>
-            : K extends "type"
+            : K extends keyof DesignToken.Group
               ? T[K]
               : T[K] extends {}
                 ? Context<T[K], R>
@@ -150,7 +150,7 @@ export namespace Library {
      *
      * @remarks
      * `G` is the type inherited from ancestor groups, used when
-     * `T` does not declare a `type`.
+     * `T` does not declare a `$type`.
      *
      * @public
      */
@@ -161,10 +161,14 @@ export namespace Library {
     > = {
         set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
         toString(): string;
-        readonly type: DesignToken.TypeByToken<T, G>;
-        readonly extensions: Record<string, any>;
-        readonly value: DesignToken.ValueByToken<T>;
-        readonly description: string;
+        readonly $type: DesignToken.TypeByToken<T, G>;
+        readonly $extensions: Record<string, any>;
+        readonly $value: DesignToken.ValueByToken<T>;
+        readonly $description: string;
+        /**
+         * `false`, `true`, or the explanation the token was deprecated with.
+         */
+        readonly $deprecated: boolean | string;
         readonly name: string;
     };
 
@@ -179,22 +183,22 @@ export namespace Library {
      * {@link https://tr.designtokens.org/format/#type-1 | DTWG group type inheritance}.
      *
      * @remarks
-     * A group passes on its own `type` only when the group's shape declares a
-     * required, single, literal `type`. A group with an optional or non-literal
-     * `type` may set any type at runtime, so it passes on nothing. A group
-     * without a `type` passes on its ancestor's type, `G`.
+     * A group passes on its own `$type` only when the group's shape declares a
+     * required, single, literal `$type`. A group with an optional or non-literal
+     * `$type` may set any type at runtime, so it passes on nothing. A group
+     * without a `$type` passes on its ancestor's type, `G`.
      *
      * @public
      */
-    export type GroupType<T, G extends string = never> = "type" extends keyof T
-        ? {} extends Pick<T, "type">
+    export type GroupType<T, G extends string = never> = "$type" extends keyof T
+        ? {} extends Pick<T, "$type">
             ? never
-            : T["type"] extends string
-              ? string extends T["type"]
+            : T["$type"] extends string
+              ? string extends T["$type"]
                   ? never
-                  : true extends IsUnion<T["type"]>
+                  : true extends IsUnion<T["$type"]>
                     ? never
-                    : T["type"]
+                    : T["$type"]
               : never
         : G;
 
@@ -213,7 +217,7 @@ export namespace Library {
      * A token in a configuration object.
      *
      * @remarks
-     * The token's `type` may only be omitted when it matches the type
+     * The token's `$type` may only be omitted when it matches the type
      * inherited from ancestor groups, `G`.
      *
      * @public
@@ -226,13 +230,13 @@ export namespace Library {
         // `T` is included so that `T` can be inferred when `Library.create`
         // is called without a type argument.
         | T
-        | (Omit<T, "type" | "value"> &
+        | (Omit<T, "$type" | "$value"> &
               ([G] extends [never]
-                  ? { type: DesignToken.TypeByToken<T> }
+                  ? { $type: DesignToken.TypeByToken<T> }
                   : [DesignToken.TypeByToken<T, G>] extends [G]
-                    ? { type?: DesignToken.TypeByToken<T, G> }
-                    : { type: DesignToken.TypeByToken<T> }) & {
-                  value: ConfigTokenValue<T, R>;
+                    ? { $type?: DesignToken.TypeByToken<T, G> }
+                    : { $type: DesignToken.TypeByToken<T> }) & {
+                  $value: ConfigTokenValue<T, R>;
               });
 
     /**
@@ -270,7 +274,7 @@ export namespace Library {
         K extends keyof T,
     > = T[K] extends DesignToken.Shape
         ? ConfigValue<T[K], R, G>
-        : K extends "type"
+        : K extends keyof DesignToken.Group
           ? T[K]
           : T[K] extends {}
             ? Config<T[K], R, G, K extends keyof S ? S[K] : {}>
@@ -286,15 +290,17 @@ export namespace Library {
      */
     export type ExtendConfig<T extends {}, R extends {} = T> = {
         [K in keyof T]?: T[K] extends DesignToken.Shape
-            ? Omit<T[K], "type" | "value"> & {
-                  type?: DesignToken.TypeByToken<T[K]>;
-                  value: ConfigTokenValue<T[K], R>;
+            ? Omit<T[K], "$type" | "$value"> & {
+                  $type?: DesignToken.TypeByToken<T[K]>;
+                  $value: ConfigTokenValue<T[K], R>;
               }
-            : K extends "type"
+            : K extends "$type"
               ? never
-              : T[K] extends {}
-                ? ExtendConfig<T[K], R>
-                : never;
+              : K extends keyof DesignToken.Group
+                ? T[K]
+                : T[K] extends {}
+                  ? ExtendConfig<T[K], R>
+                  : never;
     };
 
     /**
@@ -322,15 +328,6 @@ const isObject = <T>(value: T): value is T & {} => {
     return typeof value === "object" && value !== null;
 };
 
-/**
- * @internal
- */
-const isToken = <T extends DesignToken.Any>(
-    value: T | any,
-): value is DesignToken.Any => {
-    return isObject(value) && "value" in value;
-};
-
 const isGroup = (
     value: DesignToken.Group | any,
 ): value is DesignToken.Group => {
@@ -343,19 +340,40 @@ const isAlias = <T extends DesignToken.Any, K extends {}>(
     return typeof value === "function";
 };
 
+const GROUP_METADATA = [
+    "$type",
+    "$description",
+    "$extensions",
+    "$deprecated",
+] as const;
+
 /**
- * Stores a group's declared type on the library group so that extending
- * libraries can resolve inherited types. Non-enumerable so that group
- * iteration only visits tokens and child groups.
+ * Names beginning with `$` are for format properties, except `$root`: the
+ * reserved name of a group's own token.
  */
-const defineGroupType = (group: RawLibrary, type: string | undefined): void => {
-    if (type !== undefined) {
-        Reflect.defineProperty(group, "type", { value: type });
-    }
+const isChildKey = (key: string): boolean => {
+    return !key.startsWith("$") || key === "$root";
 };
 
-const getGroupType = (group: object): string | undefined => {
-    return Reflect.get(group, "type");
+/**
+ * Records a group's own `$`-prefixed properties on it. They are not
+ * enumerable, so they never appear as children when a group is walked, and
+ * they let extending libraries resolve inherited types.
+ */
+const defineGroupMetadata = (
+    group: RawLibrary,
+    ...sources: RawConfig[]
+): void => {
+    for (const property of GROUP_METADATA) {
+        for (const source of sources) {
+            if (source[property] !== undefined) {
+                Reflect.defineProperty(group, property, {
+                    value: source[property],
+                });
+                break;
+            }
+        }
+    }
 };
 
 const defineToken = (
@@ -382,21 +400,30 @@ const createToken = (
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): LibraryToken<any> => {
-    const { value, type, description, extensions } = config;
-    const resolvedType = type || typeContext;
+    for (const property of Object.keys(config)) {
+        if (!property.startsWith("$")) {
+            throw new Error(
+                `"${name}" has a $value, so it is a token and cannot have a child "${property}".`,
+            );
+        }
+    }
+
+    const { $value, $type, $description, $extensions, $deprecated } = config;
+    const resolvedType = $type || typeContext;
     if (!resolvedType) {
         throw new Error(
-            `No 'type' found for token '${key}'. Types cannot be inferred, please add a type to the token or to a group ancestor.`,
+            `No '$type' found for token '${key}'. Types cannot be inferred, please add a $type to the token or to a group ancestor.`,
         );
     }
 
     return new LibraryToken(
         name,
-        value,
+        $value,
         resolvedType,
         context,
-        description || "",
-        extensions || {},
+        $description || "",
+        $extensions || {},
+        $deprecated ?? false,
         queue,
     );
 };
@@ -409,11 +436,11 @@ const recurseCreate = (
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
-    defineGroupType(library, config.type);
-    typeContext = config.type || typeContext;
+    defineGroupMetadata(library, config);
+    typeContext = config.$type || typeContext;
 
     for (const key in config) {
-        if (key === "type") {
+        if (!isChildKey(key)) {
             continue;
         }
 
@@ -460,18 +487,24 @@ const recurseExtend = (
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
-    // The source library's group type takes precedence; `type` cannot be changed by extension
-    const groupType = getGroupType(sourceTokens) || config.type;
-    defineGroupType(extendedTokens, groupType);
+    // The source library's group type takes precedence; `$type` cannot be changed by extension
+    const groupType = Reflect.get(sourceTokens, "$type") || config.$type;
+    defineGroupMetadata(
+        extendedTokens,
+        { $type: groupType },
+        // An extension may restate the group's other metadata.
+        { ...config, $type: undefined },
+        sourceTokens,
+    );
     typeContext = groupType || typeContext;
 
-    const keys = new Set(Object.keys(sourceTokens).concat(Object.keys(config))); // Remove duplicate keys
+    const keys = new Set(
+        Object.keys(sourceTokens)
+            .concat(Object.keys(config))
+            .filter(isChildKey),
+    ); // Remove duplicate keys
 
     for (const key of keys) {
-        if (key === "type") {
-            continue;
-        }
-
         const _name = name.length === 0 ? key : `${name}.${key}`;
         const sourceHasKey = key in sourceTokens;
         const sourceValue = sourceTokens[key];
@@ -511,7 +544,7 @@ const recurseExtend = (
                       sourceValue as Library.Token<any, any>,
                       context,
                       queue,
-                      configValue?.value,
+                      configValue,
                   )
                 : createToken(
                       key,
@@ -530,16 +563,29 @@ function extendToken(
     token: Library.Token<any, any>,
     context: Library.Context<any>,
     queue: IQueue<any>,
-    value?: any,
+    node?: Record<string, any>,
 ) {
     const extendingToken = Object.create(token);
     extendingToken.context = context;
     extendingToken.cached = empty;
+    extendingToken.resolving = false;
+    extendingToken.notifying = false;
     extendingToken.watchContext = extendingToken;
     extendingToken.queue = queue;
 
-    if (value !== undefined) {
-        extendingToken.raw = value;
+    // An extension can restate the token's metadata along with its value.
+    if (node?.$description !== undefined) {
+        extendingToken._description = node.$description;
+    }
+    if (node?.$extensions !== undefined) {
+        extendingToken._extensions = node.$extensions;
+    }
+    if (node?.$deprecated !== undefined) {
+        extendingToken._deprecated = node.$deprecated;
+    }
+
+    if (node !== undefined && "$value" in node) {
+        extendingToken.raw = node.$value;
     } else {
         // Subscribe to changes
         // spy on set, unsubscribe when set
@@ -548,7 +594,7 @@ function extendToken(
                 extendingToken.onChange();
             },
         };
-        // token.value;
+        // token.$value;
         getNotifier(token).subscribe(subscriber);
         const set = extendingToken.set;
         extendingToken.set = (value: any) => {
@@ -573,7 +619,7 @@ const recurseResolve = (value: any, context: Library.Context<any>) => {
         // Only unwrap library tokens. Plain objects with a `value` key are
         // data, e.g. a custom token value.
         if (v instanceof LibraryToken) {
-            v = v.value;
+            v = v.$value;
         }
 
         if (isObject(v)) {
@@ -630,6 +676,8 @@ class LibraryToken<T extends DesignToken.Any>
 {
     private raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
     private cached: DesignToken.ValueByToken<T> | typeof empty = empty;
+    private resolving = false;
+    private notifying = false;
     private subscriptions: Set<INotifier<any>> = new Set();
 
     constructor(
@@ -639,45 +687,62 @@ class LibraryToken<T extends DesignToken.Any>
         private readonly context: Library.Context<any>,
         private readonly _description: string,
         private readonly _extensions: Record<string, any>,
+        private readonly _deprecated: boolean | string,
         private queue: IQueue<Library.Token<DesignToken.Any, any>>,
     ) {
         this.raw = value;
         this.context = context;
     }
 
-    public get type() {
+    public get $deprecated() {
+        return this._deprecated;
+    }
+
+    public get $type() {
         return this._type;
     }
 
-    public get description() {
+    public get $description() {
         return this._description;
     }
 
-    public get extensions() {
+    public get $extensions() {
         return this._extensions;
     }
 
     /**
      * Gets the token value
      */
-    public get value(): T["value"] {
+    public get $value(): DesignToken.ValueByToken<T> {
         if (this.cached !== empty) {
             return this.cached;
         }
 
+        if (this.resolving) {
+            throw new Error(
+                `Circular reference: the value of "${this.name}" depends on itself.`,
+            );
+        }
+
         this.disconnect();
+        this.resolving = true;
         const stopWatching = Watcher.use(this);
-        const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
-        const normalized = raw instanceof LibraryToken ? raw.value : raw;
 
-        const value = isObject(normalized)
-            ? recurseResolve(normalized, this.context)
-            : normalized;
+        try {
+            const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
+            const normalized = raw instanceof LibraryToken ? raw.$value : raw;
 
-        this.cached = value;
-        stopWatching();
+            const value = isObject(normalized)
+                ? recurseResolve(normalized, this.context)
+                : normalized;
 
-        return value;
+            this.cached = value;
+
+            return value;
+        } finally {
+            this.resolving = false;
+            stopWatching();
+        }
     }
 
     public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
@@ -686,10 +751,22 @@ class LibraryToken<T extends DesignToken.Any>
     }
 
     public onChange(): void {
-        this.queue.add(this);
+        // A circular reference that threw while resolving still leaves the
+        // tokens subscribed to each other, so don't notify re-entrantly.
+        if (this.notifying) {
+            return;
+        }
 
-        this.cached = empty;
-        getNotifier(this).notify();
+        this.notifying = true;
+
+        try {
+            this.queue.add(this);
+
+            this.cached = empty;
+            getNotifier(this).notify();
+        } finally {
+            this.notifying = false;
+        }
     }
 
     public watch(source: Object): void {

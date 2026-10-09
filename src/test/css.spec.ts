@@ -15,8 +15,8 @@ interface Config<T extends DesignToken.Any> {
 toCssSuite("should convert Border", () => {
     const config: Config<DesignToken.Border> = {
         token: {
-            type: DesignToken.Type.Border,
-            value: { color: "#FFFFFF", style: "dashed", width: "2px" },
+            $type: DesignToken.Type.Border,
+            $value: { color: "#FFFFFF", style: "dashed", width: "2px" },
         },
     };
     const library = Library.create(config);
@@ -27,8 +27,8 @@ toCssSuite("should convert Border", () => {
 toCssSuite("should convert Color", () => {
     const config: Config<DesignToken.Color> = {
         token: {
-            type: DesignToken.Type.Color,
-            value: "#FF0000",
+            $type: DesignToken.Type.Color,
+            $value: "#FF0000",
         },
     };
     const library = Library.create(config);
@@ -39,8 +39,8 @@ toCssSuite("should convert Color", () => {
 toCssSuite("should convert CubicBezier", () => {
     const config: Config<DesignToken.CubicBezier> = {
         token: {
-            type: DesignToken.Type.CubicBezier,
-            value: [0, 0.5, 0.9, 0.7],
+            $type: DesignToken.Type.CubicBezier,
+            $value: [0, 0.5, 0.9, 0.7],
         },
     };
     const library = Library.create(config);
@@ -51,8 +51,8 @@ toCssSuite("should convert CubicBezier", () => {
 toCssSuite("should convert Dimension", () => {
     const config: Config<DesignToken.Dimension> = {
         token: {
-            type: DesignToken.Type.Dimension,
-            value: "2px",
+            $type: DesignToken.Type.Dimension,
+            $value: "2px",
         },
     };
     const library = Library.create(config);
@@ -63,8 +63,8 @@ toCssSuite("should convert Dimension", () => {
 toCssSuite("should convert Duration", () => {
     const config: Config<DesignToken.Duration> = {
         token: {
-            type: DesignToken.Type.Duration,
-            value: "100ms",
+            $type: DesignToken.Type.Duration,
+            $value: "100ms",
         },
     };
     const library = Library.create(config);
@@ -75,8 +75,8 @@ toCssSuite("should convert Duration", () => {
 toCssSuite("should convert single FontFamily", () => {
     const config: Config<DesignToken.FontFamily> = {
         token: {
-            type: DesignToken.Type.FontFamily,
-            value: "Comic Sans",
+            $type: DesignToken.Type.FontFamily,
+            $value: "Comic Sans",
         },
     };
     const library = Library.create(config);
@@ -87,8 +87,8 @@ toCssSuite("should convert single FontFamily", () => {
 toCssSuite("should convert multiple FontFamily", () => {
     const config: Config<DesignToken.FontFamily> = {
         token: {
-            type: DesignToken.Type.FontFamily,
-            value: ["Comic Sans", "Courier New", "serif"],
+            $type: DesignToken.Type.FontFamily,
+            $value: ["Comic Sans", "Courier New", "serif"],
         },
     };
     const library = Library.create(config);
@@ -99,9 +99,9 @@ toCssSuite("should convert multiple FontFamily", () => {
 toCssSuite("should fix malformed FontFamily", () => {
     const config: Config<DesignToken.FontFamily> = {
         token: {
-            type: DesignToken.Type.FontFamily,
+            $type: DesignToken.Type.FontFamily,
             // prettier-ignore
-            value: ['"Comic Sans', 'Courier New"', '\'serif', 'system\''],
+            $value: ['"Comic Sans', 'Courier New"', '\'serif', 'system\''],
         },
     };
 
@@ -113,8 +113,8 @@ toCssSuite("should fix malformed FontFamily", () => {
 toCssSuite("should convert keyword FontWeight", () => {
     const config: Config<DesignToken.FontWeight> = {
         token: {
-            type: DesignToken.Type.FontWeight,
-            value: "heavy",
+            $type: DesignToken.Type.FontWeight,
+            $value: "heavy",
         },
     };
 
@@ -126,8 +126,8 @@ toCssSuite("should convert keyword FontWeight", () => {
 toCssSuite("should convert numerical FontWeight", () => {
     const config: Config<DesignToken.FontWeight> = {
         token: {
-            type: DesignToken.Type.FontWeight,
-            value: 400,
+            $type: DesignToken.Type.FontWeight,
+            $value: 400,
         },
     };
 
@@ -139,8 +139,8 @@ toCssSuite("should convert numerical FontWeight", () => {
 toCssSuite("should convert Gradient", () => {
     const config: Config<DesignToken.Gradient> = {
         token: {
-            type: DesignToken.Type.Gradient,
-            value: [
+            $type: DesignToken.Type.Gradient,
+            $value: [
                 { color: "#FFFFFF", position: 0 },
                 { color: "#AAAAAA", position: 0.5 },
                 { color: "#000000", position: 1 },
@@ -156,8 +156,8 @@ toCssSuite("should convert Gradient", () => {
 toCssSuite("should convert Number", () => {
     const config: Config<DesignToken.Number> = {
         token: {
-            type: DesignToken.Type.Number,
-            value: 12,
+            $type: DesignToken.Type.Number,
+            $value: 12,
         },
     };
 
@@ -169,8 +169,8 @@ toCssSuite("should convert Number", () => {
 toCssSuite("should convert Shadow", () => {
     const config: Config<DesignToken.Shadow> = {
         token: {
-            type: DesignToken.Type.Shadow,
-            value: {
+            $type: DesignToken.Type.Shadow,
+            $value: {
                 color: "#FFFFFF",
                 blur: "2px",
                 offsetX: "0px",
@@ -197,13 +197,13 @@ toPropertiesSuite(
             };
         }
         const config: Library.Config<Theme> = {
-            a: { type: DesignToken.Type.Color, value: "#FFFFFF" },
+            a: { $type: DesignToken.Type.Color, $value: "#FFFFFF" },
             b: {
                 c: {
-                    type: DesignToken.Type.Border,
-                    value: { color: "#FFF", style: "solid", width: "2px" },
+                    $type: DesignToken.Type.Border,
+                    $value: { color: "#FFF", style: "solid", width: "2px" },
                 },
-                d: { type: DesignToken.Type.Dimension, value: "4px" },
+                d: { $type: DesignToken.Type.Dimension, $value: "4px" },
             },
         };
 
@@ -221,16 +221,16 @@ toPropertiesSuite(
 const C = DesignToken.Type.Color;
 
 interface Grouped {
-    g: { type: DesignToken.Type.Color; a: DesignToken.Color };
+    g: { $type: DesignToken.Type.Color; a: DesignToken.Color };
 }
 
 const grouped = () =>
-    Library.create<Grouped>({ g: { type: C, a: { value: "#111111" } } });
+    Library.create<Grouped>({ g: { $type: C, a: { $value: "#111111" } } });
 
 toCssSuite("concatenates multiple flat tokens in order", () => {
     const library = Library.create<AB>({
-        a: { type: C, value: "#111111" },
-        b: { type: C, value: "#222222" },
+        a: { $type: C, $value: "#111111" },
+        b: { $type: C, $value: "#222222" },
     });
 
     Assert.is(toCSS(library), "--a:#111111;--b:#222222;");
@@ -239,12 +239,12 @@ toCssSuite("concatenates multiple flat tokens in order", () => {
 toCssSuite("emits tokens declared before a nested group", () => {
     interface Theme {
         a: DesignToken.Color;
-        g: { type: DesignToken.Type.Color; b: DesignToken.Color };
+        g: { $type: DesignToken.Type.Color; b: DesignToken.Color };
     }
     const result = toCSS(
         Library.create<Theme>({
-            a: { type: C, value: "#111111" },
-            g: { type: C, b: { value: "#222222" } },
+            a: { $type: C, $value: "#111111" },
+            g: { $type: C, b: { $value: "#222222" } },
         }),
     );
 
@@ -254,13 +254,13 @@ toCssSuite("emits tokens declared before a nested group", () => {
 
 toCssSuite("emits tokens from sibling groups", () => {
     interface Theme {
-        g1: { type: DesignToken.Type.Color; x: DesignToken.Color };
-        g2: { type: DesignToken.Type.Color; y: DesignToken.Color };
+        g1: { $type: DesignToken.Type.Color; x: DesignToken.Color };
+        g2: { $type: DesignToken.Type.Color; y: DesignToken.Color };
     }
     const result = toCSS(
         Library.create<Theme>({
-            g1: { type: C, x: { value: "#111111" } },
-            g2: { type: C, y: { value: "#222222" } },
+            g1: { $type: C, x: { $value: "#111111" } },
+            g2: { $type: C, y: { $value: "#222222" } },
         }),
     );
 
@@ -291,8 +291,8 @@ toCssSuite.skip(
     () => {
         const config: Config<DesignToken.Transition> = {
             token: {
-                type: DesignToken.Type.Transition,
-                value: {
+                $type: DesignToken.Type.Transition,
+                $value: {
                     duration: "100ms",
                     delay: "0ms",
                     timingFunction: [0, 0, 1, 1],
@@ -309,7 +309,7 @@ toCssSuite.skip(
 
 toCssSuite("passes StrokeStyle keywords through", () => {
     const config: Config<DesignToken.StrokeStyle> = {
-        token: { type: DesignToken.Type.StrokeStyle, value: "dotted" },
+        token: { $type: DesignToken.Type.StrokeStyle, $value: "dotted" },
     };
 
     Assert.is(toCSS(Library.create(config)), "--token:dotted;");
@@ -318,8 +318,8 @@ toCssSuite("passes StrokeStyle keywords through", () => {
 toCssSuite("converts object StrokeStyle to 'dashed'", () => {
     const config: Config<DesignToken.StrokeStyle> = {
         token: {
-            type: DesignToken.Type.StrokeStyle,
-            value: { dashArray: ["1px", "2px"], lineCap: "round" },
+            $type: DesignToken.Type.StrokeStyle,
+            $value: { dashArray: ["1px", "2px"], lineCap: "round" },
         },
     };
 
@@ -329,8 +329,8 @@ toCssSuite("converts object StrokeStyle to 'dashed'", () => {
 toCssSuite.skip("converts Typography to a font shorthand (fails: #11)", () => {
     const config: Config<DesignToken.Typography> = {
         token: {
-            type: DesignToken.Type.Typography,
-            value: {
+            $type: DesignToken.Type.Typography,
+            $value: {
                 fontFamily: "Comic Sans",
                 fontSize: "12px",
                 fontWeight: 400,
@@ -351,8 +351,8 @@ toCssSuite.skip(
     () => {
         const config: Config<DesignToken.Gradient> = {
             token: {
-                type: DesignToken.Type.Gradient,
-                value: [
+                $type: DesignToken.Type.Gradient,
+                $value: [
                     { color: "#111111", position: 0.07 },
                     { color: "#222222", position: 0.333 },
                 ],
@@ -374,11 +374,11 @@ toCssSuite("normalizes quoting for single-word FontFamily", () => {
     }
     const result = toCSS(
         Library.create<Theme>({
-            a: { type: DesignToken.Type.FontFamily, value: "'Arial'" },
-            b: { type: DesignToken.Type.FontFamily, value: "Arial" },
+            a: { $type: DesignToken.Type.FontFamily, $value: "'Arial'" },
+            b: { $type: DesignToken.Type.FontFamily, $value: "Arial" },
             c: {
-                type: DesignToken.Type.FontFamily,
-                value: '"Times New Roman"',
+                $type: DesignToken.Type.FontFamily,
+                $value: '"Times New Roman"',
             },
         }),
     );
@@ -396,10 +396,10 @@ toCssSuite("emits resolved values for deep alias tokens", () => {
         b: DesignToken.Border;
     }
     const library = Library.create<Theme>({
-        a: { type: C, value: "#111111" },
+        a: { $type: C, $value: "#111111" },
         b: {
-            type: DesignToken.Type.Border,
-            value: {
+            $type: DesignToken.Type.Border,
+            $value: {
                 color: (context) => context.a,
                 width: "1px",
                 style: "solid",
@@ -411,14 +411,14 @@ toCssSuite("emits resolved values for deep alias tokens", () => {
 });
 
 toCssSuite("emits overrides for a flat extended library", () => {
-    const extended = aliasedPair().extend<{}>({ a: { value: "#999999" } });
+    const extended = aliasedPair().extend<{}>({ a: { $value: "#999999" } });
 
     Assert.is(toCSS(extended), "--a:#999999;--b:#999999;");
 });
 
 toCssSuite("emits tokens for an extended library with groups", () => {
     const extended = grouped().extend<{}>({
-        g: { a: { value: "#999999" } },
+        g: { a: { $value: "#999999" } },
     });
 
     Assert.ok(toCSS(extended).includes(":#999999;"));
@@ -429,7 +429,7 @@ toCssSuite("an empty library emits an empty string", () => {
 });
 
 toCssSuite("reflects a value after set()", () => {
-    const library = Library.create<A>({ a: { type: C, value: "#111111" } });
+    const library = Library.create<A>({ a: { $type: C, $value: "#111111" } });
 
     library.tokens.a.set("#222222");
 
@@ -438,11 +438,13 @@ toCssSuite("reflects a value after set()", () => {
 
 toPropertiesSuite("supports deep nesting", () => {
     interface Theme {
-        a: { b: { c: { type: DesignToken.Type.Color; d: DesignToken.Color } } };
+        a: {
+            b: { c: { $type: DesignToken.Type.Color; d: DesignToken.Color } };
+        };
     }
     const properties = toProperties(
         Library.create<Theme>({
-            a: { b: { c: { type: C, d: { value: "#111111" } } } },
+            a: { b: { c: { $type: C, d: { $value: "#111111" } } } },
         }),
     );
 
@@ -459,7 +461,7 @@ toPropertiesSuite("groups and property values are frozen", () => {
 
 toPropertiesSuite.skip("the root object is frozen (fails: #23)", () => {
     const properties = toProperties(
-        Library.create<A>({ a: { type: C, value: "#111111" } }),
+        Library.create<A>({ a: { $type: C, $value: "#111111" } }),
     );
 
     Assert.ok(Object.isFrozen(properties));
@@ -467,8 +469,8 @@ toPropertiesSuite.skip("the root object is frozen (fails: #23)", () => {
 
 toPropertiesSuite("supports a flat extended library with new tokens", () => {
     const extended = Library.create<A>({
-        a: { type: C, value: "#111111" },
-    }).extend<{ b: DesignToken.Color }>({ b: { type: C, value: "#222222" } });
+        a: { $type: C, $value: "#111111" },
+    }).extend<{ b: DesignToken.Color }>({ b: { $type: C, $value: "#222222" } });
     const properties = toProperties(extended);
 
     Assert.is(properties.a.property, "--a");
@@ -483,7 +485,7 @@ toPropertiesSuite("supports an extended library with groups", () => {
 
 toPropertiesSuite("keeps tokenless groups as empty groups", () => {
     const properties = toProperties(
-        Library.create({ g: { x: 1 }, b: { type: C, value: "#111111" } }),
+        Library.create({ g: { x: 1 }, b: { $type: C, $value: "#111111" } }),
     );
 
     Assert.equal(Object.keys(properties), ["g", "b"]);
@@ -495,7 +497,7 @@ toPropertiesSuite("preserves name casing", () => {
         tOkEn: DesignToken.Color;
     }
     const properties = toProperties(
-        Library.create<Theme>({ tOkEn: { type: C, value: "#111111" } }),
+        Library.create<Theme>({ tOkEn: { $type: C, $value: "#111111" } }),
     );
 
     Assert.is(properties.tOkEn.property, "--tOkEn");

@@ -1,5 +1,6 @@
 import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
+import { isToken } from "./utilities.js";
 
 /**
  * Converts a token value to a CSS value.
@@ -19,7 +20,7 @@ export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (
  */
 export type CustomTokensOf<T> = Exclude<
     Library.TokensOf<T>,
-    { type?: DesignToken.Type }
+    { $type?: DesignToken.Type }
 >;
 
 /**
@@ -31,8 +32,8 @@ export type CustomTokensOf<T> = Exclude<
 export type CSSConverters<T> = ConvertersOf<CustomTokensOf<T>>;
 
 type ConvertersOf<C> = {
-    [N in C extends { type: infer N extends string } ? N : never]: C extends {
-        type: N;
+    [N in C extends { $type: infer N extends string } ? N : never]: C extends {
+        $type: N;
     }
         ? C extends DesignToken.Shape
             ? CSSConverter<DesignToken.ValueByToken<C>, C>
@@ -105,7 +106,11 @@ export function toCSS<T extends {}, R extends {}>(
 
 type NameFn = (token: Library.Token<any, any>) => string;
 
-const defaultName: NameFn = (token) => token.name.replaceAll(".", "-");
+/**
+ * A group's `$root` token is named for the group, so `color.$root` is `--color`.
+ */
+const defaultName: NameFn = (token) =>
+    token.name.replace(/\.\$root$/, "").replaceAll(".", "-");
 
 type RuntimeConverters = Readonly<Record<string, CSSConverter<any>>>;
 
@@ -122,7 +127,7 @@ interface CSSPropertyValues {
 export type CSSPropertiesLibrary<T extends {}> = {
     [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape
         ? CSSPropertyValues
-        : K extends "type"
+        : K extends keyof DesignToken.Group
           ? T[K]
           : T[K] extends {}
             ? CSSPropertiesLibrary<T[K]>
@@ -143,7 +148,7 @@ export function toProperties<T extends Library.Library<any>>(
         properties: CSSPropertiesLibrary<any>,
     ) => {
         for (const key in section) {
-            const sectionValue = section[key];
+            const sectionValue: any = section[key];
 
             if (isToken(sectionValue)) {
                 const property = `--${getName(sectionValue)}`;
@@ -172,12 +177,6 @@ export function toProperties<T extends Library.Library<any>>(
     return properties;
 }
 
-const isToken = (
-    value: Library.TokenLibrary<any> | Library.Token<any, any>,
-): value is Library.Token<any, any> => {
-    return "value" in value;
-};
-
 const standardTypes: ReadonlySet<string> = new Set(
     Object.values(DesignToken.Type),
 );
@@ -192,8 +191,8 @@ const recurseToCss = (
         const tokenOrGroup = librarySection[key];
 
         if (isToken(tokenOrGroup)) {
-            const { type, name } = tokenOrGroup;
-            let value = tokenOrGroup.value;
+            const { $type: type, name } = tokenOrGroup;
+            let value = tokenOrGroup.$value;
 
             if (Reflect.has(TokenConverters, type)) {
                 value = Reflect.get(TokenConverters, type)(value);

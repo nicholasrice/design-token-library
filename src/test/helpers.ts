@@ -34,8 +34,8 @@ export interface ABC {
  */
 export function aliasedPair() {
     return Library.create<AB>({
-        a: { type: DesignToken.Type.Color, value: "#111111" },
-        b: { type: DesignToken.Type.Color, value: (context) => context.a },
+        a: { $type: DesignToken.Type.Color, $value: "#111111" },
+        b: { $type: DesignToken.Type.Color, $value: (context) => context.a },
     });
 }
 
