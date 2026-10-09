@@ -476,4 +476,26 @@ Extend(
     },
 );
 
+Extend(
+    "resolving an extended token does not affect its source token's dependencies",
+    async () => {
+        const source = aliasedPair();
+        const changes = recorder();
+        source.subscribe(changes);
+        source.tokens.b.$value;
+        source.extend({}).tokens.b.$value;
+
+        // `b` no longer depends on `a` once it is recomputed.
+        source.tokens.b.set(hex("#222222"));
+        source.tokens.b.$value;
+        await nextUpdate();
+        changes.batches.length = 0;
+
+        source.tokens.a.set(hex("#333333"));
+        await nextUpdate();
+
+        Assert.equal(changes.batches, [["a"]]);
+    },
+);
+
 Extend.run();
