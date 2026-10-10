@@ -25,10 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Library.Subscriber` records are a union of the library's tokens, discriminated by `type`, instead of `Token<DesignToken.Any>`.
 - Token values that are plain objects with a `value` key are no longer unwrapped as tokens; only library tokens are.
 - Array values resolve faster: they are copied with an indexed loop instead of `for...in`. Holes in a sparse array value now resolve to `undefined` elements.
+- Recomputing a token keeps its subscriptions to the dependencies it reads again, instead of unsubscribing from all of them and subscribing again, which makes updates faster.
 
 ### Fixed
 
 - `DeepAlias` accepts aliases inside Gradient stops (#28).
+- Resolving a token of an extended library no longer disconnects its source token from its dependencies, which left the source token reported as changed when a dependency it no longer used changed.
 - Number aliases in a CubicBezier accept Number tokens (#29).
 
 - `Library.extend()` no longer throws when the source library contains groups.

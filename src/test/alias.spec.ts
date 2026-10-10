@@ -319,6 +319,23 @@ Alias(
 );
 
 Alias(
+    "an alias keeps tracking a dependency it reads on every recompute",
+    async () => {
+        const library = aliasedPair();
+        const subscriber = recorder();
+        library.subscribe(subscriber);
+
+        for (const value of ["#222222", "#333333", "#444444"]) {
+            library.tokens.a.set(hex(value));
+            Assert.equal(library.tokens.b.$value, hex(value));
+        }
+        await nextUpdate();
+
+        Assert.equal(subscriber.batches, [["a", "b"]]);
+    },
+);
+
+Alias(
     "setting a static value stops tracking the previous alias dependency",
     async () => {
         const library = aliasedPair();
