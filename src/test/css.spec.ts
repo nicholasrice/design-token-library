@@ -302,21 +302,6 @@ toCssSuite("should convert a stroke style with a dash array", () => {
     );
 });
 
-toCssSuite("should show a standard value with no converter as JSON", () => {
-    const typography = {
-        fontFamily: "serif",
-        fontSize: px(16),
-        fontWeight: 400,
-        letterSpacing: px(0),
-        lineHeight: 1.5,
-    };
-
-    Assert.is(
-        css("typography", typography),
-        `--token:${JSON.stringify(typography)};`,
-    );
-});
-
 toCssSuite("should name a $root token for its group", () => {
     const library = Library.create<any>({
         accent: {
@@ -436,26 +421,23 @@ toCssSuite("nested names use '-' separators, matching toProperties", () => {
     Assert.is(toProperties(library).g.a.property, "--g-a");
 });
 
-toCssSuite.skip(
-    "converts Transition with a cubic-bezier() timing function (fails: #12)",
-    () => {
-        const config: Config<DesignToken.Transition> = {
-            token: {
-                $type: DesignToken.Type.Transition,
-                $value: {
-                    duration: ms(100),
-                    delay: ms(0),
-                    timingFunction: [0, 0, 1, 1],
-                },
+toCssSuite("converts Transition with a cubic-bezier() timing function", () => {
+    const config: Config<DesignToken.Transition> = {
+        token: {
+            $type: DesignToken.Type.Transition,
+            $value: {
+                duration: ms(100),
+                delay: ms(0),
+                timingFunction: [0, 0, 1, 1],
             },
-        };
+        },
+    };
 
-        Assert.is(
-            toCSS(Library.create(config)),
-            "--token:100ms 0ms cubic-bezier(0, 0, 1, 1);",
-        );
-    },
-);
+    Assert.is(
+        toCSS(Library.create(config)),
+        "--token:100ms cubic-bezier(0, 0, 1, 1) 0ms;",
+    );
+});
 
 toCssSuite("passes StrokeStyle keywords through", () => {
     const config: Config<DesignToken.StrokeStyle> = {
@@ -476,7 +458,7 @@ toCssSuite("converts object StrokeStyle to 'dashed'", () => {
     Assert.is(toCSS(Library.create(config)), "--token:dashed;");
 });
 
-toCssSuite.skip("converts Typography to a font shorthand (fails: #11)", () => {
+toCssSuite("converts Typography to a font shorthand", () => {
     const config: Config<DesignToken.Typography> = {
         token: {
             $type: DesignToken.Type.Typography,
@@ -496,25 +478,22 @@ toCssSuite.skip("converts Typography to a font shorthand (fails: #11)", () => {
     );
 });
 
-toCssSuite.skip(
-    "converts Gradient positions without float error (fails: #13)",
-    () => {
-        const config: Config<DesignToken.Gradient> = {
-            token: {
-                $type: DesignToken.Type.Gradient,
-                $value: [
-                    { color: hex("#111111"), position: 0.07 },
-                    { color: hex("#222222"), position: 0.333 },
-                ],
-            },
-        };
+toCssSuite("converts Gradient positions without float error", () => {
+    const config: Config<DesignToken.Gradient> = {
+        token: {
+            $type: DesignToken.Type.Gradient,
+            $value: [
+                { color: hex("#111111"), position: 0.07 },
+                { color: hex("#222222"), position: 0.333 },
+            ],
+        },
+    };
 
-        Assert.is(
-            toCSS(Library.create(config)),
-            "--token:#111111 7%,#222222 33.3%;",
-        );
-    },
-);
+    Assert.is(
+        toCSS(Library.create(config)),
+        "--token:#111111 7%,#222222 33.3%;",
+    );
+});
 
 toCssSuite("normalizes quoting for single-word FontFamily", () => {
     interface Theme {

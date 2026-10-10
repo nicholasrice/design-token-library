@@ -113,14 +113,6 @@ type NameFn = (token: Library.Token<any, any>) => string;
 const defaultName: NameFn = (token) =>
     token.name.replace(/\.\$root$/, "").replaceAll(".", "-");
 
-const needsJSON = (value: unknown): boolean => {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        (!Array.isArray(value) || value.some((v) => typeof v === "object"))
-    );
-};
-
 type RuntimeConverters = Readonly<Record<string, CSSConverter<any>>>;
 
 interface CSSPropertyValues {
@@ -211,10 +203,6 @@ const recurseToCss = (
                 throw new Error(
                     `No CSS converter provided for custom type '${type}' of token '${name}'.`,
                 );
-            } else if (needsJSON(value)) {
-                // A standard type with no converter: show the value rather
-                // than "[object Object]".
-                value = JSON.stringify(value);
             }
             result += `--${getName(tokenOrGroup)}:${value};`;
         } else {
@@ -337,9 +325,10 @@ const gradientReducer = (
     accumulated: string,
     value: Unpacked<DesignToken.Values.Gradient>,
 ): string => {
-    return (
-        accumulated + `${colorConverter(value.color)} ${value.position * 100}%,`
-    );
+    // Round away float artifacts, e.g. 0.07 * 100 is 7.000000000000001.
+    const position = Number((value.position * 100).toPrecision(12));
+
+    return accumulated + `${colorConverter(value.color)} ${position}%,`;
 };
 const gradientConverter = (value: DesignToken.Values.Gradient): string => {
     return value.reduce(gradientReducer, "").replace(/,$/, "");
@@ -373,6 +362,16 @@ const transitionConverter = (value: DesignToken.Values.Transition): string => {
     )} ${durationConverter(value.delay)}`;
 };
 
+/**
+ * Convert typography to the CSS `font` shorthand. `letterSpacing` cannot be
+ * expressed in the shorthand, so it is omitted.
+ */
+const typographyConverter = (value: DesignToken.Values.Typography): string => {
+    return `${fontWeightConverter(value.fontWeight)} ${dimensionConverter(
+        value.fontSize,
+    )}/${value.lineHeight} ${fontFamilyConverter(value.fontFamily)}`;
+};
+
 const TokenConverters = {
     [DesignToken.Type.Border]: borderConverter,
     [DesignToken.Type.Color]: colorConverter,
@@ -385,4 +384,5 @@ const TokenConverters = {
     [DesignToken.Type.Shadow]: shadowConverter,
     [DesignToken.Type.StrokeStyle]: strokeStyleConverter,
     [DesignToken.Type.Transition]: transitionConverter,
+    [DesignToken.Type.Typography]: typographyConverter,
 };
