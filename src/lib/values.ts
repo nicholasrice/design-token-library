@@ -3,7 +3,7 @@ import type { DesignToken } from "./design-token.js";
 const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
 
 /**
- * Builds a 2025.10 sRGB color from a CSS hex string: `#RGB`, `#RRGGBB` or
+ * Builds a 2025.10 sRGB color from a hex color string: `#RGB`, `#RRGGBB` or
  * `#RRGGBBAA`.
  *
  * @throws A `TypeError` when the string is not a hex color.
