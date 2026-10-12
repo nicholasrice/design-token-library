@@ -583,6 +583,7 @@ function extendToken(
     // Its own dependencies; sharing the source's set would let either token
     // drop the other's subscriptions.
     extendingToken.subscriptions = new Set();
+    extendingToken.previousSubscriptions = null;
     extendingToken.watchContext = extendingToken;
     extendingToken.queue = queue;
 
@@ -720,6 +721,11 @@ class LibraryToken<T extends DesignToken.Any>
     private resolving = false;
     private notifying = false;
     private subscriptions: Set<INotifier<any>> = new Set();
+    /**
+     * While resolving, the subscriptions from the previous resolution. Sources
+     * watched again keep their subscription instead of re-subscribing.
+     */
+    private previousSubscriptions: Set<INotifier<any>> | null = null;
 
     constructor(
         public readonly name: string,
@@ -765,7 +771,9 @@ class LibraryToken<T extends DesignToken.Any>
             );
         }
 
-        this.disconnect();
+        const previous = this.subscriptions;
+        this.previousSubscriptions = previous;
+        this.subscriptions = new Set();
         this.resolving = true;
         const stopWatching = Watcher.use(this);
 
@@ -783,6 +791,14 @@ class LibraryToken<T extends DesignToken.Any>
         } finally {
             this.resolving = false;
             stopWatching();
+            this.previousSubscriptions = null;
+
+            // Unsubscribe from sources that were not watched this time.
+            for (const notifier of previous) {
+                if (!this.subscriptions.has(notifier)) {
+                    notifier.unsubscribe(this);
+                }
+            }
         }
     }
 
@@ -812,17 +828,15 @@ class LibraryToken<T extends DesignToken.Any>
 
     public watch(source: Object): void {
         const notifier = getNotifier(source);
-        notifier.subscribe(this);
-        this.subscriptions.add(notifier);
-    }
 
-    /**
-     * Disconnect the token from it's subscriptions
-     */
-    public disconnect() {
-        for (const record of this.subscriptions.values()) {
-            record.unsubscribe(this);
-            this.subscriptions.delete(record);
+        if (this.subscriptions.has(notifier)) {
+            return;
+        }
+
+        this.subscriptions.add(notifier);
+
+        if (!this.previousSubscriptions?.has(notifier)) {
+            notifier.subscribe(this);
         }
     }
 }
