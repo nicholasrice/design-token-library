@@ -580,6 +580,9 @@ function extendToken(
     extendingToken.cached = empty;
     extendingToken.resolving = false;
     extendingToken.notifying = false;
+    // Its own dependencies; sharing the source's set would let either token
+    // drop the other's subscriptions.
+    extendingToken.subscriptions = new Set();
     extendingToken.watchContext = extendingToken;
     extendingToken.queue = queue;
 
