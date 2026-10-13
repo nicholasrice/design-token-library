@@ -618,6 +618,15 @@ Circular("breaking a cycle with set() makes tokens resolve again", () => {
     Assert.equal(library.tokens.b.$value, hex("#111111"));
 });
 
+Circular(
+    "toString() on a token in a cycle throws CircularReferenceError",
+    () => {
+        const library = cyclicPair();
+
+        Assert.throws(() => String(library.tokens.a), isCircularReferenceError);
+    },
+);
+
 Circular("a non-cyclic diamond does not throw", () => {
     const stops = [
         {
