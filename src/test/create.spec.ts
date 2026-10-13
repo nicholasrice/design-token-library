@@ -280,17 +280,22 @@ Create("non-token entries in an extend config are ignored", () => {
     Assert.equal(Object.keys(extended.tokens), ["a"]);
 });
 
-Create.skip(
-    "an array config entry is ignored, not treated as a group (fails: #20)",
-    () => {
-        const library = Library.create({
-            a: [1, 2],
-            b: { $type: C, $value: hex("#111111") },
-        });
+Create("an array config entry is ignored, not treated as a group", () => {
+    const library = Library.create({
+        a: [1, 2],
+        b: { $type: C, $value: hex("#111111") },
+    });
 
-        Assert.equal(Object.keys(library.tokens), ["b"]);
-    },
-);
+    Assert.equal(Object.keys(library.tokens), ["b"]);
+});
+
+Create("an array entry in an extend config is ignored", () => {
+    const extended = Library.create<A>({
+        a: { $type: C, $value: hex("#111111") },
+    }).extend({ x: [1, 2] });
+
+    Assert.equal(Object.keys(extended.tokens), ["a"]);
+});
 
 Create("an empty group is kept", () => {
     const library = Library.create({
