@@ -334,6 +334,32 @@ type RawConfig = { readonly [key: string]: any };
  */
 type RawLibrary = { [key: string]: any };
 
+/**
+ * Thrown when reading a token whose value refers back to itself through
+ * one or more aliases.
+ *
+ * @public
+ */
+export class CircularReferenceError extends Error {
+    public override readonly name = "CircularReferenceError";
+
+    /**
+     * The names of the tokens in the cycle, starting and ending with the
+     * same token.
+     */
+    public readonly chain: string[];
+
+    constructor(chain: string[]) {
+        super(`Circular reference: ${chain.join(" → ")}`);
+        this.chain = chain;
+    }
+}
+
+/**
+ * The tokens currently resolving their values, outermost first.
+ */
+const resolving: LibraryToken<any>[] = [];
+
 const isObject = <T>(value: T): value is T & {} => {
     return typeof value === "object" && value !== null;
 };
@@ -766,15 +792,18 @@ class LibraryToken<T extends DesignToken.Any>
         }
 
         if (this.resolving) {
-            throw new Error(
-                `Circular reference: the value of "${this.name}" depends on itself.`,
-            );
+            const chain = resolving
+                .slice(resolving.indexOf(this))
+                .map((token) => token.name);
+
+            throw new CircularReferenceError([...chain, this.name]);
         }
 
         const previous = this.subscriptions;
         this.previousSubscriptions = previous;
         this.subscriptions = new Set();
         this.resolving = true;
+        resolving.push(this);
         const stopWatching = Watcher.use(this);
 
         try {
@@ -790,6 +819,7 @@ class LibraryToken<T extends DesignToken.Any>
             return value;
         } finally {
             this.resolving = false;
+            resolving.pop();
             stopWatching();
             this.previousSubscriptions = null;
 
