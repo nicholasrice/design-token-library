@@ -210,8 +210,8 @@ const throwingSubscriber = (error: Error) => ({
     },
 });
 
-Subscription.skip(
-    "a throwing subscriber does not block later subscribers (fails: #18)",
+Subscription(
+    "a throwing subscriber does not block later subscribers",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
@@ -254,8 +254,8 @@ Subscription(
     },
 );
 
-Subscription.skip(
-    "errors from multiple subscribers are each reported and all others still run (fails: #18)",
+Subscription(
+    "errors from multiple subscribers are each reported and all others still run",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
