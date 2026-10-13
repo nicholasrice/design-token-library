@@ -72,8 +72,17 @@ const overridden = library.extend({
     },
 });
 overridden.tokens.a.set(hex("#123456"));
+// The extended library's context type is `Theme & {}`, so the token types are
+// compared by assignability, and their `$value` and `$type` exactly.
+const overriddenToSource: typeof library.tokens = overridden.tokens;
+const sourceToOverridden: typeof overridden.tokens = library.tokens;
 type OverrideTypes = [
-    Expect<Equal<typeof overridden.tokens, typeof library.tokens>>,
+    Expect<
+        Equal<typeof overridden.tokens.a.$value, typeof library.tokens.a.$value>
+    >,
+    Expect<
+        Equal<typeof overridden.tokens.a.$type, typeof library.tokens.a.$type>
+    >,
 ];
 
 // New tokens are inferred, including inside existing groups
@@ -93,9 +102,77 @@ type GroupedTypes = [
         Equal<typeof groupedExtended.tokens.g.b.$type, DesignToken.Type.Color>
     >,
 ];
-// Inferred token values are typed by their literal, not their declared type.
-// Tighten to `DesignToken.Values.Color` once inferred values are validated (#37).
 const newToken: DesignToken.Values.Color = groupedExtended.tokens.c.$value;
+
+// Inferred token values are checked against their declared type (#37).
+// @ts-expect-error a Color token rejects a number value
+Library.create({ a: { $type: DesignToken.Type.Color, $value: 12 } });
+Library.create({
+    // @ts-expect-error a Dimension's unit is "px" or "rem"
+    a: { $type: DesignToken.Type.Dimension, $value: { value: 1, unit: "rm" } },
+});
+Library.create({
+    g: {
+        $type: DesignToken.Type.Color,
+        // @ts-expect-error a token in a group is checked against its own type
+        d: { $type: DesignToken.Type.Dimension, $value: hex("#111111") },
+    },
+});
+Library.create({
+    a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
+}).extend({
+    // @ts-expect-error a new Color token in an extend config rejects a number
+    c: { $type: DesignToken.Type.Color, $value: 12 },
+});
+// Never called: `create` throws at runtime for a token with a child.
+const tokenChildChecks = () => {
+    Library.create({
+        // @ts-expect-error a token can't have a child
+        a: { $type: DesignToken.Type.Color, $value: hex("#111111"), x: 1 },
+    });
+    Library.create({
+        // @ts-expect-error a child doesn't stop the value from being checked
+        a: { $type: DesignToken.Type.Color, $value: 12, x: 1 },
+    });
+    Library.create({
+        a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
+    }).extend({
+        // @ts-expect-error a new token in an extend config can't have a child
+        c: { $type: DesignToken.Type.Color, $value: hex("#222222"), x: 1 },
+    });
+};
+
+// Inferred tokens have their type's value, not the widened literal (#37).
+const inferred = Library.create({
+    space: {
+        $type: DesignToken.Type.Dimension,
+        $value: { value: 4, unit: "px" },
+    },
+    line: { $type: DesignToken.Type.StrokeStyle, $value: "solid" },
+    custom: { $type: "elevation", $value: { level: 1 } },
+});
+type InferredTypes = [
+    Expect<
+        Equal<typeof inferred.tokens.space.$value, DesignToken.Values.Dimension>
+    >,
+    Expect<
+        Equal<
+            typeof inferred.tokens.line.$value,
+            DesignToken.Values.StrokeStyle
+        >
+    >,
+    // Custom types keep the value they declare.
+    Expect<Equal<typeof inferred.tokens.custom.$value, { level: number }>>,
+    // Inferred `$type` literals are kept, for built-in and custom types.
+    Expect<
+        Equal<typeof inferred.tokens.space.$type, DesignToken.Type.Dimension>
+    >,
+    Expect<Equal<typeof inferred.tokens.custom.$type, "elevation">>,
+];
+// @ts-expect-error set() checks an inferred token against its type
+inferred.tokens.space.set({ value: 1, unit: "rm" });
+// @ts-expect-error set() checks an inferred token against its type
+inferred.tokens.line.set("wavy");
 
 // A dimension's unit is "px" or "rem" (#26).
 const remDimension: DesignToken.Values.Dimension = { value: 1, unit: "rem" };
@@ -118,6 +195,9 @@ const rmDimension: DesignToken.Values.Dimension = { value: 1, unit: "rm" };
 Types("type-level assertions compile", () => {
     Assert.ok([
         invalidConfig,
+        tokenChildChecks,
+        overriddenToSource,
+        sourceToOverridden,
         color,
         notNumber,
         sourceKey,

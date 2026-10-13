@@ -240,11 +240,37 @@ export namespace DesignToken {
     }
 
     /**
-     * The value of a token.
+     * The value type of each {@link DesignToken.Type}.
      *
      * @internal
      */
-    export type ValueByToken<T extends DesignToken.Shape> = T["$value"];
+    export interface ValueByType {
+        [Type.Border]: Values.Border;
+        [Type.Color]: Values.Color;
+        [Type.CubicBezier]: Values.CubicBezier;
+        [Type.Dimension]: Values.Dimension;
+        [Type.Duration]: Values.Duration;
+        [Type.FontFamily]: Values.FontFamily;
+        [Type.FontWeight]: Values.FontWeight;
+        [Type.Gradient]: Values.Gradient;
+        [Type.Number]: Values.Number;
+        [Type.Shadow]: Values.Shadow;
+        [Type.StrokeStyle]: Values.StrokeStyle;
+        [Type.Transition]: Values.Transition;
+        [Type.Typography]: Values.Typography;
+    }
+
+    /**
+     * The value of a token. A token of a {@link DesignToken.Type} has that
+     * type's value, even when its shape is inferred from a config literal.
+     * Other tokens, such as custom tokens, have the value they declare.
+     *
+     * @internal
+     */
+    export type ValueByToken<T extends DesignToken.Shape> =
+        T["$type"] extends keyof ValueByType
+            ? ValueByType[T["$type"]]
+            : T["$value"];
 
     /**
      * The type of a token. Tokens that don't declare a `$type` resolve to

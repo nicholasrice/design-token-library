@@ -14,7 +14,9 @@ export namespace Library {
         unsubscribe(subscriber: Library.Subscriber<R>): void;
         extend<K extends NoRoot<K> = {}>(
             config: ExtendConfig<T, R & NewTokens<K, T>> &
-                Config<K, R & NewTokens<K, T>, never, T>,
+                Config<K, R & NewTokens<K, T>, never, T> &
+                NoInfer<ConfigValueCheck<K, R & NewTokens<K, T>>> &
+                (ConfigTypeHint | {}),
         ): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
     }
 
@@ -297,6 +299,76 @@ export namespace Library {
               : never;
 
     /**
+     * Checks the `$value` of each token in a config of shape `T` against
+     * its `$type`. It's needed when `T` is inferred from the config, because
+     * the inferred `$value` is the config's own value, so
+     * {@link (Library:namespace).Config} alone can't reject it.
+     *
+     * @remarks
+     * Only the values of tokens that declare a {@link DesignToken.Type} are
+     * checked. A token can't have a child (a key without a `$` prefix).
+     *
+     * Tokens are found by their keys rather than by `T[K] extends Shape`,
+     * which TypeScript doesn't resolve for an inferred `T` with extra keys.
+     * An `any` config, such as `Library.create<any>()`, isn't checked.
+     *
+     * @public
+     */
+    export type ConfigValueCheck<T, R extends {}> = 0 extends 1 & T
+        ? unknown
+        : {
+              [K in keyof T]: 0 extends 1 & T[K]
+                  ? unknown
+                  : "$value" extends keyof T[K]
+                    ? ("$type" extends keyof T[K]
+                          ? TokenValueCheck<
+                                T[K][Extract<"$type", keyof T[K]>],
+                                R
+                            >
+                          : unknown) & {
+                          [P in Exclude<keyof T[K], `$${string}`>]?: never;
+                      }
+                    : T[K] extends object
+                      ? ConfigValueCheck<T[K], R>
+                      : unknown;
+          };
+
+    type TokenValueCheck<Type, R extends {}> = [Type] extends [
+        keyof DesignToken.ValueByType,
+    ]
+        ? {
+              $value: ConfigTokenValue<
+                  { $type: Type; $value: DesignToken.ValueByType[Type] },
+                  R
+              >;
+          }
+        : unknown;
+
+    /**
+     * Gives each `$type` in a config literal a contextual type, so that
+     * TypeScript keeps an inferred `$type` literal, such as
+     * `DesignToken.Type.Color`, instead of widening it to `DesignToken.Type`.
+     * {@link (Library:namespace).ConfigValueCheck} needs the literal.
+     *
+     * @remarks
+     * Configs are typed `ConfigTypeHint | {}`, so a config without an index
+     * signature, such as a typed variable, is still accepted.
+     *
+     * @public
+     */
+    export type ConfigTypeHint = {
+        readonly [key: string]:
+            | ConfigTypeHint
+            | DesignToken.Type
+            | (string & {})
+            | number
+            | boolean
+            | object
+            | null
+            | undefined;
+    };
+
+    /**
      * A configuration object provided to {@link (Library:namespace).Library.extend}.
      * All tokens and groups of the source library are optional, and token
      * values may be static values or aliases. Token types are inherited
@@ -323,7 +395,9 @@ export namespace Library {
      * @public
      */
     export const create = <T extends NoRoot<T> = any>(
-        config: Library.Config<T, T>,
+        config: Library.Config<T, T> &
+            NoInfer<ConfigValueCheck<T, T>> &
+            (ConfigTypeHint | {}),
     ): Library.Library<T> => {
         // The runtime library is untyped; its shape is guaranteed by `config`.
         return LibraryImpl.create(config) as unknown as Library.Library<T>;
