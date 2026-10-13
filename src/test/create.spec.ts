@@ -365,80 +365,67 @@ Create("libraries created from the same config are independent", () => {
     Assert.equal(second.tokens.a.$value, hex("#111111"));
 });
 
-Create.skip(
-    "toString() returns a JSON representation of the token (fails: #17)",
-    () => {
-        interface Theme {
-            g: { $type: DesignToken.Type.Color; a: DesignToken.Color };
-        }
-        const library = Library.create<Theme>({
-            g: {
-                $type: C,
-                a: {
-                    $value: hex("#111111"),
-                    $description: "primary",
-                    $extensions: { k: 1 },
-                },
-            },
-        });
-
-        Assert.equal(JSON.parse(String(library.tokens.g.a)), {
-            name: "g.a",
+Create("toString() returns a JSON representation of the token", () => {
+    interface Theme {
+        g: { $type: DesignToken.Type.Color; a: DesignToken.Color };
+    }
+    const library = Library.create<Theme>({
+        g: {
             $type: C,
-            $value: hex("#111111"),
-            $description: "primary",
-            $extensions: { k: 1 },
-        });
-    },
-);
-
-Create.skip(
-    "toString() serializes the resolved value of an alias token (fails: #17)",
-    () => {
-        interface Theme {
-            a: DesignToken.Color;
-            b: DesignToken.Color;
-            border: DesignToken.Border;
-        }
-        const library = Library.create<Theme>({
-            a: { $type: C, $value: hex("#111111") },
-            b: { $type: C, $value: (context) => context.a },
-            border: {
-                $type: DesignToken.Type.Border,
-                $value: {
-                    color: (context) => context.a,
-                    width: px(1),
-                    style: "solid",
-                },
+            a: {
+                $value: hex("#111111"),
+                $description: "primary",
+                $extensions: { k: 1 },
+                $deprecated: "use g.b",
             },
-        });
+        },
+    });
 
-        Assert.equal(
-            JSON.parse(String(library.tokens.b)).$value,
-            hex("#111111"),
-        );
-        Assert.equal(JSON.parse(String(library.tokens.border)).$value, {
-            color: hex("#111111"),
-            width: px(1),
-            style: "solid",
-        });
-    },
-);
+    Assert.equal(JSON.parse(String(library.tokens.g.a)), {
+        name: "g.a",
+        $type: C,
+        $value: hex("#111111"),
+        $description: "primary",
+        $extensions: { k: 1 },
+        $deprecated: "use g.b",
+    });
+});
 
-Create.skip(
-    "toString() reflects the current value after set() (fails: #17)",
-    () => {
-        const library = Library.create<A>({
-            a: { $type: C, $value: hex("#111111") },
-        });
+Create("toString() serializes the resolved value of an alias token", () => {
+    interface Theme {
+        a: DesignToken.Color;
+        b: DesignToken.Color;
+        border: DesignToken.Border;
+    }
+    const library = Library.create<Theme>({
+        a: { $type: C, $value: hex("#111111") },
+        b: { $type: C, $value: (context) => context.a },
+        border: {
+            $type: DesignToken.Type.Border,
+            $value: {
+                color: (context) => context.a,
+                width: px(1),
+                style: "solid",
+            },
+        },
+    });
 
-        library.tokens.a.set(hex("#222222"));
+    Assert.equal(JSON.parse(String(library.tokens.b)).$value, hex("#111111"));
+    Assert.equal(JSON.parse(String(library.tokens.border)).$value, {
+        color: hex("#111111"),
+        width: px(1),
+        style: "solid",
+    });
+});
 
-        Assert.equal(
-            JSON.parse(String(library.tokens.a)).$value,
-            hex("#222222"),
-        );
-    },
-);
+Create("toString() reflects the current value after set()", () => {
+    const library = Library.create<A>({
+        a: { $type: C, $value: hex("#111111") },
+    });
+
+    library.tokens.a.set(hex("#222222"));
+
+    Assert.equal(JSON.parse(String(library.tokens.a)).$value, hex("#222222"));
+});
 
 Create.run();

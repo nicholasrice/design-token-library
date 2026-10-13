@@ -170,6 +170,10 @@ export namespace Library {
         G extends string = never,
     > = {
         set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
+        /**
+         * A JSON representation of the token's name, type, resolved value,
+         * description, extensions and deprecation.
+         */
         toString(): string;
         readonly $type: DesignToken.TypeByToken<T, G>;
         readonly $extensions: Record<string, any>;
@@ -837,6 +841,17 @@ class LibraryToken<T extends DesignToken.Any>
                 }
             }
         }
+    }
+
+    public toString(): string {
+        return JSON.stringify({
+            name: this.name,
+            $type: this.$type,
+            $value: this.$value,
+            $description: this.$description,
+            $extensions: this.$extensions,
+            $deprecated: this.$deprecated,
+        });
     }
 
     public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
