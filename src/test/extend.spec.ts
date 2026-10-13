@@ -229,8 +229,8 @@ const withExtensions = (extensions: Record<string, unknown>) =>
         },
     });
 
-Extend.skip(
-    "a description override replaces and an extensions override merges (fails: #15)",
+Extend(
+    "a description override replaces and an extensions override merges",
     () => {
         const extended = withExtensions({ s: 1 }).extend<{}>({
             a: {
@@ -245,7 +245,7 @@ Extend.skip(
     },
 );
 
-Extend.skip("when merging extensions, override keys win (fails: #15)", () => {
+Extend("when merging extensions, override keys win", () => {
     const extended = withExtensions({ k: 1, s: 1 }).extend<{}>({
         a: { $value: hex("#222222"), $extensions: { k: 2 } },
     });
@@ -253,8 +253,8 @@ Extend.skip("when merging extensions, override keys win (fails: #15)", () => {
     Assert.equal(extended.tokens.a.$extensions, { k: 2, s: 1 });
 });
 
-Extend.skip(
-    "merging extensions leaves the source and the override config unchanged (fails: #15)",
+Extend(
+    "merging extensions leaves the source and the override config unchanged",
     () => {
         const override = { k: 2 };
         const source = withExtensions({ s: 1 });
@@ -269,8 +269,8 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "extensions merge shallowly: a nested override object replaces the source's (fails: #15)",
+Extend(
+    "extensions merge shallowly: a nested override object replaces the source's",
     () => {
         const extended = withExtensions({ theme: { a: 1 }, s: 1 }).extend<{}>({
             a: { $value: hex("#222222"), $extensions: { theme: { b: 1 } } },
@@ -283,20 +283,14 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "overrides without description or extensions keep the source's (fails: #15)",
-    () => {
-        const source = withExtensions({ s: 1 });
-        const extended = source.extend<{}>({ a: { $value: hex("#222222") } });
+Extend("overrides without description or extensions keep the source's", () => {
+    const source = withExtensions({ s: 1 });
+    const extended = source.extend<{}>({ a: { $value: hex("#222222") } });
 
-        Assert.is(extended.tokens.a.$description, "source");
-        Assert.equal(extended.tokens.a.$extensions, { s: 1 });
-        Assert.is.not(
-            extended.tokens.a.$extensions,
-            source.tokens.a.$extensions,
-        );
-    },
-);
+    Assert.is(extended.tokens.a.$description, "source");
+    Assert.equal(extended.tokens.a.$extensions, { s: 1 });
+    Assert.is.not(extended.tokens.a.$extensions, source.tokens.a.$extensions);
+});
 
 Extend.skip("an override with a different type throws (fails: #16)", () => {
     const source = single();
@@ -320,31 +314,22 @@ Extend("an override restating the same type is allowed", () => {
     Assert.equal(extended.tokens.a.$value, hex("#222222"));
 });
 
-Extend.skip(
-    "an inherited token's extensions are a new, equal object (fails: #15)",
-    () => {
-        const source = withExtensions({ s: 1 });
-        const extended = source.extend<{}>({});
+Extend("an inherited token's extensions are a new, equal object", () => {
+    const source = withExtensions({ s: 1 });
+    const extended = source.extend<{}>({});
 
-        Assert.is.not(
-            extended.tokens.a.$extensions,
-            source.tokens.a.$extensions,
-        );
-        Assert.equal(extended.tokens.a.$extensions, { s: 1 });
-    },
-);
+    Assert.is.not(extended.tokens.a.$extensions, source.tokens.a.$extensions);
+    Assert.equal(extended.tokens.a.$extensions, { s: 1 });
+});
 
-Extend.skip(
-    "mutating extended extensions does not leak to the source (fails: #15)",
-    () => {
-        const source = withExtensions({});
-        const extended = source.extend<{}>({});
+Extend("mutating extended extensions does not leak to the source", () => {
+    const source = withExtensions({});
+    const extended = source.extend<{}>({});
 
-        extended.tokens.a.$extensions.x = 1;
+    extended.tokens.a.$extensions.x = 1;
 
-        Assert.equal(source.tokens.a.$extensions, {});
-    },
-);
+    Assert.equal(source.tokens.a.$extensions, {});
+});
 
 Extend("tokens of a flat extended library cannot be reassigned", () => {
     const extended = single().extend<{}>({});
@@ -359,23 +344,20 @@ Extend("tokens of a flat extended library cannot be reassigned", () => {
     Assert.throws(() => (extended.tokens.a.$extensions = {}), "extensions");
 });
 
-Extend.skip(
-    "the extended library root and groups are frozen (fails: #23)",
-    () => {
-        interface Theme extends Grouped {
-            b: DesignToken.Color;
-        }
-        const extended = Library.create<Theme>({
-            b: { $type: C, $value: hex("#111111") },
-            g: { $type: C, a: { $value: hex("#222222") } },
-        }).extend<{}>({});
+Extend("the extended library root and groups are frozen", () => {
+    interface Theme extends Grouped {
+        b: DesignToken.Color;
+    }
+    const extended = Library.create<Theme>({
+        b: { $type: C, $value: hex("#111111") },
+        g: { $type: C, a: { $value: hex("#222222") } },
+    }).extend<{}>({});
 
-        Assert.ok(Object.isFrozen(extended.tokens), "root");
-        Assert.ok(Object.isFrozen(extended.tokens.g), "group");
-        // @ts-expect-error groups are readonly
-        Assert.throws(() => (extended.tokens.g = {}), "assigning a group");
-    },
-);
+    Assert.ok(Object.isFrozen(extended.tokens), "root");
+    Assert.ok(Object.isFrozen(extended.tokens.g), "group");
+    // @ts-expect-error groups are readonly
+    Assert.throws(() => (extended.tokens.g = {}), "assigning a group");
+});
 
 Extend("extended library keys are source keys followed by new keys", () => {
     const extended = aliasedPair().extend<{ c: DesignToken.Color }>({
@@ -473,6 +455,28 @@ Extend(
         Assert.ok("g" in source.tokens, "kept in the source");
         Assert.is(extended.tokens.g.t.$type, C);
         Assert.equal(extended.tokens.g.t.$value, hex("#222222"));
+    },
+);
+
+Extend(
+    "resolving an extended token does not affect its source token's dependencies",
+    async () => {
+        const source = aliasedPair();
+        const changes = recorder();
+        source.subscribe(changes);
+        source.tokens.b.$value;
+        source.extend({}).tokens.b.$value;
+
+        // `b` no longer depends on `a` once it is recomputed.
+        source.tokens.b.set(hex("#222222"));
+        source.tokens.b.$value;
+        await nextUpdate();
+        changes.batches.length = 0;
+
+        source.tokens.a.set(hex("#333333"));
+        await nextUpdate();
+
+        Assert.equal(changes.batches, [["a"]]);
     },
 );
 

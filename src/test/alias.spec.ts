@@ -89,6 +89,61 @@ Alias("deep aliases resolve inside array values", () => {
     Assert.equal(library.tokens.curve.$value, [0.5, 0, 1, 1]);
 });
 
+interface ArrayTheme {
+    n: DesignToken.Number;
+    steps: DesignToken.Custom<"steps", number[]>;
+    grid: DesignToken.Custom<"grid", number[][]>;
+}
+
+const arrayTheme = (steps: ArrayTheme["steps"]["$value"]) =>
+    Library.create<ArrayTheme>({
+        n: { $type: DesignToken.Type.Number, $value: 1 },
+        steps: { $type: "steps", $value: steps },
+        grid: {
+            $type: "grid",
+            $value: [
+                [(context) => context.n, 2],
+                [3, (context) => context.n.$value * 4],
+            ],
+        },
+    });
+
+Alias("an array value resolves to a new array", () => {
+    const steps = [1, 2, 3];
+    const value = arrayTheme(steps).tokens.steps.$value;
+
+    Assert.ok(Array.isArray(value));
+    Assert.is.not(value, steps);
+    Assert.equal(value, [1, 2, 3]);
+});
+
+Alias("deep aliases resolve inside nested arrays", () => {
+    Assert.equal(arrayTheme([]).tokens.grid.$value, [
+        [1, 2],
+        [3, 4],
+    ]);
+});
+
+Alias("holes in a sparse array value resolve to undefined", () => {
+    const value = arrayTheme([1, , 3] as number[]).tokens.steps.$value;
+
+    Assert.is(value.length, 3);
+    Assert.ok(1 in value, "the hole becomes an element");
+    Assert.is(value[1], undefined);
+});
+
+Alias("an array value re-resolves when a token it aliases changes", () => {
+    const library = arrayTheme([]);
+    library.tokens.grid.$value;
+
+    library.tokens.n.set(2);
+
+    Assert.equal(library.tokens.grid.$value, [
+        [2, 2],
+        [3, 8],
+    ]);
+});
+
 /**
  * Narrows a Border's stroke style to its object form.
  */
@@ -260,6 +315,23 @@ Alias(
 
         library.tokens.a.set(hex("#444444"));
         Assert.equal(library.tokens.c.$value, hex("#444444"));
+    },
+);
+
+Alias(
+    "an alias keeps tracking a dependency it reads on every recompute",
+    async () => {
+        const library = aliasedPair();
+        const subscriber = recorder();
+        library.subscribe(subscriber);
+
+        for (const value of ["#222222", "#333333", "#444444"]) {
+            library.tokens.a.set(hex(value));
+            Assert.equal(library.tokens.b.$value, hex(value));
+        }
+        await nextUpdate();
+
+        Assert.equal(subscriber.batches, [["a", "b"]]);
     },
 );
 
@@ -463,22 +535,43 @@ Alias("the alias context is the root token library for nested tokens", () => {
     Assert.is(alias.firstCall.args[0], library.tokens);
 });
 
+Alias(
+    "a throwing alias does not track tokens read after it fails",
+    async () => {
+        const library = Library.create<AB>({
+            a: {
+                $type: C,
+                $value: () => {
+                    throw new Error("alias failed");
+                },
+            },
+            b: { $type: C, $value: hex("#111111") },
+        });
+        Assert.throws(() => library.tokens.a.$value, /alias failed/);
+
+        library.tokens.b.$value;
+        const subscriber = recorder();
+        library.subscribe(subscriber);
+        library.tokens.b.set(hex("#222222"));
+        await nextUpdate();
+
+        Assert.equal(subscriber.batches, [["b"]], "only b changed");
+    },
+);
+
 const cyclicPair = () =>
     Library.create<AB>({
         a: { $type: C, $value: (context) => context.b },
         b: { $type: C, $value: (context) => context.a },
     });
 
-Circular.skip(
-    "a direct cycle throws CircularReferenceError (fails: #21)",
-    () => {
-        const library = cyclicPair();
+Circular("a direct cycle throws CircularReferenceError", () => {
+    const library = cyclicPair();
 
-        Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
-    },
-);
+    Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
+});
 
-Circular.skip("a self-reference throws (fails: #21)", () => {
+Circular("a self-reference throws", () => {
     const library = Library.create<A>({
         a: { $type: C, $value: (context) => context.a },
     });
@@ -486,16 +579,13 @@ Circular.skip("a self-reference throws (fails: #21)", () => {
     Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
 });
 
-Circular.skip(
-    "the error message lists the reference chain (fails: #21)",
-    () => {
-        const library = cyclicPair();
+Circular("the error message lists the reference chain", () => {
+    const library = cyclicPair();
 
-        Assert.throws(() => library.tokens.a.$value, /a → b → a/);
-    },
-);
+    Assert.throws(() => library.tokens.a.$value, /a → b → a/);
+});
 
-Circular.skip("a cycle through a deep alias throws (fails: #21)", () => {
+Circular("a cycle through a deep alias throws", () => {
     interface Theme {
         self: DesignToken.Border;
     }
@@ -514,30 +604,24 @@ Circular.skip("a cycle through a deep alias throws (fails: #21)", () => {
     Assert.throws(() => library.tokens.self.$value, isCircularReferenceError);
 });
 
-Circular.skip(
-    "a cycle created later via set() throws on the next read (fails: #21)",
-    () => {
-        const library = aliasedPair();
-        library.tokens.b.$value;
+Circular("a cycle created later via set() throws on the next read", () => {
+    const library = aliasedPair();
+    library.tokens.b.$value;
 
-        library.tokens.a.set((context) => context.b);
+    library.tokens.a.set((context) => context.b);
 
-        Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
-    },
-);
+    Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
+});
 
-Circular.skip(
-    "breaking a cycle with set() makes tokens resolve again (fails: #21)",
-    () => {
-        const library = cyclicPair();
-        Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
+Circular("breaking a cycle with set() makes tokens resolve again", () => {
+    const library = cyclicPair();
+    Assert.throws(() => library.tokens.a.$value, isCircularReferenceError);
 
-        library.tokens.a.set(hex("#111111"));
+    library.tokens.a.set(hex("#111111"));
 
-        Assert.equal(library.tokens.a.$value, hex("#111111"));
-        Assert.equal(library.tokens.b.$value, hex("#111111"));
-    },
-);
+    Assert.equal(library.tokens.a.$value, hex("#111111"));
+    Assert.equal(library.tokens.b.$value, hex("#111111"));
+});
 
 Circular("a non-cyclic diamond does not throw", () => {
     const stops = [
@@ -563,8 +647,8 @@ Circular("a non-cyclic diamond does not throw", () => {
     Assert.not.throws(() => library.tokens.d.$value);
 });
 
-Circular.skip(
-    "a cycle introduced by an extend override throws in the extended library (fails: #21)",
+Circular(
+    "a cycle introduced by an extend override throws in the extended library",
     () => {
         const extended = aliasedPair().extend({
             a: { $value: (context) => context.b },
@@ -591,22 +675,19 @@ Circular(
     },
 );
 
-Circular.skip(
-    "CircularReferenceError is exported and extends Error (fails: #21)",
-    () => {
-        const ErrorClass = Reflect.get(Package, "CircularReferenceError");
-        const library = Library.create<A>({
-            a: { $type: C, $value: (context) => context.a },
-        });
+Circular("CircularReferenceError is exported and extends Error", () => {
+    const ErrorClass = Reflect.get(Package, "CircularReferenceError");
+    const library = Library.create<A>({
+        a: { $type: C, $value: (context) => context.a },
+    });
 
-        Assert.type(ErrorClass, "function");
-        Assert.throws(
-            () => library.tokens.a.$value,
-            (error: unknown) =>
-                error instanceof ErrorClass && error instanceof Error,
-        );
-    },
-);
+    Assert.type(ErrorClass, "function");
+    Assert.throws(
+        () => library.tokens.a.$value,
+        (error: unknown) =>
+            error instanceof ErrorClass && error instanceof Error,
+    );
+});
 
 Alias.run();
 Circular.run();

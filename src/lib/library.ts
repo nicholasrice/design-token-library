@@ -336,6 +336,32 @@ type RawConfig = { readonly [key: string]: any };
  */
 type RawLibrary = { [key: string]: any };
 
+/**
+ * Thrown when reading a token whose value refers back to itself through
+ * one or more aliases.
+ *
+ * @public
+ */
+export class CircularReferenceError extends Error {
+    public override readonly name = "CircularReferenceError";
+
+    /**
+     * The names of the tokens in the cycle, starting and ending with the
+     * same token.
+     */
+    public readonly chain: string[];
+
+    constructor(chain: string[]) {
+        super(`Circular reference: ${chain.join(" → ")}`);
+        this.chain = chain;
+    }
+}
+
+/**
+ * The tokens currently resolving their values, outermost first.
+ */
+const resolving: LibraryToken<any>[] = [];
+
 const isObject = <T>(value: T): value is T & {} => {
     return typeof value === "object" && value !== null;
 };
@@ -582,6 +608,10 @@ function extendToken(
     extendingToken.cached = empty;
     extendingToken.resolving = false;
     extendingToken.notifying = false;
+    // Its own dependencies; sharing the source's set would let either token
+    // drop the other's subscriptions.
+    extendingToken.subscriptions = new Set();
+    extendingToken.previousSubscriptions = null;
     extendingToken.watchContext = extendingToken;
     extendingToken.queue = queue;
 
@@ -589,9 +619,8 @@ function extendToken(
     if (node?.$description !== undefined) {
         extendingToken._description = node.$description;
     }
-    if (node?.$extensions !== undefined) {
-        extendingToken._extensions = node.$extensions;
-    }
+    // A new object, so mutating it can't leak to the source or the override.
+    extendingToken._extensions = { ...token.$extensions, ...node?.$extensions };
     if (node?.$deprecated !== undefined) {
         extendingToken._deprecated = node.$deprecated;
     }
@@ -619,8 +648,26 @@ function extendToken(
     return extendingToken;
 }
 
-const recurseResolve = (value: any, context: Library.Context<any>) => {
-    const r: any = Array.isArray(value) ? [] : {};
+const recurseResolve = (value: any, context: Library.Context<any>): any => {
+    if (Array.isArray(value)) {
+        const r = new Array(value.length);
+        for (let i = 0; i < value.length; i++) {
+            let v = value[i];
+
+            if (isAlias(v)) {
+                v = v(context);
+            }
+
+            if (v instanceof LibraryToken) {
+                v = v.$value;
+            }
+
+            r[i] = isObject(v) ? recurseResolve(v, context) : v;
+        }
+        return r;
+    }
+
+    const r: any = {};
     for (const key in value) {
         let v = value[key];
 
@@ -660,7 +707,10 @@ class LibraryImpl implements Library.Library<any> {
     constructor(
         public readonly tokens: RawLibrary,
         private readonly queue: IQueue<Library.Token<any, any>>,
-    ) {}
+    ) {
+        // Groups are frozen as they are built; the root is frozen here.
+        Object.freeze(tokens);
+    }
     public subscribe(subscriber: Library.Subscriber<any>) {
         this.queue.subscribe(subscriber);
     }
@@ -701,6 +751,11 @@ class LibraryToken<T extends DesignToken.Any>
     private resolving = false;
     private notifying = false;
     private subscriptions: Set<INotifier<any>> = new Set();
+    /**
+     * While resolving, the subscriptions from the previous resolution. Sources
+     * watched again keep their subscription instead of re-subscribing.
+     */
+    private previousSubscriptions: Set<INotifier<any>> | null = null;
 
     constructor(
         public readonly name: string,
@@ -741,13 +796,18 @@ class LibraryToken<T extends DesignToken.Any>
         }
 
         if (this.resolving) {
-            throw new Error(
-                `Circular reference: the value of "${this.name}" depends on itself.`,
-            );
+            const chain = resolving
+                .slice(resolving.indexOf(this))
+                .map((token) => token.name);
+
+            throw new CircularReferenceError([...chain, this.name]);
         }
 
-        this.disconnect();
+        const previous = this.subscriptions;
+        this.previousSubscriptions = previous;
+        this.subscriptions = new Set();
         this.resolving = true;
+        resolving.push(this);
         const stopWatching = Watcher.use(this);
 
         try {
@@ -763,7 +823,16 @@ class LibraryToken<T extends DesignToken.Any>
             return value;
         } finally {
             this.resolving = false;
+            resolving.pop();
             stopWatching();
+            this.previousSubscriptions = null;
+
+            // Unsubscribe from sources that were not watched this time.
+            for (const notifier of previous) {
+                if (!this.subscriptions.has(notifier)) {
+                    notifier.unsubscribe(this);
+                }
+            }
         }
     }
 
@@ -793,17 +862,15 @@ class LibraryToken<T extends DesignToken.Any>
 
     public watch(source: Object): void {
         const notifier = getNotifier(source);
-        notifier.subscribe(this);
-        this.subscriptions.add(notifier);
-    }
 
-    /**
-     * Disconnect the token from it's subscriptions
-     */
-    public disconnect() {
-        for (const record of this.subscriptions.values()) {
-            record.unsubscribe(this);
-            this.subscriptions.delete(record);
+        if (this.subscriptions.has(notifier)) {
+            return;
+        }
+
+        this.subscriptions.add(notifier);
+
+        if (!this.previousSubscriptions?.has(notifier)) {
+            notifier.subscribe(this);
         }
     }
 }

@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `$root` as a token in its group, and not at the top level of a library (its CSS custom property is named for the group), `$deprecated` on tokens, and group metadata (`$description`, `$extensions`, `$deprecated`) that survives `extend()`. A circular reference throws instead of overflowing the stack.
+- `$root` as a token in its group, and not at the top level of a library (its CSS custom property is named for the group), `$deprecated` on tokens, and group metadata (`$description`, `$extensions`, `$deprecated`) that survives `extend()`. A circular reference throws a `CircularReferenceError`, whose `chain` and message list the tokens in the cycle (`a → b → a`), instead of overflowing the stack.
 - Custom token types via `DesignToken.Custom<Name, Value>`, with static values, aliases, deep aliases, group type inheritance, `set()` and `extend()` support. Reserved DTCG type names and non-serializable values are rejected at compile time.
 - `toCSS(library, options)` accepts `options.converters`, a converter for each custom type that receives the value and the token. It's required for every custom type in the library. At runtime `toCSS` throws for a custom type without a converter.
 - `Library.TokensOf`, `Library.TokenRecord`, `Library.GroupType`, `Library.ValueAlias`, `Library.ValueSource`, `CSSOptions`, `CSSConverter`, `CSSConverters` and `CustomTokensOf` types.
@@ -24,18 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Aliases are typed by value: an alias may return any value, or any token, whose value matches. Replaces the internal `TokenByValue`, `TokenByType` and `ValueByType` types.
 - `Library.Subscriber` records are a union of the library's tokens, discriminated by `type`, instead of `Token<DesignToken.Any>`.
 - Token values that are plain objects with a `value` key are no longer unwrapped as tokens; only library tokens are.
+- Array values resolve faster: they are copied with an indexed loop instead of `for...in`. Holes in a sparse array value now resolve to `undefined` elements.
+- Recomputing a token keeps its subscriptions to the dependencies it reads again, instead of unsubscribing from all of them and subscribing again, which makes updates faster.
 
 ### Fixed
 
 - `DeepAlias` accepts aliases inside Gradient stops (#28).
+- Resolving a token of an extended library no longer disconnects its source token from its dependencies, which left the source token reported as changed when a dependency it no longer used changed.
 - Number aliases in a CubicBezier accept Number tokens (#29).
 
 - `Library.extend()` no longer throws when the source library contains groups.
 - `Library.extend()` supports adding new groups, and new tokens inherit the type of their ancestor group.
 - `Library.extend()` accepts alias values when overriding existing tokens, and resolves them against the extending library.
 - `Library.extend()` throws when a new token has no type and no ancestor group type, matching `Library.create()`.
+- `Library.extend()` shallow-merges `$extensions` overrides into the source token's, with override keys winning. An extended token's `$extensions` is always a new object, so mutating it no longer changes the source token.
 - Library groups expose their declared `type` (non-enumerable), matching the `TokenLibrary` type.
 - `Library.create()` and `extend()` configs accept `null` and `undefined` entries, which are ignored at runtime like other non-token entries.
+- The root of `library.tokens` (for created and extended libraries) and the object returned by `toProperties` are frozen, like nested groups. Adding or deleting a top-level key throws in strict mode.
 
 ### Changed
 

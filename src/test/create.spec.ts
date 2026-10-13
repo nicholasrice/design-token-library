@@ -188,7 +188,7 @@ for (const token of tokensOfEveryType) {
     });
 }
 
-Create.skip("the root token library is frozen (fails: #23)", () => {
+Create("the root token library is frozen", () => {
     const library = Library.create<A>({
         a: { $type: C, $value: hex("#111111") },
     });
