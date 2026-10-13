@@ -1,3 +1,13 @@
+/**
+ * Post-processes API Documenter Markdown so Docusaurus can build the docs site.
+ *
+ * Generated API reference pages include TypeScript types (e.g. `#${string}`) in
+ * HTML tables. Docusaurus compiles `.md` as MDX, which treats `${…}` and `{name}`
+ * as JavaScript expressions and fails static generation. This script escapes those
+ * patterns in prose/table content (not inside fenced code blocks).
+ *
+ * Invoked from the root `docs:api-reference` npm script after api-documenter runs.
+ */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
