@@ -37,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Library.extend()` supports adding new groups, and new tokens inherit the type of their ancestor group.
 - `Library.extend()` accepts alias values when overriding existing tokens, and resolves them against the extending library.
 - `Library.extend()` throws when a new token has no type and no ancestor group type, matching `Library.create()`.
+- `Library.extend()` shallow-merges `$extensions` overrides into the source token's, with override keys winning. An extended token's `$extensions` is always a new object, so mutating it no longer changes the source token.
 - Library groups expose their declared `type` (non-enumerable), matching the `TokenLibrary` type.
 
 ### Changed
