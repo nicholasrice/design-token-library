@@ -369,7 +369,7 @@ const isObject = <T>(value: T): value is T & {} => {
 const isGroup = (
     value: DesignToken.Group | any,
 ): value is DesignToken.Group => {
-    return isObject(value) && !isToken(value);
+    return isObject(value) && !Array.isArray(value) && !isToken(value);
 };
 
 const isAlias = <T extends DesignToken.Any, K extends {}>(
