@@ -26,8 +26,16 @@ export class Queue<T extends {}>
             this.targets.clear();
             this.needsQueue = true;
 
+            // A throwing subscriber must not stop the others, so each error is
+            // re-thrown on its own, like a DOM event listener's.
             for (const subscriber of this.subscribers) {
-                subscriber.onChange(targets);
+                try {
+                    subscriber.onChange(targets);
+                } catch (error) {
+                    queueMicrotask(() => {
+                        throw error;
+                    });
+                }
             }
         });
     }

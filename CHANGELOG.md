@@ -44,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The root of `library.tokens` (for created and extended libraries) and the object returned by `toProperties` are frozen, like nested groups. Adding or deleting a top-level key throws in strict mode.
 - A token's `$extensions` is a shallow copy of the config's at `Library.create()`, so adding, removing or replacing a top-level key in the config no longer changes the token. Nested values are shared with the config.
 - Array entries in `Library.create()` and `extend()` configs are ignored like other non-token entries, instead of creating an empty group (which `toProperties` also emitted).
+- A library subscriber that throws no longer stops later subscribers from being notified. Every subscriber is called, then each error is re-thrown as the same instance in its own microtask, so it surfaces as an uncaught error, like a DOM event listener's.
 
 ### Changed
 
