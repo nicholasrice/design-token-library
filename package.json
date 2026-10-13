@@ -19,7 +19,7 @@
         "test:coverage": "c8 uvu dist/test .spec.js$",
         "report-size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
         "api-report": "npx api-extractor run --local --verbose",
-        "docs:api-reference": "npx api-documenter markdown --input-folder temp --output-folder doc-site/docs/api-reference",
+        "docs:api-reference": "npx api-documenter markdown --input-folder temp --output-folder doc-site/docs/api-reference && node scripts/fix-api-reference-mdx.mjs",
         "prettier": "npx prettier ./src --write"
     },
     "repository": {
@@ -32,6 +32,9 @@
         "url": "https://github.com/nicholasrice/design-token-library/issues"
     },
     "homepage": "https://github.com/nicholasrice/design-token-library#readme",
+    "engines": {
+        "node": ">=22.0"
+    },
     "devDependencies": {
         "@microsoft/api-documenter": "^7.30.18",
         "@microsoft/api-extractor": "^7.59.4",
