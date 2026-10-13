@@ -124,6 +124,23 @@ Library.create({
     // @ts-expect-error a new Color token in an extend config rejects a number
     c: { $type: DesignToken.Type.Color, $value: 12 },
 });
+// Never called: `create` throws at runtime for a token with a child.
+const tokenChildChecks = () => {
+    Library.create({
+        // @ts-expect-error a token can't have a child
+        a: { $type: DesignToken.Type.Color, $value: hex("#111111"), x: 1 },
+    });
+    Library.create({
+        // @ts-expect-error a child doesn't stop the value from being checked
+        a: { $type: DesignToken.Type.Color, $value: 12, x: 1 },
+    });
+    Library.create({
+        a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
+    }).extend({
+        // @ts-expect-error a new token in an extend config can't have a child
+        c: { $type: DesignToken.Type.Color, $value: hex("#222222"), x: 1 },
+    });
+};
 
 // Inferred tokens have their type's value, not the widened literal (#37).
 const inferred = Library.create({
@@ -178,6 +195,7 @@ const rmDimension: DesignToken.Values.Dimension = { value: 1, unit: "rm" };
 Types("type-level assertions compile", () => {
     Assert.ok([
         invalidConfig,
+        tokenChildChecks,
         overriddenToSource,
         sourceToOverridden,
         color,

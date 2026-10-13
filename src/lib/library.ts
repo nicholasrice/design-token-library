@@ -305,21 +305,44 @@ export namespace Library {
      * {@link (Library:namespace).Config} alone can't reject it.
      *
      * @remarks
-     * Only tokens that declare a {@link DesignToken.Type} are checked.
+     * Only the values of tokens that declare a {@link DesignToken.Type} are
+     * checked. A token can't have a child (a key without a `$` prefix).
+     *
+     * Tokens are found by their keys rather than by `T[K] extends Shape`,
+     * which TypeScript doesn't resolve for an inferred `T` with extra keys.
+     * An `any` config, such as `Library.create<any>()`, isn't checked.
      *
      * @public
      */
-    export type ConfigValueCheck<T, R extends {}> = {
-        [K in keyof T]: T[K] extends DesignToken.Shape & {
-            $type: keyof DesignToken.ValueByType;
-        }
-            ? { $value: ConfigTokenValue<T[K], R> }
-            : T[K] extends DesignToken.Shape
-              ? unknown
-              : T[K] extends object
-                ? ConfigValueCheck<T[K], R>
-                : unknown;
-    };
+    export type ConfigValueCheck<T, R extends {}> = 0 extends 1 & T
+        ? unknown
+        : {
+              [K in keyof T]: 0 extends 1 & T[K]
+                  ? unknown
+                  : "$value" extends keyof T[K]
+                    ? ("$type" extends keyof T[K]
+                          ? TokenValueCheck<
+                                T[K][Extract<"$type", keyof T[K]>],
+                                R
+                            >
+                          : unknown) & {
+                          [P in Exclude<keyof T[K], `$${string}`>]?: never;
+                      }
+                    : T[K] extends object
+                      ? ConfigValueCheck<T[K], R>
+                      : unknown;
+          };
+
+    type TokenValueCheck<Type, R extends {}> = [Type] extends [
+        keyof DesignToken.ValueByType,
+    ]
+        ? {
+              $value: ConfigTokenValue<
+                  { $type: Type; $value: DesignToken.ValueByType[Type] },
+                  R
+              >;
+          }
+        : unknown;
 
     /**
      * Gives each `$type` in a config literal a contextual type, so that
