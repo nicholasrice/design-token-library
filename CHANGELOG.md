@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Library.extend()` accepts alias values when overriding existing tokens, and resolves them against the extending library.
 - `Library.extend()` throws when a new token has no type and no ancestor group type, matching `Library.create()`.
 - Library groups expose their declared `type` (non-enumerable), matching the `TokenLibrary` type.
+- The root of `library.tokens` (for created and extended libraries) and the object returned by `toProperties` are frozen, like nested groups. Adding or deleting a top-level key throws in strict mode.
 
 ### Changed
 

@@ -658,7 +658,10 @@ class LibraryImpl implements Library.Library<any> {
     constructor(
         public readonly tokens: RawLibrary,
         private readonly queue: IQueue<Library.Token<any, any>>,
-    ) {}
+    ) {
+        // Groups are frozen as they are built; the root is frozen here.
+        Object.freeze(tokens);
+    }
     public subscribe(subscriber: Library.Subscriber<any>) {
         this.queue.subscribe(subscriber);
     }
