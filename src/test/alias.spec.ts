@@ -505,34 +505,14 @@ Alias("extensions are copied from the config, not referenced", () => {
     Assert.equal(library.tokens.a.$extensions, { k: 1 });
 });
 
-Alias("nested extension objects are copied too", () => {
+Alias("nested extension values are shared with the config, not copied", () => {
     const extensions = { nested: { k: 1 } };
     const library = Library.create<A>({
         a: { $type: C, $value: hex("#111111"), $extensions: extensions },
     });
 
-    extensions.nested.k = 2;
-
-    Assert.equal(library.tokens.a.$extensions, { nested: { k: 1 } });
+    Assert.is(library.tokens.a.$extensions.nested, extensions.nested);
 });
-
-Alias(
-    "functions and class instances in extensions are kept by reference",
-    () => {
-        const fn = () => 1;
-        const date = new Date(0);
-        const library = Library.create<A>({
-            a: {
-                $type: C,
-                $value: hex("#111111"),
-                $extensions: { nested: { fn, date } },
-            },
-        });
-
-        Assert.is(library.tokens.a.$extensions.nested.fn, fn);
-        Assert.is(library.tokens.a.$extensions.nested.date, date);
-    },
-);
 
 Alias("the alias context is the root token library for nested tokens", () => {
     interface Theme {

@@ -1,7 +1,7 @@
 import { DesignToken } from "./design-token.js";
 import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
 import { IQueue, Queue } from "./queue.js";
-import { copyPlain, empty, isToken } from "./utilities.js";
+import { empty, isToken } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
 /**
@@ -460,7 +460,7 @@ const createToken = (
         resolvedType,
         context,
         $description || "",
-        copyPlain($extensions || {}),
+        { ...$extensions },
         $deprecated ?? false,
         queue,
     );
