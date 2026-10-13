@@ -208,7 +208,6 @@ Create("the root token library is frozen", () => {
 
 Create("a null config entry is ignored, not thrown", () => {
     const library = Library.create({
-        // @ts-expect-error type gap: null entries are rejected (#30)
         a: null,
         b: { $type: C, $value: hex("#111111") },
     });
@@ -218,7 +217,6 @@ Create("a null config entry is ignored, not thrown", () => {
 
 Create("an undefined config entry is ignored, not thrown", () => {
     const library = Library.create({
-        // @ts-expect-error type gap: undefined entries are rejected (#30)
         a: undefined,
         b: { $type: C, $value: hex("#111111") },
     });
@@ -264,7 +262,6 @@ Create("a function config entry is ignored, not thrown", () => {
 
 Create("non-token entries inside a group are ignored", () => {
     const library = Library.create({
-        // @ts-expect-error type gap: null entries are rejected (#30)
         g: { $type: C, x: 1, y: null, t: { $value: hex("#111111") } },
     });
 
@@ -277,7 +274,6 @@ Create("non-token entries in an extend config are ignored", () => {
     });
     const extended = source.extend({
         n: 12,
-        // @ts-expect-error type gap: null entries are rejected (#30)
         x: null,
     });
 
@@ -308,7 +304,6 @@ Create("an empty group is kept", () => {
 
 Create("a group of only non-token entries is kept, without them", () => {
     const library = Library.create({
-        // @ts-expect-error type gap: null entries are rejected (#30)
         g: { x: 1, y: null },
         b: { $type: C, $value: hex("#111111") },
     });

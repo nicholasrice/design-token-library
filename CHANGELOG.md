@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Library.extend()` throws when a new token has no type and no ancestor group type, matching `Library.create()`.
 - `Library.extend()` shallow-merges `$extensions` overrides into the source token's, with override keys winning. An extended token's `$extensions` is always a new object, so mutating it no longer changes the source token.
 - Library groups expose their declared `type` (non-enumerable), matching the `TokenLibrary` type.
+- `Library.create()` and `extend()` configs accept `null` and `undefined` entries, which are ignored at runtime like other non-token entries.
 - The root of `library.tokens` (for created and extended libraries) and the object returned by `toProperties` are frozen, like nested groups. Adding or deleting a top-level key throws in strict mode.
 
 ### Changed

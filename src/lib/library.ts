@@ -288,7 +288,9 @@ export namespace Library {
           ? T[K]
           : T[K] extends {}
             ? Config<T[K], R, G, K extends keyof S ? S[K] : {}>
-            : never;
+            : T[K] extends null | undefined
+              ? T[K]
+              : never;
 
     /**
      * A configuration object provided to {@link (Library:namespace).Library.extend}.
