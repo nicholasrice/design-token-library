@@ -587,9 +587,8 @@ function extendToken(
     if (node?.$description !== undefined) {
         extendingToken._description = node.$description;
     }
-    if (node?.$extensions !== undefined) {
-        extendingToken._extensions = node.$extensions;
-    }
+    // A new object, so mutating it can't leak to the source or the override.
+    extendingToken._extensions = { ...token.$extensions, ...node?.$extensions };
     if (node?.$deprecated !== undefined) {
         extendingToken._deprecated = node.$deprecated;
     }

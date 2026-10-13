@@ -229,8 +229,8 @@ const withExtensions = (extensions: Record<string, unknown>) =>
         },
     });
 
-Extend.skip(
-    "a description override replaces and an extensions override merges (fails: #15)",
+Extend(
+    "a description override replaces and an extensions override merges",
     () => {
         const extended = withExtensions({ s: 1 }).extend<{}>({
             a: {
@@ -245,7 +245,7 @@ Extend.skip(
     },
 );
 
-Extend.skip("when merging extensions, override keys win (fails: #15)", () => {
+Extend("when merging extensions, override keys win", () => {
     const extended = withExtensions({ k: 1, s: 1 }).extend<{}>({
         a: { $value: hex("#222222"), $extensions: { k: 2 } },
     });
@@ -253,8 +253,8 @@ Extend.skip("when merging extensions, override keys win (fails: #15)", () => {
     Assert.equal(extended.tokens.a.$extensions, { k: 2, s: 1 });
 });
 
-Extend.skip(
-    "merging extensions leaves the source and the override config unchanged (fails: #15)",
+Extend(
+    "merging extensions leaves the source and the override config unchanged",
     () => {
         const override = { k: 2 };
         const source = withExtensions({ s: 1 });
@@ -269,8 +269,8 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "extensions merge shallowly: a nested override object replaces the source's (fails: #15)",
+Extend(
+    "extensions merge shallowly: a nested override object replaces the source's",
     () => {
         const extended = withExtensions({ theme: { a: 1 }, s: 1 }).extend<{}>({
             a: { $value: hex("#222222"), $extensions: { theme: { b: 1 } } },
@@ -283,20 +283,14 @@ Extend.skip(
     },
 );
 
-Extend.skip(
-    "overrides without description or extensions keep the source's (fails: #15)",
-    () => {
-        const source = withExtensions({ s: 1 });
-        const extended = source.extend<{}>({ a: { $value: hex("#222222") } });
+Extend("overrides without description or extensions keep the source's", () => {
+    const source = withExtensions({ s: 1 });
+    const extended = source.extend<{}>({ a: { $value: hex("#222222") } });
 
-        Assert.is(extended.tokens.a.$description, "source");
-        Assert.equal(extended.tokens.a.$extensions, { s: 1 });
-        Assert.is.not(
-            extended.tokens.a.$extensions,
-            source.tokens.a.$extensions,
-        );
-    },
-);
+    Assert.is(extended.tokens.a.$description, "source");
+    Assert.equal(extended.tokens.a.$extensions, { s: 1 });
+    Assert.is.not(extended.tokens.a.$extensions, source.tokens.a.$extensions);
+});
 
 Extend.skip("an override with a different type throws (fails: #16)", () => {
     const source = single();
@@ -320,31 +314,22 @@ Extend("an override restating the same type is allowed", () => {
     Assert.equal(extended.tokens.a.$value, hex("#222222"));
 });
 
-Extend.skip(
-    "an inherited token's extensions are a new, equal object (fails: #15)",
-    () => {
-        const source = withExtensions({ s: 1 });
-        const extended = source.extend<{}>({});
+Extend("an inherited token's extensions are a new, equal object", () => {
+    const source = withExtensions({ s: 1 });
+    const extended = source.extend<{}>({});
 
-        Assert.is.not(
-            extended.tokens.a.$extensions,
-            source.tokens.a.$extensions,
-        );
-        Assert.equal(extended.tokens.a.$extensions, { s: 1 });
-    },
-);
+    Assert.is.not(extended.tokens.a.$extensions, source.tokens.a.$extensions);
+    Assert.equal(extended.tokens.a.$extensions, { s: 1 });
+});
 
-Extend.skip(
-    "mutating extended extensions does not leak to the source (fails: #15)",
-    () => {
-        const source = withExtensions({});
-        const extended = source.extend<{}>({});
+Extend("mutating extended extensions does not leak to the source", () => {
+    const source = withExtensions({});
+    const extended = source.extend<{}>({});
 
-        extended.tokens.a.$extensions.x = 1;
+    extended.tokens.a.$extensions.x = 1;
 
-        Assert.equal(source.tokens.a.$extensions, {});
-    },
-);
+    Assert.equal(source.tokens.a.$extensions, {});
+});
 
 Extend("tokens of a flat extended library cannot be reassigned", () => {
     const extended = single().extend<{}>({});
