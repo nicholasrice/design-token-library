@@ -592,7 +592,7 @@ toPropertiesSuite("groups and property values are frozen", () => {
     Assert.ok(Object.isFrozen(properties.g.a), "property value");
 });
 
-toPropertiesSuite.skip("the root object is frozen (fails: #23)", () => {
+toPropertiesSuite("the root object is frozen", () => {
     const properties = toProperties(
         Library.create<A>({ a: { $type: C, $value: hex("#111111") } }),
     );

@@ -175,7 +175,7 @@ export function toProperties<T extends Library.Library<any>>(
     const properties: CSSPropertiesLibrary<T["tokens"]> = {} as any;
     recurse(library.tokens, properties);
 
-    return properties;
+    return Object.freeze(properties);
 }
 
 const standardTypes: ReadonlySet<string> = new Set(

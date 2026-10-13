@@ -344,23 +344,20 @@ Extend("tokens of a flat extended library cannot be reassigned", () => {
     Assert.throws(() => (extended.tokens.a.$extensions = {}), "extensions");
 });
 
-Extend.skip(
-    "the extended library root and groups are frozen (fails: #23)",
-    () => {
-        interface Theme extends Grouped {
-            b: DesignToken.Color;
-        }
-        const extended = Library.create<Theme>({
-            b: { $type: C, $value: hex("#111111") },
-            g: { $type: C, a: { $value: hex("#222222") } },
-        }).extend<{}>({});
+Extend("the extended library root and groups are frozen", () => {
+    interface Theme extends Grouped {
+        b: DesignToken.Color;
+    }
+    const extended = Library.create<Theme>({
+        b: { $type: C, $value: hex("#111111") },
+        g: { $type: C, a: { $value: hex("#222222") } },
+    }).extend<{}>({});
 
-        Assert.ok(Object.isFrozen(extended.tokens), "root");
-        Assert.ok(Object.isFrozen(extended.tokens.g), "group");
-        // @ts-expect-error groups are readonly
-        Assert.throws(() => (extended.tokens.g = {}), "assigning a group");
-    },
-);
+    Assert.ok(Object.isFrozen(extended.tokens), "root");
+    Assert.ok(Object.isFrozen(extended.tokens.g), "group");
+    // @ts-expect-error groups are readonly
+    Assert.throws(() => (extended.tokens.g = {}), "assigning a group");
+});
 
 Extend("extended library keys are source keys followed by new keys", () => {
     const extended = aliasedPair().extend<{ c: DesignToken.Color }>({
