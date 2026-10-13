@@ -756,6 +756,7 @@ class LibraryToken<T extends DesignToken.Any>
      * watched again keep their subscription instead of re-subscribing.
      */
     private previousSubscriptions: Set<INotifier<any>> | null = null;
+    private readonly _extensions: Record<string, any>;
 
     constructor(
         public readonly name: string,
@@ -763,12 +764,14 @@ class LibraryToken<T extends DesignToken.Any>
         private readonly _type: DesignToken.TypeByToken<T>,
         private readonly context: Library.Context<any>,
         private readonly _description: string,
-        private readonly _extensions: Record<string, any>,
+        extensions: Record<string, any>,
         private readonly _deprecated: boolean | string,
         private queue: IQueue<Library.Token<DesignToken.Any, any>>,
     ) {
         this.raw = value;
         this.context = context;
+        // A copy, so changing the config's top-level keys can't change the token.
+        this._extensions = { ...extensions };
     }
 
     public get $deprecated() {

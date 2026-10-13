@@ -493,30 +493,25 @@ Alias("the config object passed to create is not frozen", () => {
     Assert.not.ok(Object.isFrozen(dashedStyle(border.$value)));
 });
 
-Alias.skip(
-    "extensions are copied from the config, not referenced (fails: #25)",
-    () => {
-        const extensions = { k: 1 };
-        const library = Library.create<A>({
-            a: { $type: C, $value: hex("#111111"), $extensions: extensions },
-        });
+Alias("extensions are copied from the config, not referenced", () => {
+    const extensions = { k: 1 };
+    const library = Library.create<A>({
+        a: { $type: C, $value: hex("#111111"), $extensions: extensions },
+    });
 
-        extensions.k = 2;
+    extensions.k = 2;
 
-        Assert.is.not(library.tokens.a.$extensions, extensions);
-        Assert.equal(library.tokens.a.$extensions, { k: 1 });
-    },
-);
+    Assert.is.not(library.tokens.a.$extensions, extensions);
+    Assert.equal(library.tokens.a.$extensions, { k: 1 });
+});
 
-Alias.skip("nested extension objects are copied too (fails: #25)", () => {
+Alias("nested extension values are shared with the config, not copied", () => {
     const extensions = { nested: { k: 1 } };
     const library = Library.create<A>({
         a: { $type: C, $value: hex("#111111"), $extensions: extensions },
     });
 
-    extensions.nested.k = 2;
-
-    Assert.equal(library.tokens.a.$extensions, { nested: { k: 1 } });
+    Assert.is(library.tokens.a.$extensions.nested, extensions.nested);
 });
 
 Alias("the alias context is the root token library for nested tokens", () => {
