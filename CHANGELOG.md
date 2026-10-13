@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Library groups expose their declared `type` (non-enumerable), matching the `TokenLibrary` type.
 - `Library.create()` and `extend()` configs accept `null` and `undefined` entries, which are ignored at runtime like other non-token entries.
 - The root of `library.tokens` (for created and extended libraries) and the object returned by `toProperties` are frozen, like nested groups. Adding or deleting a top-level key throws in strict mode.
+- A token's `$extensions` is copied from the config at `Library.create()`, including nested plain objects and arrays, so mutating the config no longer changes the token. Functions and class instances are kept by reference.
 
 ### Changed
 

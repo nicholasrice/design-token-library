@@ -493,22 +493,19 @@ Alias("the config object passed to create is not frozen", () => {
     Assert.not.ok(Object.isFrozen(dashedStyle(border.$value)));
 });
 
-Alias.skip(
-    "extensions are copied from the config, not referenced (fails: #25)",
-    () => {
-        const extensions = { k: 1 };
-        const library = Library.create<A>({
-            a: { $type: C, $value: hex("#111111"), $extensions: extensions },
-        });
+Alias("extensions are copied from the config, not referenced", () => {
+    const extensions = { k: 1 };
+    const library = Library.create<A>({
+        a: { $type: C, $value: hex("#111111"), $extensions: extensions },
+    });
 
-        extensions.k = 2;
+    extensions.k = 2;
 
-        Assert.is.not(library.tokens.a.$extensions, extensions);
-        Assert.equal(library.tokens.a.$extensions, { k: 1 });
-    },
-);
+    Assert.is.not(library.tokens.a.$extensions, extensions);
+    Assert.equal(library.tokens.a.$extensions, { k: 1 });
+});
 
-Alias.skip("nested extension objects are copied too (fails: #25)", () => {
+Alias("nested extension objects are copied too", () => {
     const extensions = { nested: { k: 1 } };
     const library = Library.create<A>({
         a: { $type: C, $value: hex("#111111"), $extensions: extensions },
@@ -518,6 +515,24 @@ Alias.skip("nested extension objects are copied too (fails: #25)", () => {
 
     Assert.equal(library.tokens.a.$extensions, { nested: { k: 1 } });
 });
+
+Alias(
+    "functions and class instances in extensions are kept by reference",
+    () => {
+        const fn = () => 1;
+        const date = new Date(0);
+        const library = Library.create<A>({
+            a: {
+                $type: C,
+                $value: hex("#111111"),
+                $extensions: { nested: { fn, date } },
+            },
+        });
+
+        Assert.is(library.tokens.a.$extensions.nested.fn, fn);
+        Assert.is(library.tokens.a.$extensions.nested.date, date);
+    },
+);
 
 Alias("the alias context is the root token library for nested tokens", () => {
     interface Theme {
