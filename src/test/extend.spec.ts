@@ -480,4 +480,38 @@ Extend(
     },
 );
 
+Extend(
+    "an alias that overrides a token in a group resolves in the extended library",
+    () => {
+        interface Theme {
+            sizes: {
+                $type: DesignToken.Type.Number;
+                small: DesignToken.Number;
+                large: DesignToken.Number;
+            };
+        }
+        const library = Library.create<Theme>({
+            sizes: {
+                $type: DesignToken.Type.Number,
+                small: { $value: 1 },
+                large: { $value: 2 },
+            },
+        });
+
+        // The type of `context` is inferred, which it wasn't for a token in a group
+        const extended = library.extend({
+            sizes: { small: { $value: (context) => context.sizes.large } },
+        });
+        const withNew = library.extend({
+            sizes: { small: { $value: (context) => context.sizes.large } },
+            extra: { $type: DesignToken.Type.Number, $value: 3 },
+        });
+
+        Assert.is(extended.tokens.sizes.small.$value, 2);
+        Assert.is(withNew.tokens.sizes.small.$value, 2);
+        Assert.is(withNew.tokens.extra.$value, 3);
+        Assert.is(library.tokens.sizes.small.$value, 1);
+    },
+);
+
 Extend.run();
