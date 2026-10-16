@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A token value that is not plain data (a class instance, `Date`, `Map`, `Set`) is no longer rebuilt as a plain object with its function properties called as aliases. Only plain objects and arrays are walked for aliases, and any other value is passed through unchanged (#55).
 - `DeepAlias` accepts aliases inside Gradient stops (#28).
 - Resolving a token of an extended library no longer disconnects its source token from its dependencies, which left the source token reported as changed when a dependency it no longer used changed.
 - Number aliases in a CubicBezier accept Number tokens (#29).
