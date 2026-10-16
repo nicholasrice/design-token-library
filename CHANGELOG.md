@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- An alias in the config of `Library.extend()` has the context of the library for its parameter, for a token in a group and with a new token in the same call, where it had no type (an implicit `any`) or the call was a type error. `extend()` has an overload for a config that only has values of tokens, which has no tokens to infer (#62). A new token with a value of the wrong type is reported for the call, as no overload matching, instead of for the token.
 - A custom token type with a value type that contains itself, like a tree, compiles. The check that a custom value has no functions searches the properties to a depth of 8 instead of without an end, which failed with a circular reference error (#61).
 - A token in the context of an alias has a `name` in its type, as it does at runtime (#60). The alias given to `Token.set()` has the same context as an alias in a config, which it didn't have the type of before.
 - `DeepAlias` accepts aliases inside Gradient stops (#28).

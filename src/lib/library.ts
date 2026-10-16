@@ -12,6 +12,13 @@ export namespace Library {
         tokens: TokenLibrary<T, R>;
         subscribe(subscriber: Library.Subscriber<R>): void;
         unsubscribe(subscriber: Library.Subscriber<R>): void;
+        /**
+         * Creates a library with the values of the tokens replaced, which are static values or aliases.
+         *
+         * @remarks
+         * This has no tokens to add, so the context of an alias is known wherever its token is.
+         */
+        extend(config: ExtendConfig<T, R>): Library<T, R>;
         extend<K extends NoRoot<K> = {}>(
             config: ExtendConfig<T, R & NewTokens<K, T>> &
                 Config<K, R & NewTokens<K, T>, never, T> &

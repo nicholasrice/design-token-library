@@ -46,6 +46,50 @@ const color: DesignToken.Values.Color = library.tokens.a.$value;
 // @ts-expect-error a Color value is not a number
 const notNumber: number = library.tokens.a.$value;
 
+// An alias in extend() has the context of the library, for a token in a group, and with a new token
+interface AliasTheme {
+    blue: DesignToken.Color;
+    link: DesignToken.Color;
+    sizes: {
+        $type: DesignToken.Type.Number;
+        small: DesignToken.Number;
+        large: DesignToken.Number;
+    };
+}
+const aliasLibrary = Library.create<AliasTheme>({
+    blue: { $type: DesignToken.Type.Color, $value: hex("#0000ff") },
+    link: { $type: DesignToken.Type.Color, $value: hex("#000000") },
+    sizes: {
+        $type: DesignToken.Type.Number,
+        small: { $value: 1 },
+        large: { $value: 2 },
+    },
+});
+aliasLibrary.extend({ link: { $value: (context) => context.blue } });
+aliasLibrary.extend({
+    sizes: { small: { $value: (context) => context.sizes.large } },
+});
+aliasLibrary.extend({
+    sizes: { small: { $value: (context) => context.sizes.large } },
+    extra: { $type: DesignToken.Type.Number, $value: 1 },
+});
+aliasLibrary.extend({
+    sizes: {
+        small: {
+            // @ts-expect-error the context has no token with that name
+            $value: (context) => context.sizes.none,
+        },
+    },
+});
+aliasLibrary.extend({
+    sizes: {
+        small: {
+            // @ts-expect-error an alias returns a value of the type of its token
+            $value: (context) => context.blue,
+        },
+    },
+});
+
 // A token in the context of an alias has a name
 Library.create<Theme>({
     a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
@@ -135,10 +179,11 @@ Library.create({
         d: { $type: DesignToken.Type.Dimension, $value: hex("#111111") },
     },
 });
-Library.create({
+const baseForNewToken = Library.create({
     a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
-}).extend({
-    // @ts-expect-error a new Color token in an extend config rejects a number
+});
+// @ts-expect-error a new Color token in an extend config rejects a number
+baseForNewToken.extend({
     c: { $type: DesignToken.Type.Color, $value: 12 },
 });
 // Never called: `create` throws at runtime for a token with a child.
