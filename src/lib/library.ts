@@ -444,6 +444,25 @@ const isObject = <T>(value: T): value is T & {} => {
     return typeof value === "object" && value !== null;
 };
 
+/**
+ * Tests whether a value is plain data: an array, or an object literal or `Object.create(null)`
+ * object. Only plain data is walked for aliases. Any other object (a class instance, `Date`,
+ * `Map`, ...) is a value in itself and is passed through unchanged.
+ */
+const isPlainData = (value: unknown): value is object => {
+    if (!isObject(value)) {
+        return false;
+    }
+
+    if (Array.isArray(value)) {
+        return true;
+    }
+
+    const prototype = Object.getPrototypeOf(value);
+
+    return prototype === Object.prototype || prototype === null;
+};
+
 const isGroup = (
     value: DesignToken.Group | any,
 ): value is DesignToken.Group => {
@@ -740,7 +759,7 @@ const recurseResolve = (value: any, context: Library.Context<any>): any => {
                 v = v.$value;
             }
 
-            r[i] = isObject(v) ? recurseResolve(v, context) : v;
+            r[i] = isPlainData(v) ? recurseResolve(v, context) : v;
         }
         return r;
     }
@@ -759,11 +778,7 @@ const recurseResolve = (value: any, context: Library.Context<any>): any => {
             v = v.$value;
         }
 
-        if (isObject(v)) {
-            r[key] = recurseResolve(v, context);
-        } else {
-            r[key] = v;
-        }
+        r[key] = isPlainData(v) ? recurseResolve(v, context) : v;
     }
 
     return r;
@@ -895,7 +910,7 @@ class LibraryToken<T extends DesignToken.Any>
             const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
             const normalized = raw instanceof LibraryToken ? raw.$value : raw;
 
-            const value = isObject(normalized)
+            const value = isPlainData(normalized)
                 ? recurseResolve(normalized, this.context)
                 : normalized;
 
