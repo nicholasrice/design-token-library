@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- A custom type's converter in `toCSS` can be `false`, which leaves tokens of that type out of the CSS (#58). `toProperties` accepts the same `converters` option and leaves out those tokens. Every custom type still needs an entry, so a forgotten converter is still an error. Adds the `CSSConverterEntries` and `ToPropertiesOptions` types.
 - `$root` as a token in its group, and not at the top level of a library (its CSS custom property is named for the group), `$deprecated` on tokens, and group metadata (`$description`, `$extensions`, `$deprecated`) that survives `extend()`. A circular reference throws a `CircularReferenceError`, whose `chain` and message list the tokens in the cycle (`a → b → a`), instead of overflowing the stack.
 - Custom token types via `DesignToken.Custom<Name, Value>`, with static values, aliases, deep aliases, group type inheritance, `set()` and `extend()` support. Reserved DTCG type names and non-serializable values are rejected at compile time.
 - `toCSS(library, options)` accepts `options.converters`, a converter for each custom type that receives the value and the token. It's required for every custom type in the library. At runtime `toCSS` throws for a custom type without a converter.

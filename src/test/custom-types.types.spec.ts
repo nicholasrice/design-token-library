@@ -437,6 +437,23 @@ function cssCases() {
     toCSS(library);
     // @ts-expect-error converters are required
     toCSS(library, {});
+    // A custom type may be left out of the CSS with `false`
+    toCSS(library, { converters: { ...converters, nested: false } });
+    toCSS(library, {
+        converters: {
+            elevation: false,
+            ratio: false,
+            label: false,
+            flag: false,
+            steps: false,
+            nested: false,
+        },
+    });
+    // @ts-expect-error `true` isn't a converter
+    toCSS(library, { converters: { ...converters, nested: true } });
+    // toProperties takes the same converters
+    toProperties(library, { converters });
+    toProperties(library, { converters: { ...converters, nested: false } });
     // Every custom type needs a converter
     const { nested, ...withoutNested } = converters;
     // @ts-expect-error a converter for 'nested' is missing
