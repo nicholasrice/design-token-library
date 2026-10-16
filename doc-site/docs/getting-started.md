@@ -249,6 +249,19 @@ const css = toCSS(library, {
 });
 ```
 
+A custom type that has no CSS form, such as data used only by aliases, can be left out of the CSS with `false` in place of a converter. Tokens of that type aren't written, and every custom type still needs an entry. Pass the same `converters` to `toProperties` to leave them out of its result too:
+
+```ts
+const options = {
+  converters: {
+    elevation: (value, token) => `${value.level}`,
+    palette: false,
+  },
+};
+const css = toCSS(library, options);
+const properties = toProperties(library, options);
+```
+
 ## Creating a Library
 
 With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling alias and computed values with those changes.
