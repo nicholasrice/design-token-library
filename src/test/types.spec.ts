@@ -46,6 +46,23 @@ const color: DesignToken.Values.Color = library.tokens.a.$value;
 // @ts-expect-error a Color value is not a number
 const notNumber: number = library.tokens.a.$value;
 
+// A token in the context of an alias has a name
+Library.create<Theme>({
+    a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
+    b: {
+        $type: DesignToken.Type.Color,
+        $value: (context) => {
+            const name: string = context.a.name;
+            // @ts-expect-error the name is not writable
+            context.a.name = name;
+            // @ts-expect-error a group has no name
+            context.name;
+            return context.a;
+        },
+    },
+    border: config.border,
+});
+
 // extend<K> exposes both source and new keys
 interface Extension {
     c: DesignToken.Color;

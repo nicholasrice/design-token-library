@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A token in the context of an alias has a `name` in its type, as it does at runtime (#60). The alias given to `Token.set()` has the same context as an alias in a config, which it didn't have the type of before.
 - `DeepAlias` accepts aliases inside Gradient stops (#28).
 - Resolving a token of an extended library no longer disconnects its source token from its dependencies, which left the source token reported as changed when a dependency it no longer used changed.
 - Number aliases in a CubicBezier accept Number tokens (#29).

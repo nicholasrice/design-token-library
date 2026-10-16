@@ -33,6 +33,39 @@ Alias(
     },
 );
 
+Alias("a token in the context of an alias has its name", () => {
+    interface Theme {
+        colors: { $type: DesignToken.Type.Color; primary: DesignToken.Color };
+        link: DesignToken.Color;
+    }
+    const names: string[] = [];
+    const library = Library.create<Theme>({
+        colors: { $type: C, primary: { $value: hex("#111111") } },
+        link: {
+            $type: C,
+            $value: (context) => {
+                names.push(context.colors.primary.name);
+                return context.colors.primary;
+            },
+        },
+    });
+
+    library.tokens.link.$value;
+
+    Assert.equal(names, ["colors.primary"]);
+    // An alias keeps the name of its own token
+    Assert.is(library.tokens.link.name, "link");
+
+    // The same for an alias given to set()
+    library.tokens.link.set((context) => {
+        names.push(context.colors.primary.name);
+        return context.colors.primary;
+    });
+    library.tokens.link.$value;
+
+    Assert.equal(names, ["colors.primary", "colors.primary"]);
+});
+
 Alias("an alias can reference a token in a different group", () => {
     interface Theme {
         colors: { $type: DesignToken.Type.Color; primary: DesignToken.Color };

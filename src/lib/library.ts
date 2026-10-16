@@ -145,11 +145,14 @@ export namespace Library {
     /**
      * Context object provided to {@link (Library:namespace).Alias} values at runtime
      *
+     * @remarks
+     * A token in the context has a `name`, like the tokens of the library.
+     *
      * @public
      */
     export type Context<T extends {}, R extends {} = T> = {
         [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape
-            ? Readonly<T[K]>
+            ? Readonly<T[K]> & { readonly name: string }
             : K extends keyof DesignToken.Group
               ? T[K]
               : T[K] extends {}
@@ -171,7 +174,7 @@ export namespace Library {
         C extends {},
         G extends string = never,
     > = {
-        set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
+        set(value: DesignToken.ValueByToken<T> | Alias<T, Context<C>>): void;
         /**
          * A JSON representation of the token's name, type, resolved value,
          * description, extensions and deprecation.
