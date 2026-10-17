@@ -13,6 +13,34 @@ export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (
 ) => string;
 
 /**
+ * The name of each of the types that are defined by
+ * {@link https://www.designtokens.org/tr/2025.10/format/#types}, like `color`.
+ *
+ * @public
+ */
+export type StandardTypeName = `${DesignToken.Type}`;
+
+/**
+ * The value of a token of each of the standard types, keyed by the name of the
+ * type.
+ *
+ * @public
+ */
+export type StandardValues = {
+    [Type in DesignToken.Type as `${Type}`]: DesignToken.ValueByType[Type];
+};
+
+/**
+ * A {@link CSSConverter} for any of the standard types, keyed by the name of
+ * the type, which is used in place of the one of the library.
+ *
+ * @public
+ */
+export type StandardCSSConverters = {
+    [Name in StandardTypeName]?: CSSConverter<StandardValues[Name]>;
+};
+
+/**
  * A union of the custom tokens in a library of shape `T`: tokens whose
  * type is not defined by {@link https://www.designtokens.org/tr/2025.10/format/#types}.
  *
@@ -63,14 +91,16 @@ export interface CSSPropertiesOptions {
  *
  * @remarks
  * `converters` is required when the library contains custom token types,
- * and must provide a converter for each of them.
+ * and must provide a converter for each of them. It can have a converter for
+ * a standard type as well, which is used in place of the one of the library,
+ * see {@link convert} for what it does.
  *
  * @public
  */
 export type CSSOptions<T> = CSSPropertiesOptions &
     ([CustomTokensOf<T>] extends [never]
-        ? { converters?: { readonly [type: string]: never } }
-        : { converters: CSSConverters<T> });
+        ? { converters?: StandardCSSConverters }
+        : { converters: CSSConverters<T> & StandardCSSConverters });
 
 /**
  * The trailing arguments of {@link toCSS}: {@link CSSOptions} are
@@ -87,7 +117,8 @@ export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never]
  *
  * @remarks
  * Libraries with custom token types must provide a converter for each
- * custom type.
+ * custom type. A converter for a standard type is used in place of the one
+ * of the library.
  *
  * @public
  */
@@ -195,10 +226,10 @@ const recurseToCss = (
             const { $type: type, name } = tokenOrGroup;
             let value = tokenOrGroup.$value;
 
-            if (Reflect.has(TokenConverters, type)) {
-                value = Reflect.get(TokenConverters, type)(value);
-            } else if (Reflect.has(customConverters, type)) {
+            if (Reflect.has(customConverters, type)) {
                 value = customConverters[type](value, tokenOrGroup);
+            } else if (Reflect.has(TokenConverters, type)) {
+                value = Reflect.get(TokenConverters, type)(value);
             } else if (!standardTypes.has(type)) {
                 throw new Error(
                     `No CSS converter provided for custom type '${type}' of token '${name}'.`,
@@ -386,3 +417,39 @@ const TokenConverters = {
     [DesignToken.Type.Transition]: transitionConverter,
     [DesignToken.Type.Typography]: typographyConverter,
 };
+
+/**
+ * Converts a value of a standard type to CSS, the way {@link toCSS} does for a
+ * token of the type, without a converter for the type in `converters`.
+ *
+ * @remarks
+ * A converter for a custom type that has values of standard types uses it for
+ * each of them, and a converter for a standard type can use it for what it
+ * keeps.
+ *
+ * @example
+ * ```ts
+ * toCSS(library, {
+ *     converters: {
+ *         elevation: (value) =>
+ *             `${convert("dimension", value.offset)} ${convert("color", value.color)}`,
+ *     },
+ * });
+ * ```
+ *
+ * @param type - The type, like `"color"`
+ * @param value - The value of a token of the type
+ * @returns The value as it is written to CSS
+ *
+ * @public
+ */
+export function convert<Name extends StandardTypeName>(
+    type: Name,
+    value: StandardValues[Name],
+): string {
+    const converter = (
+        TokenConverters as Record<string, ((value: any) => string) | undefined>
+    )[type];
+
+    return converter ? converter(value) : String(value);
+}
