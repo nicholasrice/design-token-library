@@ -11,6 +11,7 @@ import * as Assert from "uvu/assert";
 import {
     CSSConverters,
     CSSPropertiesLibrary,
+    convert,
     toCSS,
     toProperties,
 } from "../lib/css-reflector.js";
@@ -444,6 +445,30 @@ function extendNegatives() {
     });
 }
 
+/* convert */
+type Convert = [
+    Expect<
+        Equal<Parameters<typeof convert<"color">>[1], DesignToken.Values.Color>
+    >,
+    Expect<
+        Equal<
+            Parameters<typeof convert<"dimension">>[1],
+            DesignToken.Values.Dimension
+        >
+    >,
+    Expect<Equal<ReturnType<typeof convert>, string>>,
+];
+function convertCases() {
+    convert("color", hex("#111111"));
+    convert("dimension", px(1));
+    convert("number", 1);
+    // @ts-expect-error a color is not a dimension
+    convert("dimension", hex("#111111"));
+    // @ts-expect-error 'elevation' is not a standard type
+    convert("elevation", 1);
+    return [];
+}
+
 /* CSS */
 const converters: CSSConverters<CustomTheme> = {
     elevation: (value) => `${value.level}`,
@@ -485,9 +510,30 @@ function cssCases() {
     // No custom types: options are optional and take no converters
     toCSS(standardOnly);
     toCSS(standardOnly, {});
+    // ... but can take converters for the standard types, typed by the value of the type
+    toCSS(standardOnly, { converters: { color: (value) => value.colorSpace } });
     toCSS(standardOnly, {
-        // @ts-expect-error a library without custom types takes no converters
-        converters: { color: () => "" },
+        converters: {
+            color: (value, token) => `${token.name}${value.components[0]}`,
+            typography: (value) => `${value.fontSize.unit}`,
+            number: (value) => value.toFixed(),
+        },
+    });
+    toCSS(standardOnly, {
+        converters: {
+            // @ts-expect-error the value of a color has no such property
+            color: (value) => value.missing,
+        },
+    });
+    toCSS(standardOnly, {
+        // @ts-expect-error 'unknown' is not a standard type, and the library has no custom types
+        converters: { unknown: () => "" },
+    });
+    toCSS(standardOnly, {
+        converters: {
+            // @ts-expect-error a converter returns a string
+            color: () => 1,
+        },
     });
 
     // Custom types: converters are required
@@ -513,6 +559,10 @@ function cssCases() {
     // toProperties takes the same converters
     toProperties(library, { converters });
     toProperties(library, { converters: { ...converters, nested: false } });
+    // A standard type can have a converter next to the custom types
+    toCSS(library, {
+        converters: { ...converters, color: (value) => value.colorSpace },
+    });
     // Every custom type needs a converter
     const { nested, ...withoutNested } = converters;
     // @ts-expect-error a converter for 'nested' is missing
@@ -558,6 +608,7 @@ Types("type-level assertions compile", () => {
         inheritanceNegatives,
         extendNegatives,
         cssCases,
+        convertCases,
     ]);
 });
 

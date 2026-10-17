@@ -1,7 +1,7 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { refs } from "../lib/ref.js";
-import { toCSS, toProperties } from "../lib/css-reflector.js";
+import { convert, toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { A, AB, aliasedPair } from "./helpers.js";
@@ -9,6 +9,8 @@ import { hex, ms, px } from "./values.js";
 
 const toCssSuite = suite("toCss");
 const toPropertiesSuite = suite("toProperties");
+const convertSuite = suite("convert");
+const overrideSuite = suite("converters for standard types");
 
 interface Config<T extends DesignToken.Any> {
     token: T;
@@ -649,5 +651,194 @@ toPropertiesSuite("does not emit a group's 'type' key", () => {
     Assert.equal(Object.keys(properties.g), ["a"]);
 });
 
+// What toCSS writes for a token of each type, to compare with convert
+const samples = {
+    border: { color: hex("#FFFFFF"), style: "dashed", width: px(2) },
+    color: hex("#336699"),
+    cubicBezier: [0.1, 0.2, 0.3, 0.4],
+    dimension: px(16),
+    duration: ms(250),
+    fontFamily: ["Open Sans", "Arial", "sans-serif"],
+    fontWeight: "semi-bold",
+    gradient: [
+        { color: hex("#000000"), position: 0 },
+        { color: hex("#FFFFFF"), position: 1 },
+    ],
+    number: 1.5,
+    shadow: {
+        color: hex("#000000"),
+        offsetX: px(1),
+        offsetY: px(2),
+        blur: px(3),
+        spread: px(0),
+    },
+    strokeStyle: "dotted",
+    transition: {
+        duration: ms(100),
+        delay: ms(0),
+        timingFunction: [0, 0, 1, 1],
+    },
+    typography: {
+        fontFamily: ["Arial"],
+        fontSize: px(14),
+        fontWeight: 400,
+        letterSpacing: px(0),
+        lineHeight: 1.5,
+    },
+} as const;
+
+for (const [type, value] of Object.entries(samples)) {
+    convertSuite(`${type} is what toCSS writes for a token of the type`, () => {
+        const library = Library.create<any>({
+            t: { $type: type, $value: value },
+        });
+
+        // The type is not known to the types here
+        const options = { converters: {} } as any;
+
+        Assert.is(
+            toCSS(library, options),
+            `--t:${convert(type as any, value as any)};`,
+        );
+    });
+}
+
+convertSuite("a number is written as it is", () => {
+    Assert.is(convert("number", 1.5), "1.5");
+});
+
+convertSuite("values of standard types are written as CSS", () => {
+    Assert.is(convert("color", hex("#336699")), "#336699");
+    Assert.is(convert("dimension", px(16)), "16px");
+});
+
+convertSuite(
+    "a custom converter can use it for the values of standard types",
+    () => {
+        interface Elevation {
+            offset: DesignToken.Values.Dimension;
+            color: DesignToken.Values.Color;
+        }
+        const library = Library.create<{
+            e: DesignToken.Custom<"elevation", Elevation>;
+        }>({
+            e: {
+                $type: "elevation",
+                $value: { offset: px(4), color: hex("#000000") },
+            },
+        });
+
+        Assert.is(
+            toCSS(library, {
+                converters: {
+                    elevation: (value) =>
+                        `${convert("dimension", value.offset)} ${convert("color", value.color)}`,
+                },
+            }),
+            "--e:4px #000000;",
+        );
+    },
+);
+
+overrideSuite(
+    "a converter for a standard type is used in place of the one of the library",
+    () => {
+        const library = Library.create<{
+            c: DesignToken.Color;
+            d: DesignToken.Dimension;
+        }>({
+            c: { $type: DesignToken.Type.Color, $value: hex("#336699") },
+            d: { $type: DesignToken.Type.Dimension, $value: px(16) },
+        });
+
+        Assert.is(
+            toCSS(library, { converters: { color: () => "red" } }),
+            "--c:red;--d:16px;",
+        );
+    },
+);
+
+overrideSuite("it receives the value and the token", () => {
+    const library = Library.create<{ c: DesignToken.Color }>({
+        c: { $type: DesignToken.Type.Color, $value: hex("#336699") },
+    });
+    const received: unknown[] = [];
+
+    toCSS(library, {
+        converters: {
+            color: (value, token) => {
+                received.push(value, token.name);
+                return "";
+            },
+        },
+    });
+
+    Assert.equal(received, [hex("#336699"), "c"]);
+});
+
+overrideSuite(
+    "it is used for a token in a group, and the others keep the library's",
+    () => {
+        const library = Library.create<{
+            g: { $type: DesignToken.Type.Color; a: DesignToken.Color };
+            n: DesignToken.Number;
+        }>({
+            g: {
+                $type: DesignToken.Type.Color,
+                a: { $value: hex("#336699") },
+            },
+            n: { $type: DesignToken.Type.Number, $value: 2 },
+        });
+
+        Assert.is(
+            toCSS(library, {
+                converters: { color: (value) => `c${value.colorSpace}` },
+            }),
+            "--g-a:csrgb;--n:2;",
+        );
+    },
+);
+
+overrideSuite("it can write a typography token as the library can't", () => {
+    const library = Library.create<{ t: DesignToken.Typography }>({
+        t: {
+            $type: DesignToken.Type.Typography,
+            $value: samples.typography as any,
+        },
+    });
+
+    Assert.is(
+        toCSS(library, {
+            converters: {
+                typography: (value) =>
+                    `${value.letterSpacing.value}${value.letterSpacing.unit}`,
+            },
+        }),
+        "--t:0px;",
+    );
+});
+
+overrideSuite("it is used next to the converters of custom types", () => {
+    const library = Library.create<{
+        c: DesignToken.Color;
+        r: DesignToken.Custom<"ratio", number>;
+    }>({
+        c: { $type: DesignToken.Type.Color, $value: hex("#336699") },
+        r: { $type: "ratio", $value: 2 },
+    });
+
+    Assert.is(
+        toCSS(library, {
+            converters: {
+                ratio: (value) => `${value * 100}%`,
+                color: () => "red",
+            },
+        }),
+        "--c:red;--r:200%;",
+    );
+});
+
 toCssSuite.run();
 toPropertiesSuite.run();
+convertSuite.run();
+overrideSuite.run();
