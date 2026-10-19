@@ -93,27 +93,40 @@ const valid = Library.create({
 });
 
 type ValueTypes = [
-    Expect<Equal<typeof valid.tokens.border.$value, DesignToken.Values.Border>>,
     Expect<
         Equal<
-            typeof valid.tokens.cubicBezier.$value,
-            DesignToken.Values.CubicBezier
+            typeof valid.tokens.border.$value,
+            DesignToken.Values.Readonly.Border
         >
     >,
     Expect<
-        Equal<typeof valid.tokens.gradient.$value, DesignToken.Values.Gradient>
+        Equal<
+            typeof valid.tokens.cubicBezier.$value,
+            DesignToken.Values.Readonly.CubicBezier
+        >
     >,
-    Expect<Equal<typeof valid.tokens.shadow.$value, DesignToken.Values.Shadow>>,
+    Expect<
+        Equal<
+            typeof valid.tokens.gradient.$value,
+            DesignToken.Values.Readonly.Gradient
+        >
+    >,
+    Expect<
+        Equal<
+            typeof valid.tokens.shadow.$value,
+            DesignToken.Values.Readonly.Shadow
+        >
+    >,
     Expect<
         Equal<
             typeof valid.tokens.transition.$value,
-            DesignToken.Values.Transition
+            DesignToken.Values.Readonly.Transition
         >
     >,
     Expect<
         Equal<
             typeof valid.tokens.typography.$value,
-            DesignToken.Values.Typography
+            DesignToken.Values.Readonly.Typography
         >
     >,
 ];
@@ -137,12 +150,15 @@ const nested = Library.create({
 });
 type NestedTypes = [
     Expect<
-        Equal<typeof nested.tokens.g.h.t.$value, DesignToken.Values.Dimension>
+        Equal<
+            typeof nested.tokens.g.h.t.$value,
+            DesignToken.Values.Readonly.Dimension
+        >
     >,
     Expect<
         Equal<
             typeof nested.tokens.g.h.$root.$value,
-            DesignToken.Values.Dimension
+            DesignToken.Values.Readonly.Dimension
         >
     >,
 ];
@@ -157,7 +173,10 @@ const themeConfig: Library.Config<Theme> = {
 const fromVariable = Library.create(themeConfig);
 type VariableTypes = [
     Expect<
-        Equal<typeof fromVariable.tokens.a.$value, DesignToken.Values.Color>
+        Equal<
+            typeof fromVariable.tokens.a.$value,
+            DesignToken.Values.Readonly.Color
+        >
     >,
 ];
 
@@ -170,7 +189,7 @@ type CustomTypes = [
     Expect<
         Equal<
             typeof custom.tokens.elevation.$value,
-            { level: number; label: "raised" }
+            DesignToken.DeepReadonly<{ level: number; label: "raised" }>
         >
     >,
 ];
