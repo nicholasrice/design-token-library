@@ -292,7 +292,7 @@ Extend("overrides without description or extensions keep the source's", () => {
     Assert.is.not(extended.tokens.a.$extensions, source.tokens.a.$extensions);
 });
 
-Extend.skip("an override with a different type throws (fails: #16)", () => {
+Extend("an override with a different type throws", () => {
     const source = single();
 
     Assert.throws(
