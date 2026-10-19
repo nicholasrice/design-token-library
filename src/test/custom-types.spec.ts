@@ -317,7 +317,7 @@ const flat = () =>
 const flatConverters = {
     elevation: (value: {
         level: number;
-        shadowColor: DesignToken.Values.Color;
+        shadowColor: DesignToken.Values.Readonly.Color;
     }) => `${value.level} ${toHex(value.shadowColor)}`,
     ratio: (value: number) => `${value * 100}%`,
 };

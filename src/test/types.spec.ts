@@ -42,7 +42,7 @@ const invalidConfig: Library.Config<Theme> = {
 const library = Library.create(config);
 
 // Token values are typed by token type
-const color: DesignToken.Values.Color = library.tokens.a.$value;
+const color: DesignToken.Values.Readonly.Color = library.tokens.a.$value;
 // @ts-expect-error a Color value is not a number
 const notNumber: number = library.tokens.a.$value;
 
@@ -53,8 +53,8 @@ interface Extension {
 const extended = library.extend<Extension>({
     c: { $type: DesignToken.Type.Color, $value: hex("#333333") },
 });
-const sourceKey: DesignToken.Values.Color = extended.tokens.a.$value;
-const newKey: DesignToken.Values.Color = extended.tokens.c.$value;
+const sourceKey: DesignToken.Values.Readonly.Color = extended.tokens.a.$value;
+const newKey: DesignToken.Values.Readonly.Color = extended.tokens.c.$value;
 
 // @ts-expect-error set() rejects a mismatched value type
 library.tokens.a.set(12);
@@ -102,7 +102,8 @@ type GroupedTypes = [
         Equal<typeof groupedExtended.tokens.g.b.$type, DesignToken.Type.Color>
     >,
 ];
-const newToken: DesignToken.Values.Color = groupedExtended.tokens.c.$value;
+const newToken: DesignToken.Values.Readonly.Color =
+    groupedExtended.tokens.c.$value;
 
 // Inferred token values are checked against their declared type (#37).
 // @ts-expect-error a Color token rejects a number value
@@ -153,16 +154,21 @@ const inferred = Library.create({
 });
 type InferredTypes = [
     Expect<
-        Equal<typeof inferred.tokens.space.$value, DesignToken.Values.Dimension>
+        Equal<
+            typeof inferred.tokens.space.$value,
+            DesignToken.Values.Readonly.Dimension
+        >
     >,
     Expect<
         Equal<
             typeof inferred.tokens.line.$value,
-            DesignToken.Values.StrokeStyle
+            DesignToken.Values.Readonly.StrokeStyle
         >
     >,
     // Custom types keep the value they declare.
-    Expect<Equal<typeof inferred.tokens.custom.$value, { level: number }>>,
+    Expect<
+        Equal<typeof inferred.tokens.custom.$value, { readonly level: number }>
+    >,
     // Inferred `$type` literals are kept, for built-in and custom types.
     Expect<
         Equal<typeof inferred.tokens.space.$type, DesignToken.Type.Dimension>
@@ -179,18 +185,28 @@ const remDimension: DesignToken.Values.Dimension = { value: 1, unit: "rem" };
 // @ts-expect-error "rm" is not a dimension unit
 const rmDimension: DesignToken.Values.Dimension = { value: 1, unit: "rm" };
 
-// Enable once token values are deeply readonly at compile time (#24).
-// // @ts-expect-error top-level property is readonly
-// library.tokens.border.$value.width = px(2);
-// // @ts-expect-error nested properties are readonly
-// library.tokens.border.$value.style = "dashed";
-// const gradient = Library.create({
-//     g: { $type: DesignToken.Type.Gradient, $value: [{ color: hex("#111111"), position: 0 }] },
-// });
-// // @ts-expect-error arrays are readonly
-// gradient.tokens.g.$value.push({ color: hex("#222222"), position: 1 });
-// // @ts-expect-error array items are readonly
-// gradient.tokens.g.$value[0].position = 1;
+// Token values are deeply readonly at compile time (#24). Never called,
+// since the values are also frozen at runtime.
+function readonlyValues() {
+    // @ts-expect-error top-level property is readonly
+    library.tokens.border.$value.width = px(2);
+    // @ts-expect-error top-level property is readonly
+    library.tokens.border.$value.style = "dashed";
+    // @ts-expect-error nested properties are readonly
+    library.tokens.border.$value.width.value = 2;
+    // @ts-expect-error nested arrays are readonly
+    library.tokens.border.$value.color.components.push(0);
+    const gradient = Library.create({
+        g: {
+            $type: DesignToken.Type.Gradient,
+            $value: [{ color: hex("#111111"), position: 0 }],
+        },
+    });
+    // @ts-expect-error arrays are readonly
+    gradient.tokens.g.$value.push({ color: hex("#222222"), position: 1 });
+    // @ts-expect-error array items are readonly
+    gradient.tokens.g.$value[0].position = 1;
+}
 
 Types("type-level assertions compile", () => {
     Assert.ok([
