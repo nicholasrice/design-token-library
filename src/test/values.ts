@@ -5,7 +5,7 @@ export { hex, ms, px, rem, s } from "../lib/values.js";
 /**
  * The CSS hex string for an sRGB color, in lower case, without alpha.
  */
-export const toHex = (color: DesignToken.Values.Color): string => {
+export const toHex = (color: DesignToken.Values.Readonly.Color): string => {
     return (
         "#" +
         color.components

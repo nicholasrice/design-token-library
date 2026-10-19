@@ -171,7 +171,12 @@ export namespace Library {
         C extends {},
         G extends string = never,
     > = {
-        set(value: DesignToken.ValueByToken<T> | Alias<T, C>): void;
+        set(
+            value:
+                | DesignToken.ValueByToken<T>
+                | DesignToken.ReadonlyValueByToken<T>
+                | Alias<T, C>,
+        ): void;
         /**
          * A JSON representation of the token's name, type, resolved value,
          * description, extensions and deprecation.
@@ -179,7 +184,7 @@ export namespace Library {
         toString(): string;
         readonly $type: DesignToken.TypeByToken<T, G>;
         readonly $extensions: Record<string, any>;
-        readonly $value: DesignToken.ValueByToken<T>;
+        readonly $value: DesignToken.ReadonlyValueByToken<T>;
         readonly $description: string;
         /**
          * `false`, `true`, or the explanation the token was deprecated with.
@@ -742,7 +747,7 @@ const recurseResolve = (value: any, context: Library.Context<any>): any => {
 
             r[i] = isObject(v) ? recurseResolve(v, context) : v;
         }
-        return r;
+        return Object.freeze(r);
     }
 
     const r: any = {};
@@ -766,7 +771,7 @@ const recurseResolve = (value: any, context: Library.Context<any>): any => {
         }
     }
 
-    return r;
+    return Object.freeze(r);
 };
 
 const assertNoRoot = (config: RawConfig): void => {
@@ -824,8 +829,11 @@ class LibraryToken<T extends DesignToken.Any>
         ISubscriber<Library.Alias<T, any>>,
         IWatcher
 {
-    private raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
-    private cached: DesignToken.ValueByToken<T> | typeof empty = empty;
+    private raw:
+        | DesignToken.ValueByToken<T>
+        | DesignToken.ReadonlyValueByToken<T>
+        | Library.Alias<T, any>;
+    private cached: DesignToken.ReadonlyValueByToken<T> | typeof empty = empty;
     private resolving = false;
     private notifying = false;
     private subscriptions: Set<INotifier<any>> = new Set();
@@ -871,7 +879,7 @@ class LibraryToken<T extends DesignToken.Any>
     /**
      * Gets the token value
      */
-    public get $value(): DesignToken.ValueByToken<T> {
+    public get $value(): DesignToken.ReadonlyValueByToken<T> {
         if (this.cached !== empty) {
             return this.cached;
         }
@@ -928,7 +936,12 @@ class LibraryToken<T extends DesignToken.Any>
         });
     }
 
-    public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
+    public set(
+        value:
+            | DesignToken.ValueByToken<T>
+            | DesignToken.ReadonlyValueByToken<T>
+            | Library.Alias<T, any>,
+    ) {
         this.raw = value;
         this.onChange();
     }

@@ -36,7 +36,7 @@ type ConvertersOf<C> = {
         $type: N;
     }
         ? C extends DesignToken.Shape
-            ? CSSConverter<DesignToken.ValueByToken<C>, C>
+            ? CSSConverter<DesignToken.ReadonlyValueByToken<C>, C>
             : never
         : never;
 };

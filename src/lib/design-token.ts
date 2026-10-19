@@ -221,6 +221,27 @@ export namespace DesignToken {
         }
 
         /**
+         * The readonly form of each value, as returned by a library token.
+         */
+        export namespace Readonly {
+            export interface Border extends DeepReadonly<Values.Border> {}
+            export interface Color extends DeepReadonly<Values.Color> {}
+            export type CubicBezier = DeepReadonly<Values.CubicBezier>;
+            export interface Dimension extends DeepReadonly<Values.Dimension> {}
+            export interface Duration extends DeepReadonly<Values.Duration> {}
+            export type FontFamily = DeepReadonly<Values.FontFamily>;
+            export type FontWeight = DeepReadonly<Values.FontWeight>;
+            export type Gradient = DeepReadonly<Values.Gradient>;
+            export type Number = DeepReadonly<Values.Number>;
+            export type Shadow = DeepReadonly<Values.Shadow>;
+            export type StrokeStyle = DeepReadonly<Values.StrokeStyle>;
+            export interface Transition
+                extends DeepReadonly<Values.Transition> {}
+            export interface Typography
+                extends DeepReadonly<Values.Typography> {}
+        }
+
+        /**
          * @internal
          */
         export type Any =
@@ -271,6 +292,45 @@ export namespace DesignToken {
         T["$type"] extends keyof ValueByType
             ? ValueByType[T["$type"]]
             : T["$value"];
+
+    /**
+     * `T` with every nested property, array, and array item readonly.
+     */
+    export type DeepReadonly<T> = T extends Function
+        ? T
+        : { readonly [K in keyof T]: DeepReadonly<T[K]> };
+
+    /**
+     * The readonly value type of each {@link DesignToken.Type}.
+     *
+     * @internal
+     */
+    export interface ReadonlyValueByType {
+        [Type.Border]: Values.Readonly.Border;
+        [Type.Color]: Values.Readonly.Color;
+        [Type.CubicBezier]: Values.Readonly.CubicBezier;
+        [Type.Dimension]: Values.Readonly.Dimension;
+        [Type.Duration]: Values.Readonly.Duration;
+        [Type.FontFamily]: Values.Readonly.FontFamily;
+        [Type.FontWeight]: Values.Readonly.FontWeight;
+        [Type.Gradient]: Values.Readonly.Gradient;
+        [Type.Number]: Values.Readonly.Number;
+        [Type.Shadow]: Values.Readonly.Shadow;
+        [Type.StrokeStyle]: Values.Readonly.StrokeStyle;
+        [Type.Transition]: Values.Readonly.Transition;
+        [Type.Typography]: Values.Readonly.Typography;
+    }
+
+    /**
+     * The readonly form of {@link DesignToken.ValueByToken}: the value a
+     * library token returns.
+     *
+     * @internal
+     */
+    export type ReadonlyValueByToken<T extends DesignToken.Shape> =
+        T["$type"] extends keyof ReadonlyValueByType
+            ? ReadonlyValueByType[T["$type"]]
+            : DeepReadonly<T["$value"]>;
 
     /**
      * The type of a token. Tokens that don't declare a `$type` resolve to
