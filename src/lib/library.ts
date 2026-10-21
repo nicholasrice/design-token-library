@@ -691,6 +691,12 @@ function extendToken(
     queue: IQueue<any>,
     node?: Record<string, any>,
 ) {
+    if (node?.$type !== undefined && node.$type !== token.$type) {
+        throw new Error(
+            `An override cannot change the '$type' of token '${token.name}' from '${token.$type}' to '${node.$type}'.`,
+        );
+    }
+
     const extendingToken = Object.create(token);
     extendingToken.context = context;
     extendingToken.cached = empty;
