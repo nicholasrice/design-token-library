@@ -331,24 +331,24 @@ Subscription(
     },
 );
 
-SameValue.skip(
-    "setting the same primitive does not notify (fails: #22)",
+SameValue(
+    "setting the same primitive does not notify",
     async () => {
-        const library = Library.create<A>({
-            a: { $type: C, $value: hex("#111111") },
+        const library = Library.create<{ n: DesignToken.Number }>({
+            n: { $type: DesignToken.Type.Number, $value: 1 },
         });
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.a.set(hex("#111111"));
+        library.tokens.n.set(1);
         await nextUpdate();
 
         Assert.equal(subscriber.batches, []);
     },
 );
 
-SameValue.skip(
-    "setting the same alias function reference does not notify (fails: #22)",
+SameValue(
+    "setting the same alias function reference does not notify",
     async () => {
         const alias = (context: Library.Context<AB>) => context.a;
         const library = Library.create<AB>({
@@ -365,8 +365,8 @@ SameValue.skip(
     },
 );
 
-SameValue.skip(
-    "setting the same object reference does not notify (fails: #22)",
+SameValue(
+    "setting the same object reference does not notify",
     async () => {
         const value: DesignToken.Values.Border = {
             color: hex("#111111"),
@@ -420,7 +420,7 @@ SameValue("setting a new function with the same body notifies", async () => {
     Assert.equal(subscriber.batches, [["b"]]);
 });
 
-SameValue.skip("a no-op set does not invalidate the cache (fails: #22)", () => {
+SameValue("a no-op set does not invalidate the cache", () => {
     const alias = spy((context: Library.Context<AB>) => context.a);
     const library = Library.create<AB>({
         a: { $type: C, $value: hex("#111111") },
@@ -450,6 +450,23 @@ SameValue(
 );
 
 SameValue(
+    "setting the inherited alias on an extended token detaches it from the source",
+    () => {
+        const alias = (context: Library.Context<AB>) => context.a;
+        const source = Library.create<AB>({
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: alias },
+        });
+        const extended = source.extend<{}>({});
+
+        extended.tokens.b.set(alias);
+        source.tokens.b.set(hex("#222222"));
+
+        Assert.equal(extended.tokens.b.$value, hex("#111111"));
+    },
+);
+
+SameValue(
     "after detaching, source changes neither change nor notify the extended token",
     async () => {
         const source = Library.create<A>({
@@ -469,12 +486,13 @@ SameValue(
     },
 );
 
-SameValue.skip(
-    "setting the inherited value on an extended token does not notify (fails: #22)",
+SameValue(
+    "setting the inherited value on an extended token does not notify",
     async () => {
+        const value = hex("#111111");
         const alias = (context: Library.Context<AB>) => context.a;
         const source = Library.create<AB>({
-            a: { $type: C, $value: hex("#111111") },
+            a: { $type: C, $value: value },
             b: { $type: C, $value: alias },
         });
         const extended = source.extend<{}>({});
@@ -482,7 +500,7 @@ SameValue.skip(
         const subscriber = recorder();
         extended.subscribe(subscriber);
 
-        extended.tokens.a.set(hex("#111111"));
+        extended.tokens.a.set(value);
         extended.tokens.b.set(alias);
         await nextUpdate();
 

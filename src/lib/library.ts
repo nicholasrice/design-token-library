@@ -728,6 +728,9 @@ function extendToken(
         const set = extendingToken.set;
         extendingToken.set = (value: any) => {
             getNotifier(token).unsubscribe(subscriber);
+            // Own the inherited value, so set() detaches even when the
+            // new value is identical and doesn't notify.
+            extendingToken.raw = extendingToken.raw;
             set.call(extendingToken, value);
             extendingToken.set = set;
         };
@@ -939,6 +942,10 @@ class LibraryToken<T extends DesignToken.Any>
     }
 
     public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
+        if (Object.is(this.raw, value)) {
+            return;
+        }
+
         this.raw = value;
         this.onChange();
     }
