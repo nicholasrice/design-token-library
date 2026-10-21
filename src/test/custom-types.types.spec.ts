@@ -229,13 +229,49 @@ function declarationNegatives() {
         n: { $type: "nestedFn", $value: { a: { b: () => {} } } },
     };
 
+    // a value that contains itself, like a tree, is accepted when it has no functions
+    interface Tree {
+        fn: string;
+        args: Array<number | Tree>;
+    }
+    const recursive: Library.Config<{ t: DesignToken.Custom<"tree", Tree> }> = {
+        t: {
+            $type: "tree",
+            $value: { fn: "add", args: [1, { fn: "add", args: [2] }] },
+        },
+    };
+    type RecursiveType = Expect<
+        Equal<DesignToken.Custom<"tree", Tree>["$type"], "tree">
+    >;
+
+    // and rejected when it has one, in the value that contains itself, or nested in properties
+    interface TreeWithFunction {
+        children: TreeWithFunction[];
+        visit: () => void;
+    }
+    type TreeWithFunctionMessage = Expect<
+        Equal<
+            DesignToken.Custom<"treeFn", TreeWithFunction>["$type"],
+            "Error: custom token values must be serializable and cannot contain functions"
+        >
+    >;
+    interface Shallow {
+        a: { b: { c: () => void } };
+    }
+    type ShallowMessage = Expect<
+        Equal<
+            DesignToken.Custom<"shallow", Shallow>["$type"],
+            "Error: custom token values must be serializable and cannot contain functions"
+        >
+    >;
+
     // the config type must match the declared name
     const mismatched: Library.Config<{ r: RatioToken }> = {
         // @ts-expect-error 'label' is not 'ratio'
         r: { $type: "label", $value: 1 },
     };
 
-    return [reserved, functions, mismatched];
+    return [reserved, functions, recursive, mismatched];
 }
 
 /* Group type inheritance. Inheriting, nested inheritance and overriding are covered by `customConfig`. */

@@ -382,15 +382,26 @@ export namespace DesignToken {
     /**
      * Resolves to `true` if `V` is, or contains, a function.
      *
+     * @remarks
+     * The properties are searched to a depth, so a value type that contains itself, like a tree, can be
+     * checked. A function deeper than that is not found.
+     *
      * @internal
      */
-    export type HasFunction<V> = V extends Function
+    export type HasFunction<
+        V,
+        Depth extends unknown[] = [],
+    > = V extends Function
         ? true
-        : V extends object
-          ? true extends { [K in keyof V]-?: HasFunction<V[K]> }[keyof V]
-              ? true
-              : false
-          : false;
+        : Depth["length"] extends 8
+          ? false
+          : V extends object
+            ? true extends {
+                  [K in keyof V]-?: HasFunction<V[K], [...Depth, unknown]>;
+              }[keyof V]
+                ? true
+                : false
+            : false;
 
     /**
      * The `$type` of a {@link DesignToken.Custom} token. Resolves to an error
