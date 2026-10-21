@@ -352,6 +352,59 @@ CSS("a custom token without a converter throws", () => {
     );
 });
 
+CSS("a custom type with a converter of false is left out of the CSS", () => {
+    Assert.is(
+        toCSS(flat(), { converters: { ...flatConverters, ratio: false } }),
+        "--c:#111111;--e:2 #111111;",
+    );
+    Assert.is(
+        toCSS(flat(), {
+            converters: { elevation: false, ratio: false },
+        }),
+        "--c:#111111;",
+    );
+});
+
+CSS("a custom type with a converter of false doesn't call a converter", () => {
+    let called = false;
+    Assert.is(
+        toCSS(flat(), {
+            converters: { ...flatConverters, ratio: false },
+            name: (token) => {
+                called = called || token.name === "r";
+                return token.name;
+            },
+        }),
+        "--c:#111111;--e:2 #111111;",
+    );
+    Assert.is(called, false);
+});
+
+CSS("a custom type without an entry still throws", () => {
+    Assert.throws(
+        // @ts-expect-error simulates an untyped caller
+        () => toCSS(flat(), { converters: { elevation: false } }),
+        /custom type 'ratio' of token 'r'/,
+    );
+});
+
+CSS("a custom type of false inside a group leaves the other tokens", () => {
+    const css = toCSS(custom(), {
+        converters: {
+            elevation: (value) => `${value.level}`,
+            ratio: false,
+            label: (value) => value,
+            flag: false,
+            steps: false,
+            nested: false,
+        },
+    });
+    Assert.ok(css.includes("--elevation-low:"));
+    Assert.not.ok(css.includes("--ratio:"));
+    Assert.not.ok(css.includes("--flag:"));
+    Assert.ok(css.includes("--label:"));
+});
+
 CSS("an extended library uses converters for new custom types", () => {
     const extended = flat().extend<{
         z: DesignToken.Custom<"z-index", number>;
@@ -366,6 +419,22 @@ CSS("an extended library uses converters for new custom types", () => {
         }),
         "--c:#111111;--e:2 #111111;--r:200%;--z:3;",
     );
+});
+
+CSS(
+    "toProperties leaves out tokens of a custom type with a converter of false",
+    () => {
+        const properties: any = toProperties(flat(), {
+            converters: { ...flatConverters, ratio: false },
+        });
+
+        Assert.equal(Object.keys(properties), ["c", "e"]);
+        Assert.is(properties.r, undefined);
+    },
+);
+
+CSS("toProperties without converters includes every custom token", () => {
+    Assert.equal(Object.keys(toProperties(flat())), ["c", "e", "r"]);
 });
 
 CSS("toProperties includes custom tokens", () => {
