@@ -21,8 +21,8 @@ class Palette {
     }
 }
 
-// Library values with a class or built in type don't type check as custom tokens, so the
-// config is untyped here the same way a value cast through `any` would be.
+// The configs are untyped, as a value cast through `any` would be, so that the runtime is
+// tested without the types. Typed class values are tested with the custom types.
 const create = (config: Record<string, unknown>) => Library.create<any>(config);
 
 const $ = refs<{ n: DesignToken.Number }>();

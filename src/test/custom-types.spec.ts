@@ -183,6 +183,50 @@ Groups("a custom token without an inherited type throws", () => {
     );
 });
 
+Create(
+    "a custom value can be a class instance or an object with functions",
+    () => {
+        class Palette {
+            public calls = 0;
+            constructor(readonly swatches: number[]) {}
+            swatch(index: number) {
+                this.calls++;
+                return this.swatches[index];
+            }
+        }
+        interface Theme {
+            base: DesignToken.Custom<"palette", Palette>;
+            grown: DesignToken.Custom<"palette", Palette>;
+            format: DesignToken.Custom<
+                "format",
+                { label: (n: number) => string }
+            >;
+            steps: DesignToken.Number;
+        }
+        const $ = refs<Theme>();
+        const { grow } = recipes({
+            grow: (palette: Palette, step: number) =>
+                new Palette([...palette.swatches, step]),
+        });
+        const base = new Palette([1, 2]);
+        const label = (n: number) => `step ${n}`;
+        const library = Library.create<Theme>({
+            base: { $type: "palette", $value: base },
+            grown: { $type: "palette", $value: grow($.base, $.steps) },
+            format: { $type: "format", $value: { label } },
+            steps: { $type: DesignToken.Type.Number, $value: 3 },
+        });
+
+        Assert.is(library.tokens.base.$value, base);
+        Assert.instance(library.tokens.grown.$value, Palette);
+        Assert.equal(library.tokens.grown.$value.swatches, [1, 2, 3]);
+        Assert.is(library.tokens.format.$value.label, label);
+        // The library never calls a value's functions
+        Assert.is(base.calls, 0);
+        Assert.is(library.tokens.grown.$value.swatch(2), 3);
+    },
+);
+
 Changes("set() with a static value and an alias", async () => {
     const library = custom();
     const subscriber = recorder();
