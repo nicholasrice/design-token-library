@@ -380,33 +380,9 @@ export namespace DesignToken {
     export type ReservedTypeName = `${DesignToken.Type}`;
 
     /**
-     * Resolves to `true` if `V` is, or contains, a function.
-     *
-     * @remarks
-     * The properties are searched to a depth, so a value type that contains itself, like a tree, can be
-     * checked. A function deeper than that is not found.
-     *
-     * @internal
-     */
-    export type HasFunction<
-        V,
-        Depth extends unknown[] = [],
-    > = V extends Function
-        ? true
-        : Depth["length"] extends 8
-          ? false
-          : V extends object
-            ? true extends {
-                  [K in keyof V]-?: HasFunction<V[K], [...Depth, unknown]>;
-              }[keyof V]
-                ? true
-                : false
-            : false;
-
-    /**
      * The `$type` of a {@link DesignToken.Custom} token. Resolves to an error
-     * message type when `Name` is reserved or `Value` is not serializable, so
-     * that invalid custom tokens cannot be configured.
+     * message type when `Name` is reserved or `Value` is, or may be, a
+     * function, so that invalid custom tokens cannot be configured.
      *
      * @internal
      */
@@ -415,9 +391,11 @@ export namespace DesignToken {
         Value,
     > = Name extends ReservedTypeName
         ? `Error: '${Name}' is a reserved DTCG type name`
-        : HasFunction<Value> extends true
-          ? "Error: custom token values must be serializable and cannot contain functions"
-          : Name;
+        : 0 extends 1 & Value
+          ? Name
+          : [Extract<Value, Function>] extends [never]
+            ? Name
+            : "Error: a custom token value can't be a function: a value computed by a function is a recipe's";
 
     /**
      * A token of a custom type that is not defined by
@@ -425,9 +403,11 @@ export namespace DesignToken {
      *
      * @remarks
      * `Name` identifies the type and must not be a {@link DesignToken.ReservedTypeName}.
-     * `Value` can be any serializable (JSON-like) value: the resolved value can't
-     * be, or contain, a function. A config can still give the value, or any
-     * property of it, as a {@link refs | ref} or a {@link recipes | computed value}.
+     * `Value` is data: a primitive, an array, a plain object, or a class
+     * instance. An object may have methods and function properties, which are
+     * never called, but the value can't be a function: a value computed by a
+     * function is a {@link recipes | recipe's}. A config can give the value, or
+     * any property of it, as a {@link refs | ref} or a computed value.
      *
      * @example
      * ```ts

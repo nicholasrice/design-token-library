@@ -273,7 +273,7 @@ library.tokens.elevations.raised.$type; // "elevation", inherited from the group
 Custom types have two restrictions, both enforced at compile time:
 
 - `Name` can't be a DTCG type name such as `"color"`.
-- `Value` must be serializable: the resolved value can't be, or contain, a function. A config can still give the value, or any property of it, as an alias or a computed value.
+- `Value` is data: a primitive, an array, a plain object, or a class instance. An object may have methods and function properties, which the library never calls, but the value can't be a function: a value computed by a function is a recipe's. A function isn't written by `toString()`, so a value with functions is converted to CSS with its converter.
 
 #### CSS
 
