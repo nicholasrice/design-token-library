@@ -1,6 +1,9 @@
 import { DesignToken } from "../../lib/design-token.js";
+import { refs } from "../../lib/ref.js";
 import { Library } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
+
+const $ = refs<Theme>();
 
 export interface Borders {
     $type: DesignToken.Type.Border;
@@ -12,18 +15,12 @@ export const borders: Library.Config<Borders, Theme> = {
     $type: DesignToken.Type.Border,
     accentThin: {
         $value: {
-            color: function (theme) {
-                return theme.colors.accent;
-            },
+            color: $.colors.accent,
             style: "dashed",
-            width(theme) {
-                return theme.dimensions.border;
-            },
+            width: $.dimensions.border,
         },
     },
     neutralThin: {
-        $value: function (theme): DesignToken.Border {
-            return theme.borders.accentThin;
-        },
+        $value: $.borders.accentThin,
     },
 };

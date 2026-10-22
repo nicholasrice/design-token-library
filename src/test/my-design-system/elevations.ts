@@ -1,7 +1,11 @@
+import { recipes } from "../../lib/recipe.js";
+import { refs } from "../../lib/ref.js";
 import { DesignToken } from "../../lib/design-token.js";
 import { Library } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
 import { px } from "../values.js";
+
+const $ = refs<Theme>();
 
 export interface Elevation {
     level: number;
@@ -16,13 +20,26 @@ export interface Elevations {
     raised: ElevationToken;
 }
 
+const { raise } = recipes({
+    // A shadow is one layer or several: raise each layer.
+    raise: (
+        elevation: Elevation,
+        offsetY: DesignToken.Values.Dimension,
+    ): Elevation => ({
+        level: elevation.level + 1,
+        shadow: [elevation.shadow]
+            .flat()
+            .map((layer) => ({ ...layer, offsetY })),
+    }),
+});
+
 export const elevations: Library.Config<Elevations, Theme> = {
     $type: "elevation",
     flat: {
         $value: {
             level: 0,
             shadow: {
-                color: (theme) => theme.colors.neutral,
+                color: $.colors.neutral,
                 offsetX: px(0),
                 offsetY: px(0),
                 blur: px(0),
@@ -31,15 +48,6 @@ export const elevations: Library.Config<Elevations, Theme> = {
         },
     },
     raised: {
-        // A shadow is one layer or several: raise each layer.
-        $value: (theme) => ({
-            level: theme.elevations.flat.$value.level + 1,
-            shadow: [theme.elevations.flat.$value.shadow]
-                .flat()
-                .map((layer) => ({
-                    ...layer,
-                    offsetY: theme.dimensions.unit.$value,
-                })),
-        }),
+        $value: raise($.elevations.flat, $.dimensions.unit),
     },
 };

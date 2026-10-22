@@ -1,5 +1,6 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
@@ -177,9 +178,10 @@ Props("a circular reference throws instead of overflowing the stack", () => {
         a: DesignToken.Color;
         b: DesignToken.Color;
     }
+    const $ = refs<Theme>();
     const library = Library.create<Theme>({
-        a: { $type: C, $value: (context) => context.b },
-        b: { $type: C, $value: (context) => context.a },
+        a: { $type: C, $value: $.b },
+        b: { $type: C, $value: $.a },
     });
 
     Assert.throws(() => library.tokens.a.$value, /Circular reference/);

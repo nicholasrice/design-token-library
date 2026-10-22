@@ -1,7 +1,10 @@
 import { DesignToken } from "../../lib/design-token.js";
+import { refs } from "../../lib/ref.js";
 import { Library } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
 import { hex } from "../values.js";
+
+const $ = refs<Theme>();
 
 export interface Colors {
     $type: DesignToken.Type.Color;
@@ -15,8 +18,6 @@ export const colors: Library.Config<Colors, Theme> = {
         $value: hex("#FFFFFF"),
     },
     accent: {
-        $value: function (theme) {
-            return theme.colors.neutral;
-        },
+        $value: $.colors.neutral,
     },
 };

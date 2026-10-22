@@ -1,5 +1,6 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { A, AB, ABC, aliasedPair, nextUpdate, recorder } from "./helpers.js";
@@ -49,6 +50,7 @@ Extend("overrides a token inside a nested group", () => {
             b: DesignToken.Color;
         };
     }
+    const $ = refs<Theme>();
     const source = Library.create<Theme>({
         g: {
             $type: C,
@@ -81,13 +83,13 @@ Extend("a new token in an existing group inherits the group's type", () => {
     Assert.is(extended.tokens.g.b.$type, C);
 });
 
-Extend("an override can be an alias function", () => {
+Extend("an override can be a ref", () => {
     const source = Library.create<AB>({
         a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: hex("#222222") },
     });
     const extended = source.extend<{}>({
-        b: { $value: (context) => context.a },
+        b: { $value: refs<AB>().a },
     });
 
     Assert.equal(extended.tokens.b.$value, hex("#111111"));
@@ -98,6 +100,7 @@ Extend("an override can contain a deep alias", () => {
         a: DesignToken.Color;
         border: DesignToken.Border;
     }
+    const $ = refs<Theme>();
     const source = Library.create<Theme>({
         a: { $type: C, $value: hex("#111111") },
         border: {
@@ -108,7 +111,7 @@ Extend("an override can contain a deep alias", () => {
     const extended = source.extend<{}>({
         border: {
             $value: {
-                color: (context: Library.Context<Theme>) => context.a,
+                color: $.a,
                 width: px(2),
                 style: "solid",
             },
@@ -348,6 +351,7 @@ Extend("the extended library root and groups are frozen", () => {
     interface Theme extends Grouped {
         b: DesignToken.Color;
     }
+    const $ = refs<Theme>();
     const extended = Library.create<Theme>({
         b: { $type: C, $value: hex("#111111") },
         g: { $type: C, a: { $value: hex("#222222") } },
@@ -399,15 +403,16 @@ Extend(
 Extend.skip(
     "reading an extended token does not corrupt the source token's dependency tracking (fails: #19)",
     async () => {
+        const $ = refs<ABC>();
         const source = Library.create<ABC>({
             a: { $type: C, $value: hex("#111111") },
             c: { $type: C, $value: hex("#333333") },
-            b: { $type: C, $value: (context) => context.a },
+            b: { $type: C, $value: $.a },
         });
         source.tokens.b.$value;
         source.extend<{}>({}).tokens.b.$value;
 
-        source.tokens.b.set((context) => context.c);
+        source.tokens.b.set($.c);
         source.tokens.b.$value;
         await nextUpdate();
         const subscriber = recorder();
@@ -490,6 +495,7 @@ Extend(
                 large: DesignToken.Number;
             };
         }
+        const $ = refs<Theme>();
         const library = Library.create<Theme>({
             sizes: {
                 $type: DesignToken.Type.Number,
@@ -500,10 +506,14 @@ Extend(
 
         // The type of `context` is inferred, which it wasn't for a token in a group
         const extended = library.extend({
-            sizes: { small: { $value: (context) => context.sizes.large } },
+            sizes: {
+                small: { $value: $.sizes.large },
+            },
         });
         const withNew = library.extend({
-            sizes: { small: { $value: (context) => context.sizes.large } },
+            sizes: {
+                small: { $value: $.sizes.large },
+            },
             extra: { $type: DesignToken.Type.Number, $value: 3 },
         });
 
