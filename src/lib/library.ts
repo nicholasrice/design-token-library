@@ -21,18 +21,27 @@ export namespace Library {
         subscribe(subscriber: Library.Subscriber<R>): void;
         unsubscribe(subscriber: Library.Subscriber<R>): void;
         /**
-         * Creates a library with the values of the tokens replaced.
+         * Creates a library with the values of the tokens replaced, and
+         * recipes overridden.
          *
          * @remarks
          * This has no tokens to add, so a value is checked against the type
          * of its token wherever the token is.
          */
-        extend(config: ExtendConfig<T, R>): Library<T, R>;
+        extend(
+            config: ExtendConfig<T, R>,
+            options?: ExtendOptions,
+        ): Library<T, R>;
+        /**
+         * Creates a library with the values of tokens replaced, new tokens,
+         * and recipes overridden.
+         */
         extend<K extends NoRoot<K> = {}>(
             config: ExtendConfig<T, R & NewTokens<K, T>> &
                 Config<K, R & NewTokens<K, T>, never, T> &
                 NoInfer<ConfigValueCheck<K, R & NewTokens<K, T>>> &
                 (ConfigTypeHint | {}),
+            options?: ExtendOptions,
         ): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
     }
 
@@ -203,7 +212,8 @@ export namespace Library {
      * `T` is the shape of the library its arguments refer to.
      *
      * @remarks
-     * A recipe has its name and its function.
+     * A recipe has its name and its function, which a library that extends
+     * another can override with {@link override}.
      *
      * @public
      */
@@ -226,6 +236,31 @@ export namespace Library {
         {
             readonly [K in keyof F]: Recipe<Parameters<F[K]>, ReturnType<F[K]>>;
         };
+
+    /**
+     * A function that replaces a recipe's in a library made by
+     * `extend()`. Made by {@link override}.
+     *
+     * @public
+     */
+    export interface RecipeOverride {
+        readonly recipe: Recipe<any, unknown>;
+        readonly fn: (...args: any[]) => unknown;
+    }
+
+    /**
+     * Options of `extend()`.
+     *
+     * @public
+     */
+    export interface ExtendOptions {
+        /**
+         * Recipes whose function is replaced in the new library, for every
+         * token that computes its value with them, including the tokens it
+         * doesn't restate.
+         */
+        readonly recipes?: readonly RecipeOverride[];
+    }
 
     /**
      * A {@link (Library:namespace).Ref} to each token of a library of shape
@@ -502,6 +537,18 @@ type RawConfig = { readonly [key: string]: any };
 type RawLibrary = { [key: string]: any };
 
 /**
+ * What the values of a library's tokens are resolved in: its tokens, and the
+ * functions that replace recipes in it.
+ */
+interface Scope {
+    readonly tokens: RawLibrary;
+    readonly recipes: ReadonlyMap<
+        Library.Recipe<any, unknown>,
+        (...args: any[]) => unknown
+    >;
+}
+
+/**
  * Thrown when reading a token whose value refers back to itself through
  * one or more refs or computed values.
  *
@@ -593,7 +640,7 @@ const createToken = (
     key: string,
     name: string,
     config: DesignToken.Any,
-    context: RawLibrary,
+    scope: Scope,
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): LibraryToken<any> => {
@@ -617,7 +664,7 @@ const createToken = (
         name,
         $value,
         resolvedType,
-        context,
+        scope,
         $description || "",
         $extensions || {},
         $deprecated ?? false,
@@ -629,7 +676,7 @@ const recurseCreate = (
     name: string,
     library: RawLibrary,
     config: RawConfig,
-    context: RawLibrary,
+    scope: Scope,
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
@@ -649,27 +696,13 @@ const recurseCreate = (
                 value: group,
                 enumerable: true,
             });
-            recurseCreate(
-                _name,
-                group,
-                config[key],
-                context,
-                typeContext,
-                queue,
-            );
+            recurseCreate(_name, group, config[key], scope, typeContext, queue);
             Object.freeze(group);
         } else if (isToken(config[key])) {
             defineToken(
                 library,
                 key,
-                createToken(
-                    key,
-                    _name,
-                    config[key],
-                    context,
-                    typeContext,
-                    queue,
-                ),
+                createToken(key, _name, config[key], scope, typeContext, queue),
             );
         }
     }
@@ -680,7 +713,7 @@ const recurseExtend = (
     sourceTokens: RawLibrary,
     extendedTokens: RawLibrary,
     config: RawConfig,
-    context: RawLibrary,
+    scope: Scope,
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
@@ -720,7 +753,7 @@ const recurseExtend = (
                     sourceValue as RawLibrary,
                     group,
                     configValue || {},
-                    context,
+                    scope,
                     typeContext,
                     queue,
                 );
@@ -729,7 +762,7 @@ const recurseExtend = (
                     _name,
                     group,
                     configValue,
-                    context,
+                    scope,
                     typeContext,
                     queue,
                 );
@@ -739,7 +772,7 @@ const recurseExtend = (
             const token = sourceHasKey
                 ? extendToken(
                       sourceValue as Library.Token<any, any>,
-                      context,
+                      scope,
                       queue,
                       configValue,
                   )
@@ -747,7 +780,7 @@ const recurseExtend = (
                       key,
                       _name,
                       configValue,
-                      context,
+                      scope,
                       typeContext,
                       queue,
                   );
@@ -758,12 +791,12 @@ const recurseExtend = (
 
 function extendToken(
     token: Library.Token<any, any>,
-    context: RawLibrary,
+    scope: Scope,
     queue: IQueue<any>,
     node?: Record<string, any>,
 ) {
     const extendingToken = Object.create(token);
-    extendingToken.context = context;
+    extendingToken.scope = scope;
     extendingToken.cached = empty;
     extendingToken.resolving = false;
     extendingToken.notifying = false;
@@ -844,29 +877,28 @@ const tokenAt = (
 };
 
 /**
- * Resolves a value in a library's tokens: a ref is replaced by its token's
- * value, and a computed value by the result of its recipe's function. Arrays
- * and plain objects are copied with their refs and computed values resolved,
- * at any depth. Anything else is returned as it is.
+ * Resolves a value: a ref is replaced by its token's value, and a computed
+ * value by the result of its recipe's function, or of the function that
+ * overrides it in the scope. Arrays and plain objects are copied with their
+ * refs and computed values resolved, at any depth. Anything else is returned
+ * as it is.
  */
-const resolve = (value: unknown, tokens: RawLibrary): unknown => {
+const resolve = (value: unknown, scope: Scope): unknown => {
     if (isRef(value)) {
-        return resolve(tokenAt(tokens, value[REF]).$value, tokens);
+        return resolve(tokenAt(scope.tokens, value[REF]).$value, scope);
     }
 
     if (isComputed(value)) {
         const { recipe, args } = value[COMPUTED];
+        const fn = scope.recipes.get(recipe) ?? recipe[RECIPE].fn;
 
-        return resolve(
-            recipe[RECIPE].fn(...args.map((arg) => resolve(arg, tokens))),
-            tokens,
-        );
+        return resolve(fn(...args.map((arg) => resolve(arg, scope))), scope);
     }
 
     if (Array.isArray(value)) {
         const resolved = new Array(value.length);
         for (let i = 0; i < value.length; i++) {
-            resolved[i] = resolve(value[i], tokens);
+            resolved[i] = resolve(value[i], scope);
         }
         return resolved;
     }
@@ -874,7 +906,7 @@ const resolve = (value: unknown, tokens: RawLibrary): unknown => {
     if (isPlainObject(value)) {
         const resolved: Record<string, unknown> = {};
         for (const key of Object.keys(value)) {
-            resolved[key] = resolve(value[key], tokens);
+            resolved[key] = resolve(value[key], scope);
         }
         return resolved;
     }
@@ -907,12 +939,15 @@ const assertNoRoot = (config: RawConfig): void => {
  * exposes it through the typed {@link (Library:namespace).Library} interface.
  */
 class LibraryImpl implements Library.Library<any> {
+    public readonly tokens: RawLibrary;
+
     constructor(
-        public readonly tokens: RawLibrary,
+        private readonly scope: Scope,
         private readonly queue: IQueue<Library.Token<any, any>>,
     ) {
+        this.tokens = scope.tokens;
         // Groups are frozen as they are built; the root is frozen here.
-        Object.freeze(tokens);
+        Object.freeze(this.tokens);
     }
     public subscribe(subscriber: Library.Subscriber<any>) {
         this.queue.subscribe(subscriber);
@@ -921,22 +956,37 @@ class LibraryImpl implements Library.Library<any> {
         this.queue.unsubscribe(subscriber);
     }
 
-    public extend(config: RawConfig): LibraryImpl {
+    public extend(
+        config: RawConfig,
+        options: Library.ExtendOptions = {},
+    ): LibraryImpl {
         assertNoRoot(config);
         const queue = new Queue();
-        const tokens: RawLibrary = {};
-        recurseExtend("", this.tokens, tokens, config, tokens, null, queue);
+        const recipes = new Map(this.scope.recipes);
+        for (const { recipe, fn } of options.recipes ?? []) {
+            recipes.set(recipe, fn);
+        }
+        const scope: Scope = { tokens: {}, recipes };
+        recurseExtend(
+            "",
+            this.tokens,
+            scope.tokens,
+            config,
+            scope,
+            null,
+            queue,
+        );
 
-        return new LibraryImpl(tokens, queue);
+        return new LibraryImpl(scope, queue);
     }
 
     public static create(config: RawConfig): LibraryImpl {
         assertNoRoot(config);
         const queue = new Queue();
-        const tokens: RawLibrary = {};
-        recurseCreate("", tokens, config, tokens, null, queue);
+        const scope: Scope = { tokens: {}, recipes: new Map() };
+        recurseCreate("", scope.tokens, config, scope, null, queue);
 
-        return new LibraryImpl(tokens, queue);
+        return new LibraryImpl(scope, queue);
     }
 }
 
@@ -962,7 +1012,7 @@ class LibraryToken<T extends DesignToken.Any>
         public readonly name: string,
         value: Library.ConfigTokenValue<T, any>,
         private readonly _type: DesignToken.TypeByToken<T>,
-        private readonly context: RawLibrary,
+        private readonly scope: Scope,
         private readonly _description: string,
         extensions: Record<string, any>,
         private readonly _deprecated: boolean | string,
@@ -1017,7 +1067,7 @@ class LibraryToken<T extends DesignToken.Any>
             // The config's types guarantee what the raw value resolves to.
             const value = resolve(
                 this.raw,
-                this.context,
+                this.scope,
             ) as DesignToken.ValueByToken<T>;
 
             this.cached = value;

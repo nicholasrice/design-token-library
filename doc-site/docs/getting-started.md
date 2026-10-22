@@ -135,6 +135,18 @@ export const MyRecipes = { ...Recipes, ...recipes({ tint: tintColor }) };
 $value: MyRecipes.tint($.static, 0.2);
 ```
 
+#### Overriding a recipe
+
+A library made by `extend()` can replace the function of a recipe, for every token that computes its value with it, including the tokens it doesn't restate. `override()` checks that the function takes the recipe's arguments and returns its result's type:
+
+```ts
+import { override } from "design-token-library";
+
+const highContrast = library.extend({}, { recipes: [override(Recipes.darken, darkenMore)] });
+```
+
+The library it extends is unchanged, and a library that extends `highContrast` keeps the override unless it overrides the recipe again.
+
 ### Groups
 
 In alignment with the [DTCG Group](https://www.designtokens.org/tr/2025.10/format/#type-1) specification, token groups _may_ define a `$type` field. All tokens part of the group will infer their type from the group unless they define their own type.
