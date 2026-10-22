@@ -1,3 +1,5 @@
+import { recipes } from "../lib/recipe.js";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { hex, px } from "./values.js";
@@ -49,15 +51,28 @@ export interface CustomTheme {
     nested: NestedToken;
 }
 
+const $ = refs<CustomTheme>();
+
 /**
- * A config exercising static values, aliases, deep aliases, aliases to
+ * Recipes of custom values, and of a custom value from a standard one.
+ */
+export const CustomRecipes = recipes({
+    raise: (elevation: Elevation, ratio: number): Elevation => ({
+        ...elevation,
+        level: ratio * 2,
+    }),
+    label: (font: DesignToken.Values.FontFamily) => [font].flat().join(", "),
+});
+
+/**
+ * A config exercising static values, refs, computed values, deep refs, refs to
  * standard and custom tokens, and group type inheritance.
  */
 export const customConfig = (): Library.Config<CustomTheme> => ({
     colors: {
         $type: DesignToken.Type.Color,
         accent: { $value: hex("#111111") },
-        muted: { $value: (context) => context.colors.accent },
+        muted: { $value: $.colors.accent },
     },
     unit: { $type: DesignToken.Type.Dimension, $value: px(4) },
     font: {
@@ -66,40 +81,38 @@ export const customConfig = (): Library.Config<CustomTheme> => ({
     },
     elevation: {
         $type: "elevation",
-        // Inherits "elevation"; deep aliases to standard tokens
+        // Inherits "elevation"; deep refs to standard tokens
         low: {
             $value: {
                 level: 1,
-                shadowColor: (context) => context.colors.accent,
-                offsets: [(context) => context.unit, px(0)],
+                shadowColor: $.colors.accent,
+                offsets: [$.unit, px(0)],
             },
         },
-        // Alias resolving to a raw value
-        high: {
-            $value: (context) => ({
-                ...context.elevation.low.$value,
-                level: context.ratio.$value * 2,
-            }),
-        },
-        // Inherits "elevation" through a nested group; alias to a token
-        raised: { top: { $value: (context) => context.elevation.high } },
+        // A computed custom value
+        high: { $value: CustomRecipes.raise($.elevation.low, $.ratio) },
+        // Inherits "elevation" through a nested group; a ref to a token
+        raised: { top: { $value: $.elevation.high } },
         // A nested group overrides the inherited type
         scale: { $type: "ratio", step: { $value: 1.25 } },
     },
     ratio: { $type: "ratio", $value: 1.5 },
-    // A custom token aliasing a standard token's value
-    label: {
-        $type: "label",
-        $value: (context) => [context.font.$value].flat().join(", "),
-    },
+    // A custom token computed from a standard token's value
+    label: { $type: "label", $value: CustomRecipes.label($.font) },
     flag: { $type: "flag", $value: true },
-    // Array elements aliasing another custom type's compatible value
-    steps: { $type: "steps", $value: [1, (context) => context.ratio, 3] },
+    // Array elements referring to another custom type's compatible value
+    steps: {
+        $type: "steps",
+        $value: [1, $.ratio, 3],
+    },
     nested: {
         $type: "nested",
         $value: {
             outer: {
-                inner: { size: (context) => context.unit, tags: ["a", "b"] },
+                inner: {
+                    size: $.unit,
+                    tags: ["a", "b"],
+                },
             },
         },
     },

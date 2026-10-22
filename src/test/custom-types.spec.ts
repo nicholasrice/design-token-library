@@ -3,6 +3,8 @@
  */
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { recipes } from "../lib/recipe.js";
+import { refs } from "../lib/ref.js";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
@@ -25,6 +27,7 @@ const CSS = suite("Custom types: CSS");
 
 const C = DesignToken.Type.Color;
 const custom = () => Library.create(customConfig());
+const $ = refs<CustomTheme>();
 
 const lowElevation = {
     level: 1,
@@ -112,10 +115,11 @@ Alias("a custom value with a 'value' key is data, not a token", () => {
         ratio: RatioToken;
         static: DesignToken.Custom<"wrapped", Wrapped>;
         nested: DesignToken.Custom<"nestedWrapped", { inner: Wrapped }>;
-        fromAlias: DesignToken.Custom<"wrapped", Wrapped>;
+        computed: DesignToken.Custom<"wrapped", Wrapped>;
         deep: DesignToken.Custom<"wrapped", Wrapped>;
         toToken: DesignToken.Custom<"wrapped", Wrapped>;
     }
+    const $ = refs<Theme>();
     const library = Library.create<Theme>({
         ratio: { $type: "ratio", $value: 2 },
         static: { $type: "wrapped", $value: { $value: 1, unit: "px" } },
@@ -123,22 +127,27 @@ Alias("a custom value with a 'value' key is data, not a token", () => {
             $type: "nestedWrapped",
             $value: { inner: { $value: 1, unit: "px" } },
         },
-        fromAlias: {
+        computed: {
             $type: "wrapped",
-            $value: () => ({ $value: 2, unit: "em" }),
+            $value: recipes({
+                wrap: (): Wrapped => ({ $value: 2, unit: "em" }),
+            }).wrap(),
         },
         deep: {
             $type: "wrapped",
-            $value: { $value: (context) => context.ratio, unit: "px" },
+            $value: { $value: $.ratio, unit: "px" },
         },
-        toToken: { $type: "wrapped", $value: (context) => context.static },
+        toToken: {
+            $type: "wrapped",
+            $value: $.static,
+        },
     });
 
     Assert.equal(library.tokens.static.$value, { $value: 1, unit: "px" });
     Assert.equal(library.tokens.nested.$value, {
         inner: { $value: 1, unit: "px" },
     });
-    Assert.equal(library.tokens.fromAlias.$value, { $value: 2, unit: "em" });
+    Assert.equal(library.tokens.computed.$value, { $value: 2, unit: "em" });
     Assert.equal(library.tokens.deep.$value, { $value: 2, unit: "px" });
     Assert.equal(library.tokens.toToken.$value, { $value: 1, unit: "px" });
 });
@@ -184,7 +193,7 @@ Changes("set() with a static value and an alias", async () => {
     await nextUpdate();
     Assert.equal(subscriber.batches, [["ratio"]]);
 
-    library.tokens.ratio.set((context) => context.elevation.scale.step);
+    library.tokens.ratio.set($.elevation.scale.step);
     Assert.is(library.tokens.ratio.$value, 1.25);
 });
 
@@ -240,12 +249,14 @@ Extend("custom tokens can be overridden", () => {
         elevation: {
             low: {
                 $value: {
-                    level: (context) => context.ratio,
+                    level: $.ratio,
                     shadowColor: hex("#000000"),
                     offsets: [px(0), px(0)],
                 },
             },
-            raised: { top: { $value: (context) => context.elevation.low } },
+            raised: {
+                top: { $value: $.elevation.low },
+            },
         },
     });
 
@@ -272,7 +283,7 @@ Extend("new custom tokens can be added", () => {
             floating: {
                 $value: {
                     level: 4,
-                    shadowColor: (context) => context.colors.muted,
+                    shadowColor: $.colors.muted,
                     offsets: [px(0), px(2)],
                 },
             },
@@ -301,14 +312,15 @@ interface Flat {
     e: ElevationToken;
     r: RatioToken;
 }
+const flatRefs = refs<Flat>();
 const flat = () =>
     Library.create<Flat>({
         c: { $type: C, $value: hex("#111111") },
         e: {
             $type: "elevation",
             $value: {
-                level: (context) => context.r,
-                shadowColor: (context) => context.c,
+                level: flatRefs.r,
+                shadowColor: flatRefs.c,
                 offsets: [px(0), px(2)],
             },
         },

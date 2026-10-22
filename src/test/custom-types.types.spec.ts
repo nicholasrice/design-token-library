@@ -14,6 +14,7 @@ import {
     toCSS,
     toProperties,
 } from "../lib/css-reflector.js";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import {
@@ -65,7 +66,7 @@ type Resolution = [
     // Nothing public is `any` or `unknown`
     Expect<IsKnown<Tokens["elevation"]["low"]["$value"]>>,
     Expect<IsKnown<Tokens["elevation"]["low"]["$type"]>>,
-    Expect<IsKnown<Library.Context<CustomTheme>["elevation"]["low"]["$value"]>>,
+    Expect<IsKnown<Library.TokenValues<CustomTheme>["elevation"]["low"]>>,
     Expect<IsKnown<Library.TokenRecord<CustomTheme>["$value"]>>,
     Expect<IsKnown<Library.TokenRecord<CustomTheme>["$type"]>>,
     Expect<IsKnown<Parameters<CSSConverters<CustomTheme>["elevation"]>[0]>>,
@@ -105,27 +106,28 @@ type RecordTypes = Expect<
     >
 >;
 
-/* Config values. Static values, aliases and deep aliases are covered by `customConfig`. */
+/* Config values. Static values, refs and deep refs are covered by `customConfig`. */
 interface Standard {
     a: DesignToken.Color;
     n: DesignToken.Number;
     gradient: DesignToken.Gradient;
     curve: DesignToken.CubicBezier;
 }
-// Gradient stop aliases (#28) and CubicBezier number aliases (#29)
+const standard = refs<Standard>();
+// Gradient stop refs (#28) and CubicBezier number refs (#29)
 const standardAliases: Library.Config<Standard> = {
     a: { $type: C, $value: hex("#111111") },
     n: { $type: DesignToken.Type.Number, $value: 0.5 },
     gradient: {
         $type: DesignToken.Type.Gradient,
         $value: [
-            { color: (context) => context.a, position: 0 },
-            { color: hex("#222222"), position: (context) => context.n },
+            { color: standard.a, position: 0 },
+            { color: hex("#222222"), position: standard.n },
         ],
     },
     curve: {
         $type: DesignToken.Type.CubicBezier,
-        $value: [(context) => context.n, 0, 1, 1],
+        $value: [standard.n, 0, 1, 1],
     },
 };
 
@@ -171,7 +173,7 @@ function configValueNegatives() {
     const wrongAlias: Library.Config<Theme> = {
         ...valid,
         // @ts-expect-error a Color token is not a number
-        r: { $type: "ratio", $value: (context) => context.c },
+        r: { $type: "ratio", $value: $.c },
     };
     // deep alias resolving to an incompatible token
     const wrongDeepAlias: Library.Config<Theme> = {
@@ -180,7 +182,7 @@ function configValueNegatives() {
             $type: "elevation",
             $value: {
                 // @ts-expect-error a Color token is not a number
-                level: (context) => context.c,
+                level: $.c,
                 shadowColor: hex("#111111"),
                 offsets: [px(0), px(0)],
             },
@@ -194,7 +196,7 @@ function configValueNegatives() {
     // @ts-expect-error a ratio is a number
     lib.tokens.r.set("1");
     // @ts-expect-error a Color token is not a number
-    lib.tokens.r.set((context) => context.c);
+    lib.tokens.r.set($.c);
 
     return [wrongField, wrongValue, wrongAlias, wrongDeepAlias];
 }
@@ -357,9 +359,10 @@ interface Extension {
     spacing: { $type: "ratio"; tight: RatioToken };
     z: DesignToken.Custom<"z-index", number>;
 }
+const $ = refs<CustomTheme>();
 const extended = library.extend<Extension>({
     elevation: {
-        // static, alias and deep alias overrides
+        // static, ref and deep ref overrides
         low: {
             $value: {
                 level: 0,
@@ -367,11 +370,11 @@ const extended = library.extend<Extension>({
                 offsets: [px(0), px(0)],
             },
         },
-        high: { $value: (context) => context.elevation.low },
+        high: { $value: $.elevation.low },
         raised: {
             top: {
                 $value: {
-                    level: (context) => context.ratio,
+                    level: $.ratio,
                     shadowColor: hex("#000000"),
                     offsets: [px(0), px(0)],
                 },
@@ -381,7 +384,7 @@ const extended = library.extend<Extension>({
         floating: {
             $value: {
                 level: 3,
-                shadowColor: (context) => context.colors.muted,
+                shadowColor: $.colors.muted,
                 offsets: [px(0), px(1)],
             },
         },

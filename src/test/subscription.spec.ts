@@ -1,6 +1,8 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
+import { recipes } from "../lib/recipe.js";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import {
@@ -13,6 +15,12 @@ import {
     settle,
 } from "./helpers.js";
 import { hex, px } from "./values.js";
+
+const ab = refs<AB>();
+const abc = refs<ABC>();
+const { same } = recipes({
+    same: (color: DesignToken.Values.Color) => color,
+});
 
 const Subscription = suite("Library subscriptions");
 const SameValue = suite("Library subscriptions: unchanged values");
@@ -72,7 +80,7 @@ Subscription(
             a: { $type: C, $value: hex("#111111") },
             b: {
                 $type: C,
-                $value: (context: Library.Context<AB>) => context.a,
+                $value: ab.a,
             },
         });
         const subscriber = recorder();
@@ -93,7 +101,7 @@ Subscription(
             a: { $type: C, $value: hex("#111111") },
             b: {
                 $type: C,
-                $value: (context: Library.Context<AB>) => context.a,
+                $value: ab.a,
             },
         });
         const subscriber = recorder();
@@ -114,7 +122,7 @@ Subscription(
             b: {
                 $type: DesignToken.Type.Border,
                 $value: {
-                    color: (context) => context.a,
+                    color: refs<ColorAndBorder>().a,
                     width: px(1),
                     style: "solid",
                 },
@@ -134,8 +142,11 @@ Subscription(
 Subscription("transitive dependents are all included", async () => {
     const library = Library.create<ABC>({
         a: { $type: C, $value: hex("#111111") },
-        b: { $type: C, $value: (context: Library.Context<AB>) => context.a },
-        c: { $type: C, $value: (context) => context.b },
+        b: {
+            $type: C,
+            $value: abc.a,
+        },
+        c: { $type: C, $value: abc.b },
     });
     library.tokens.c.$value;
     const subscriber = recorder();
@@ -348,17 +359,17 @@ SameValue.skip(
 );
 
 SameValue.skip(
-    "setting the same alias function reference does not notify (fails: #22)",
+    "setting the same ref again does not notify (fails: #22)",
     async () => {
-        const alias = (context: Library.Context<AB>) => context.a;
+        const toA = ab.a;
         const library = Library.create<AB>({
             a: { $type: C, $value: hex("#111111") },
-            b: { $type: C, $value: alias },
+            b: { $type: C, $value: toA },
         });
         const subscriber = recorder();
         library.subscribe(subscriber);
 
-        library.tokens.b.set(alias);
+        library.tokens.b.set(toA);
         await nextUpdate();
 
         Assert.equal(subscriber.batches, []);
@@ -406,32 +417,36 @@ SameValue("setting a structurally equal but new object notifies", async () => {
     Assert.equal(subscriber.batches, [["a"]]);
 });
 
-SameValue("setting a new function with the same body notifies", async () => {
+SameValue("setting an equal but new computed value notifies", async () => {
     const library = Library.create<AB>({
         a: { $type: C, $value: hex("#111111") },
-        b: { $type: C, $value: (context: Library.Context<AB>) => context.a },
+        b: {
+            $type: C,
+            $value: same(ab.a),
+        },
     });
     const subscriber = recorder();
     library.subscribe(subscriber);
 
-    library.tokens.b.set((context: Library.Context<AB>) => context.a);
+    library.tokens.b.set(same(ab.a));
     await nextUpdate();
 
     Assert.equal(subscriber.batches, [["b"]]);
 });
 
 SameValue.skip("a no-op set does not invalidate the cache (fails: #22)", () => {
-    const alias = spy((context: Library.Context<AB>) => context.a);
+    const fn = spy((color: DesignToken.Values.Color) => color);
+    const toA = recipes({ same: fn }).same(ab.a);
     const library = Library.create<AB>({
         a: { $type: C, $value: hex("#111111") },
-        b: { $type: C, $value: alias },
+        b: { $type: C, $value: toA },
     });
     library.tokens.b.$value;
 
-    library.tokens.b.set(alias);
+    library.tokens.b.set(toA);
     library.tokens.b.$value;
 
-    Assert.is(alias.callCount, 1);
+    Assert.is(fn.callCount, 1);
 });
 
 SameValue(
@@ -472,10 +487,10 @@ SameValue(
 SameValue.skip(
     "setting the inherited value on an extended token does not notify (fails: #22)",
     async () => {
-        const alias = (context: Library.Context<AB>) => context.a;
+        const toA = ab.a;
         const source = Library.create<AB>({
             a: { $type: C, $value: hex("#111111") },
-            b: { $type: C, $value: alias },
+            b: { $type: C, $value: toA },
         });
         const extended = source.extend<{}>({});
         extended.tokens.b.$value;
@@ -483,7 +498,7 @@ SameValue.skip(
         extended.subscribe(subscriber);
 
         extended.tokens.a.set(hex("#111111"));
-        extended.tokens.b.set(alias);
+        extended.tokens.b.set(toA);
         await nextUpdate();
 
         Assert.equal(subscriber.batches, []);
@@ -493,7 +508,7 @@ SameValue.skip(
 SameValue(
     "an inherited alias resolves against the extending library before and after assignment",
     async () => {
-        const aliasB = (context: Library.Context<AB>) => context.a;
+        const aliasB = ab.a;
         const source = Library.create<AB>({
             a: { $type: C, $value: hex("#111111") },
             b: { $type: C, $value: aliasB },
@@ -508,7 +523,7 @@ SameValue(
         );
         Assert.equal(source.tokens.b.$value, hex("#111111"), "source before");
 
-        // Assign the same alias reference
+        // Assign the same ref
         extended.tokens.b.set(aliasB);
         Assert.equal(
             extended.tokens.b.$value,

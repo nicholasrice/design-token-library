@@ -42,7 +42,9 @@ With the Library interface defined, the concrete library config can be construct
 Token values use the shapes of the [DTCG 2025.10 format](https://www.designtokens.org/tr/2025.10/format/): a color is `{ colorSpace, components, alpha?, hex? }`, and a dimension and a duration are a number with a unit, `{ value: 14, unit: "px" }` and `{ value: 200, unit: "ms" }`.
 
 ```ts
-import { Library } from "design-token-library";
+import { Library, refs } from "design-token-library";
+
+const $ = refs<IMyLibrary>();
 
 const myLibraryConfig: Library.Config<IMyLibrary> = {
   colors: {
@@ -56,14 +58,14 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
     },
   },
   typography: {
-    fonts: {
+    base: {
       $type: DesignToken.Type.FontFamily,
       $value: "Helvetica"
     },
     body: {
       $type: DesignToken.Type.Typography
       $value: {
-        fontFamily: (tokens) => tokens.typography.fonts.base, // Alias
+        fontFamily: $.typography.base, // Alias
         fontSize: { value: 14, unit: "px" },
         fontWeight: 400,
         letterSpacing: { value: 0, unit: "px" },
@@ -79,11 +81,16 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
 Each token in the library must have a `$value` property, and groups must not have a `$value`. Tokens can be assigned three types of values: **static**, **alias**, and **computed**.
 
 ```ts
+import { recipes, refs } from "design-token-library";
+
 interface Colors {
   static: DesignToken.Color;
   alias: DesignToken.Color;
   computed: DesignToken.Color;
 }
+
+const $ = refs<Colors>();
+const Recipes = recipes({ darken: darkenColor }); // darkenColor(color: Color, amount: number): Color
 
 const config: Library.Config<Colors> = {
   static: {
@@ -92,14 +99,40 @@ const config: Library.Config<Colors> = {
   },
   alias: {
     $type: DesignToken.Type.Color,
-    $value: (tokens) => tokens.static, // alias to the 'static' token
+    $value: $.static, // alias to the 'static' token
   },
   computed: {
     $type: DesignToken.Type.Color,
-    // Operate on the value of the 'alias' token
-    $value: (tokens) => darken(tokens.alias.$value, 0.3),
+    $value: Recipes.darken($.alias, 0.3), // darken the value of the 'alias' token
   },
 };
+```
+
+An alias or a computed value is resolved when its token is read, and again when a token it read changes. It can be anywhere in a value, such as a property of a border or an element of a gradient. Both are data, the path of a token and the name and arguments of a recipe, so a library's config can be serialized. A function is never a value: a function given as one is an error, at compile time and when the library is created. An object that isn't plain data, such as a class instance, a `Date` or a `Map`, is a value as it is: it's neither copied nor searched for aliases or computed values.
+
+#### Aliases
+
+An alias refers to another token, and has its value. `refs<T>()` makes a ref to each token of a library of shape `T`, at the token's path. It doesn't need the library, so the refs are made once and used in any config of that shape. A path is always the same ref.
+
+A ref has the value type of its token, so `$.static` can't be the value of a dimension, and a ref can only be given to a library that has its token, with a value of that type. That's true of a library whose type is inferred from its config, as in `Library.create({ ... })` without a type argument: a ref of a shape such as `refs<{ static: DesignToken.Color }>()` can be given to it.
+
+#### Recipes
+
+A computed value calls a function of other tokens' values. Its arguments are evaluated when the config is built, before the library exists, so `darkenColor($.alias, 0.3)` can't be given the value. `recipes()` makes a recipe of each function of an object, named by its key. A recipe takes its function's arguments, any of which may be refs, computed values, or values with them in it, and returns the computed value:
+
+```ts
+export const Recipes = recipes({ darken: darkenColor, lighten: lightenColor });
+
+computed: { $type: DesignToken.Type.Color, $value: Recipes.darken($.alias, 0.3) },
+hover: { $type: DesignToken.Type.Color, $value: Recipes.darken(Recipes.darken($.alias, 0.3), 0.1) },
+```
+
+The function is called when the token is read and again when a token it reads changes, so it must be pure. Its arguments are all resolved before it's called, so it depends on each of them. The arguments are type-checked against the function's parameters, and the result against the token's type. A set of recipes is extended by spreading it:
+
+```ts
+export const MyRecipes = { ...Recipes, ...recipes({ tint: tintColor }) };
+
+$value: MyRecipes.tint($.static, 0.2);
 ```
 
 ### Groups
@@ -188,9 +221,14 @@ interface MyLibrary {
 }
 ```
 
-Custom tokens support everything standard tokens do: static values, aliases, deep aliases into their properties, group type inheritance, `set()`, and `extend()`:
+Custom tokens support everything standard tokens do: static values, aliases, deep aliases into their properties, computed values, group type inheritance, `set()`, and `extend()`:
 
 ```ts
+const $ = refs<MyLibrary>();
+const { raise } = recipes({
+  raise: (elevation: Elevation, level: number) => ({ ...elevation, level }),
+});
+
 const library = Library.create<MyLibrary>({
   colors: {
     neutral: {
@@ -204,7 +242,7 @@ const library = Library.create<MyLibrary>({
       $value: {
         level: 0,
         shadow: {
-          color: (tokens) => tokens.colors.neutral, // deep alias
+          color: $.colors.neutral, // deep alias
           offsetX: { value: 0, unit: "px" },
           offsetY: { value: 0, unit: "px" },
           blur: { value: 0, unit: "px" },
@@ -213,7 +251,7 @@ const library = Library.create<MyLibrary>({
       },
     },
     raised: {
-      $value: (tokens) => ({ ...tokens.elevations.flat.$value, level: 1 }),
+      $value: raise($.elevations.flat, 1),
     },
   },
 });
@@ -235,7 +273,7 @@ library.tokens.elevations.raised.$type; // "elevation", inherited from the group
 Custom types have two restrictions, both enforced at compile time:
 
 - `Name` can't be a DTCG type name such as `"color"`.
-- `Value` must be serializable. Functions aren't allowed anywhere in the value, because functions in a token value are evaluated as aliases.
+- `Value` must be serializable: the resolved value can't be, or contain, a function. A config can still give the value, or any property of it, as an alias or a computed value.
 
 #### CSS
 
@@ -305,9 +343,10 @@ library.tokens.foreground.set({ colorSpace: "srgb", components: [0.53, 0.53, 0.5
 Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
 
 ```ts
+const $ = refs<{ a: DesignToken.Color; b: DesignToken.Color }>();
 const library = Library.create({
   a: { $type: DesignToken.Type.Color, $value: { colorSpace: "srgb", components: [0, 0, 0] } },
-  b: { $type: DesignToken.Type.Color, $value: (tokens) => tokens.a },
+  b: { $type: DesignToken.Type.Color, $value: $.a },
 });
 
 library.subscribe({

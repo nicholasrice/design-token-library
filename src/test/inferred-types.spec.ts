@@ -4,6 +4,7 @@
  */
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { Equal, Expect } from "./helpers.js";
@@ -174,10 +175,13 @@ type CustomTypes = [
     >,
 ];
 
-// set() on an inferred token accepts a valid value and an alias.
+// set() on an inferred token accepts a valid value and a ref of a library
+// with a token of that path and type.
 valid.tokens.dimension.set({ value: 2, unit: "px" });
 valid.tokens.dimension.set(px(3));
-valid.tokens.dimension.set((context) => context.dimension);
+valid.tokens.dimension.set(
+    refs<{ dimension: DesignToken.Dimension }>().dimension,
+);
 
 // Never called: these configs are only type-checked.
 const invalidConfigs = () => {

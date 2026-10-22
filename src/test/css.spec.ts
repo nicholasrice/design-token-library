@@ -1,5 +1,6 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { refs } from "../lib/ref.js";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
@@ -524,12 +525,13 @@ toCssSuite("emits resolved values for deep alias tokens", () => {
         a: DesignToken.Color;
         b: DesignToken.Border;
     }
+    const $ = refs<Theme>();
     const library = Library.create<Theme>({
         a: { $type: C, $value: hex("#111111") },
         b: {
             $type: DesignToken.Type.Border,
             $value: {
-                color: (context) => context.a,
+                color: $.a,
                 width: px(1),
                 style: "solid",
             },
