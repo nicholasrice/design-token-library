@@ -4,13 +4,14 @@ import { spy } from "sinon";
 import { DesignToken } from "../lib/design-token.js";
 import * as Package from "../lib/index.js";
 import { Library } from "../lib/library.js";
-import { COMPUTED, RECIPE, recipes } from "../lib/recipe.js";
+import { COMPUTED, RECIPE, override, recipes } from "../lib/recipe.js";
 import { refs } from "../lib/ref.js";
 import { Elevation } from "./custom-types.fixtures.js";
 import { Equal, Expect, nextUpdate, recorder } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Recipe = suite("recipes()");
+const Override = suite("override()");
 const C = DesignToken.Type.Color;
 
 type Color = DesignToken.Values.Color;
@@ -95,8 +96,9 @@ const themeConfig = (): Library.Config<Theme> => ({
 
 const theme = () => Library.create(themeConfig());
 
-Recipe("recipes() is exported by the package", () => {
+Recipe("recipes() and override() are exported by the package", () => {
     Assert.is(Reflect.get(Package, "recipes"), recipes);
+    Assert.is(Reflect.get(Package, "override"), override);
 });
 
 Recipe("a recipe has its name and function", () => {
@@ -282,6 +284,98 @@ Recipe("recipes are extended by spreading them", () => {
     Assert.is(library.tokens.colors.darker.$value.alpha, 0.1);
 });
 
+const red = (): Color => hex("#ff0000");
+const invert = (color: Color, factor: number): Color =>
+    scaleColor(color, 1 / factor);
+
+Override(
+    "an override replaces a recipe's function for every token that uses it",
+    () => {
+        const library = theme();
+        const extended = library.extend(
+            {},
+            { recipes: [override(darken, invert)] },
+        );
+        const half = scaleColor(hex("#808080"), 0.5);
+
+        // Tokens the extension doesn't restate
+        Assert.equal(
+            extended.tokens.colors.dark.$value,
+            scaleColor(hex("#808080"), 2),
+        );
+        Assert.equal(
+            extended.tokens.colors.darker.$value,
+            scaleColor(scaleColor(hex("#808080"), 2), 2),
+        );
+        Assert.equal(
+            extended.tokens.border.$value.color,
+            scaleColor(hex("#808080"), 2),
+        );
+        // The source library is unchanged
+        Assert.equal(library.tokens.colors.dark.$value, half);
+    },
+);
+
+Override("an override applies to restated and new tokens", () => {
+    const extended = theme().extend(
+        {
+            colors: { dark: { $value: darken($.colors.base, 4) } },
+            accent: { $type: C, $value: darken($.colors.base, 4) },
+        },
+        { recipes: [override(darken, invert)] },
+    );
+
+    Assert.equal(
+        extended.tokens.colors.dark.$value,
+        scaleColor(hex("#808080"), 0.25),
+    );
+    Assert.equal(
+        extended.tokens.accent.$value,
+        scaleColor(hex("#808080"), 0.25),
+    );
+});
+
+Override("only the overridden recipe is replaced", () => {
+    const extended = theme().extend(
+        {},
+        { recipes: [override(Recipes.scale, () => px(10))] },
+    );
+
+    Assert.equal(extended.tokens.border.$value.width, px(10));
+    Assert.equal(
+        extended.tokens.colors.dark.$value,
+        scaleColor(hex("#808080"), 0.5),
+    );
+});
+
+Override("an override is kept by a library that extends the extension", () => {
+    const extended = theme()
+        .extend({}, { recipes: [override(darken, red)] })
+        .extend({ factor: { $value: 1 } });
+
+    Assert.equal(extended.tokens.colors.dark.$value, red());
+});
+
+Override("a later extension overrides the recipe again", () => {
+    const extended = theme()
+        .extend({}, { recipes: [override(darken, red)] })
+        .extend({}, { recipes: [override(darken, invert)] });
+
+    Assert.equal(
+        extended.tokens.colors.dark.$value,
+        scaleColor(hex("#808080"), 2),
+    );
+});
+
+Override("an override is called with the values of the refs", () => {
+    const fn = spy(invert);
+    const extended = theme().extend({}, { recipes: [override(darken, fn)] });
+
+    extended.tokens.colors.dark.$value;
+
+    Assert.equal(fn.firstCall.args, [hex("#808080"), 0.5]);
+});
+
 // Type-level: a recipe takes its function's arguments as refs, and returns
 // a computed value of its result for the library the refs are of.
 const darkened = darken($.colors.base, 0.5);
@@ -336,6 +430,17 @@ const recipeChecks = () => {
         // @ts-expect-error the library has no `c`
         a: { $type: C, $value: darken(other.c, 1) },
     });
+
+    // An override takes the recipe's arguments and returns its result's type
+    // @ts-expect-error a Dimension parameter can't take a Color argument
+    override(darken, (dimension: Dimension) => hex("#000000"));
+    // @ts-expect-error the result is a Color
+    override(darken, (color: Color) => 1);
+    // A function that takes fewer arguments, or wider ones, is an override
+    override(darken, red);
+    override(darken, (color: Color | Dimension, factor?: number) =>
+        hex("#000000"),
+    );
 };
 
 Recipe("type-level assertions compile", () => {
@@ -343,3 +448,4 @@ Recipe("type-level assertions compile", () => {
 });
 
 Recipe.run();
+Override.run();
