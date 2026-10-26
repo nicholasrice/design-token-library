@@ -1,6 +1,9 @@
+import { refs } from "../../lib/ref.js";
 import { DesignToken } from "../../lib/design-token.js";
 import { Library } from "../../lib/library.js";
 import { Theme } from "./theme.js";
+
+const $ = refs<Theme>();
 
 export interface Fonts {
     $type: DesignToken.Type.FontFamily;
@@ -16,7 +19,7 @@ export interface Fonts {
 export const fonts: Library.Config<Fonts, Theme> = {
     $type: DesignToken.Type.FontFamily,
     body: { $value: ["foo", "bar"] },
-    heading: { $value: (theme) => theme.fonts.body },
+    heading: { $value: $.fonts.body },
     weights: {
         $type: DesignToken.Type.FontWeight,
         normal: { $value: "normal" },

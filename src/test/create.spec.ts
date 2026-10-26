@@ -1,5 +1,6 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { A, AB } from "./helpers.js";
@@ -397,13 +398,14 @@ Create("toString() serializes the resolved value of an alias token", () => {
         b: DesignToken.Color;
         border: DesignToken.Border;
     }
+    const $ = refs<Theme>();
     const library = Library.create<Theme>({
         a: { $type: C, $value: hex("#111111") },
-        b: { $type: C, $value: (context) => context.a },
+        b: { $type: C, $value: $.a },
         border: {
             $type: DesignToken.Type.Border,
             $value: {
-                color: (context) => context.a,
+                color: $.a,
                 width: px(1),
                 style: "solid",
             },

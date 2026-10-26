@@ -1,6 +1,7 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
+import { refs } from "../lib/ref.js";
 import { Library } from "../lib/library.js";
 import { DesignToken } from "../lib/design-token.js";
 import { hex, px } from "./values.js";
@@ -9,6 +10,7 @@ interface ABTheme {
     a: DesignToken.Color;
     b: DesignToken.Color;
 }
+const $ = refs<ABTheme>();
 
 const Description = suite("DesignToken.$description");
 const Lib = suite("DesignToken.Library");
@@ -144,33 +146,6 @@ Value(
     },
 );
 
-Value("should invoke function values with the token library", () => {
-    // Arrange
-    interface Theme {
-        token: DesignToken.Color;
-        anotherToken: DesignToken.Color;
-    }
-
-    const value = spy((context: Library.Context<Theme>) => context.token);
-    const config: Library.Config<Theme> = {
-        token: {
-            $type: DesignToken.Type.Color,
-            $value: hex("#FF0000"),
-        },
-        anotherToken: {
-            $type: DesignToken.Type.Color,
-            $value: value,
-        },
-    };
-    const library = Library.create(config);
-
-    // Act
-    const anotherTokenValue = library.tokens.anotherToken.$value;
-
-    Assert.equal(value.calledOnce, true);
-    Assert.equal(value.firstCall.args[0], library.tokens);
-});
-
 Value(
     "should return the value of a referenced token when assigned a token reference",
     () => {
@@ -178,6 +153,7 @@ Value(
             token: DesignToken.Color;
             anotherToken: DesignToken.Color;
         }
+        const $ = refs<Theme>();
         const config: Library.Config<Theme> = {
             token: {
                 $type: DesignToken.Type.Color,
@@ -185,7 +161,7 @@ Value(
             },
             anotherToken: {
                 $type: DesignToken.Type.Color,
-                $value: (theme: Theme) => theme.token,
+                $value: $.token,
             },
         };
         const library = Library.create(config);
@@ -203,6 +179,7 @@ Value("reference tokens should support multiple levels of inheritance", () => {
         secondaryToken: DesignToken.Color;
         tertiaryToken: DesignToken.Color;
     }
+    const $ = refs<Theme>();
     const config: Library.Config<Theme> = {
         token: {
             $type: DesignToken.Type.Color,
@@ -210,11 +187,11 @@ Value("reference tokens should support multiple levels of inheritance", () => {
         },
         secondaryToken: {
             $type: DesignToken.Type.Color,
-            $value: (theme) => theme.token,
+            $value: $.token,
         },
         tertiaryToken: {
             $type: DesignToken.Type.Color,
-            $value: (theme) => theme.secondaryToken,
+            $value: $.secondaryToken,
         },
     };
     const library = Library.create(config);
@@ -231,6 +208,7 @@ Value("should support reading alias values from complex values", () => {
         dimension: DesignToken.Dimension;
         border: DesignToken.Border;
     }
+    const $ = refs<Theme>();
 
     const config: Library.Config<Theme> = {
         color: {
@@ -244,10 +222,10 @@ Value("should support reading alias values from complex values", () => {
         border: {
             $type: DesignToken.Type.Border,
             $value: {
-                color: (context) => context.color,
+                color: $.color,
                 width: px(3),
                 style: {
-                    dashArray: [(context) => context.dimension, px(14)],
+                    dashArray: [$.dimension, px(14)],
                     lineCap: "butt",
                 },
             },
@@ -262,7 +240,7 @@ Value("should support reading alias values from complex values", () => {
     Assert.equal(
         border.style,
         { dashArray: [px(12), px(14)], lineCap: "butt" },
-        "DeepAlias border style should be equal",
+        "deep alias border style should be equal",
     );
 });
 
@@ -302,35 +280,12 @@ Value("should support setting a token alias", () => {
     };
 
     const library = Library.create(config);
-    library.tokens.secondaryToken.set((theme) => theme.token.$value);
+    library.tokens.secondaryToken.set(refs<Theme>().token);
 
     Assert.equal(
         library.tokens.secondaryToken.$value,
         library.tokens.token.$value,
     );
-});
-
-Value("should support setting a value alias", () => {
-    interface Theme {
-        token: DesignToken.Color;
-        secondaryToken: DesignToken.Color;
-    }
-
-    const config: Library.Config<Theme> = {
-        token: {
-            $type: DesignToken.Type.Color,
-            $value: hex("#FFFFFF"),
-        },
-        secondaryToken: {
-            $type: DesignToken.Type.Color,
-            $value: hex("#000000"),
-        },
-    };
-
-    const library = Library.create(config);
-    library.tokens.secondaryToken.set(() => hex("#FF0000"));
-
-    Assert.equal(library.tokens.secondaryToken.$value, hex("#FF0000"));
 });
 
 Value(
@@ -340,6 +295,7 @@ Value(
             a: DesignToken.Color;
             b: DesignToken.Color;
         }
+        const $ = refs<Theme>();
 
         const config: Library.Config<Theme> = {
             a: {
@@ -348,7 +304,7 @@ Value(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
         };
 
@@ -362,13 +318,14 @@ Value(
 );
 
 Value(
-    "should update the value of a token assigned a value alias after the alias value changes",
+    "should update the value of a token with a deep alias after the aliased value changes",
     () => {
         interface Theme {
             a: DesignToken.Color;
             b: DesignToken.Color;
             c: DesignToken.Border;
         }
+        const $ = refs<Theme>();
 
         const config: Library.Config<Theme> = {
             a: {
@@ -377,13 +334,13 @@ Value(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
             c: {
                 $type: DesignToken.Type.Border,
                 $value: {
                     style: "solid",
-                    color: (context) => context.b,
+                    color: $.b,
                     width: px(2),
                 },
             },
@@ -542,6 +499,7 @@ Extend(
             a: DesignToken.Color;
             b: DesignToken.Color;
         }
+        const $ = refs<Theme>();
 
         const config: Library.Config<Theme> = {
             a: {
@@ -554,7 +512,7 @@ Extend(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
         };
         const source = Library.create(config);
@@ -575,7 +533,7 @@ Extend(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
         };
         const source = Library.create(config);
@@ -595,7 +553,7 @@ Extend(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
         };
         const source = Library.create(config);
@@ -616,6 +574,7 @@ Extend(
             a: DesignToken.Color;
             b: DesignToken.Color;
         }
+        const $ = refs<Theme>();
 
         const config: Library.Config<Theme> = {
             a: {
@@ -624,7 +583,7 @@ Extend(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
         };
         const source = Library.create(config);
@@ -657,7 +616,7 @@ Extend(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
         };
         const source = Library.create(config);
@@ -700,7 +659,7 @@ Extend(
             },
             b: {
                 $type: DesignToken.Type.Color,
-                $value: (context) => context.a,
+                $value: $.a,
             },
         };
         const source = Library.create(config);
@@ -731,7 +690,7 @@ Extend("Should allow adding new tokens to an extending library", async () => {
         },
         b: {
             $type: DesignToken.Type.Color,
-            $value: (context) => context.a,
+            $value: $.a,
         },
     };
     interface Extending {

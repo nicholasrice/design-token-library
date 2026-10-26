@@ -1,7 +1,10 @@
+import { ref, refs } from "../../lib/ref.js";
 import { DesignToken } from "../../lib/design-token.js";
 import { Library } from "../../lib/library.js";
 import type { Theme } from "./theme.js";
 import { px } from "../values.js";
+
+const $ = refs<Theme>();
 
 export interface Elevation {
     level: number;
@@ -22,7 +25,7 @@ export const elevations: Library.Config<Elevations, Theme> = {
         $value: {
             level: 0,
             shadow: {
-                color: (theme) => theme.colors.neutral,
+                color: $.colors.neutral,
                 offsetX: px(0),
                 offsetY: px(0),
                 blur: px(0),
@@ -31,15 +34,15 @@ export const elevations: Library.Config<Elevations, Theme> = {
         },
     },
     raised: {
-        // A shadow is one layer or several: raise each layer.
-        $value: (theme) => ({
-            level: theme.elevations.flat.$value.level + 1,
-            shadow: [theme.elevations.flat.$value.shadow]
-                .flat()
-                .map((layer) => ({
-                    ...layer,
-                    offsetY: theme.dimensions.unit.$value,
-                })),
-        }),
+        $value: {
+            level: 1,
+            shadow: {
+                color: ref("colors.neutral"),
+                offsetX: px(0),
+                offsetY: ref("dimensions.unit"),
+                blur: px(0),
+                spread: px(0),
+            },
+        },
     },
 };

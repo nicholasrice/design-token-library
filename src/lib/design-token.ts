@@ -425,8 +425,9 @@ export namespace DesignToken {
      *
      * @remarks
      * `Name` identifies the type and must not be a {@link DesignToken.ReservedTypeName}.
-     * `Value` can be any serializable (JSON-like) value. Functions are not allowed
-     * because function values are evaluated as aliases.
+     * `Value` can be any serializable (JSON-like) value: the resolved value can't
+     * be, or contain, a function. A config can still give the value, or any
+     * property of it, as a {@link ref}.
      *
      * @example
      * ```ts
