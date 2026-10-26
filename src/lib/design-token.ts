@@ -458,7 +458,7 @@ export namespace DesignToken {
      * `Value` can be any type, such as a plain object, a class instance, or an
      * object with methods. The library returns the value as it is, and never
      * calls its functions. A config can give the value, or any property of
-     * plain data in it, as a {@link ref}.
+     * plain data in it, as a {@link ref} or a {@link recipes | computed value}.
      *
      * @example
      * ```ts

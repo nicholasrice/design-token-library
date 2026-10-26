@@ -1,3 +1,4 @@
+import { COMPUTED, RECIPE, isComputed } from "./recipe.js";
 import { REF, isRef } from "./ref.js";
 import { DesignToken } from "./design-token.js";
 import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
@@ -6,10 +7,16 @@ import { empty, isToken } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
 
 /**
- * The key of the phantom type of a ref: what it
- * resolves to, in a library of what shape. It's never set.
+ * The key of the phantom type of a ref: what it resolves to, in a library of
+ * what shape. It's never set.
  */
 declare const RESOLVES: unique symbol;
+
+/**
+ * The key of the phantom type of a computed value, apart from a ref's, so
+ * that a ref's type is never inferred from a computed value's.
+ */
+declare const COMPUTES: unique symbol;
 
 /**
  * The key of the phantom type that marks a token in
@@ -125,9 +132,9 @@ export namespace Library {
 
     /**
      * The value type of each token of a library of shape `T`, by its path.
-     * Refs are typed by it, so they're given only to a library that has their
-     * tokens, with values of the same types, whether its shape is declared or
-     * inferred from its config.
+     * Refs and computed values are typed by it, so they're given only to a
+     * library that has their tokens, with values of the same types, whether
+     * its shape is declared or inferred from its config.
      *
      * @public
      */
@@ -185,17 +192,87 @@ export namespace Library {
     }
 
     /**
+     * A value of type `V` computed by a {@link (Library:namespace).Recipe}
+     * from its arguments, which may refer to the tokens of a library whose
+     * {@link (Library:namespace).TokenValues} are `T`. It's computed when the
+     * token that has it is read.
+     *
+     * @remarks
+     * A computed value is data: the recipe and its arguments.
+     *
+     * @public
+     */
+    export interface Computed<V, T> {
+        readonly [COMPUTED]: {
+            readonly recipe: Recipe<any, unknown>;
+            readonly args: readonly unknown[];
+        };
+        readonly [COMPUTES]?: (library: T) => V;
+    }
+
+    /**
      * A value of type `V` in a configuration: the value, a
-     * {@link (Library:namespace).Ref}, or, when `V` is an object or an array,
-     * `V` with any of its properties and elements, at any depth, given as one
-     * of those.
+     * {@link (Library:namespace).Ref}, a {@link (Library:namespace).Computed}
+     * value, or, when `V` is an object or an array, `V` with any of its
+     * properties and elements, at any depth, given as one of those.
+     *
+     * @remarks
+     * A computed value may be readonly, as a recipe's function that takes
+     * readonly arguments returns: the library copies and freezes a recipe's
+     * result.
      *
      * @public
      */
     export type DeepValue<V, T> =
         | V
         | Ref<V, T>
+        | Computed<DesignToken.DeepReadonly<V>, T>
         | (V extends object ? { [K in keyof V]: DeepValue<V[K], T> } : never);
+
+    /**
+     * The arguments of a {@link (Library:namespace).Recipe} whose function has
+     * the parameters `A`. Each may be a ref, a computed value, or a value with
+     * them in it.
+     *
+     * @public
+     */
+    export type RecipeArguments<A extends readonly unknown[], T> = {
+        [K in keyof A]: DeepValue<A[K], T>;
+    };
+
+    /**
+     * A function, made by {@link recipes}, that takes the arguments of a
+     * function with parameters `A` and result `V`, any of which may refer to
+     * tokens, and returns the {@link (Library:namespace).Computed} result.
+     * `T` is the token values of the library its arguments refer to.
+     *
+     * @remarks
+     * A recipe has its name and its function. The function gets each
+     * argument as a token gets its value: a ref's value, and a copy of plain
+     * data, which are frozen, and anything else as it is. So its parameters
+     * are typed readonly, as in `DesignToken.Values.Readonly.Color`.
+     *
+     * @public
+     */
+    export type Recipe<A extends readonly unknown[], V> = (<T extends {} = {}>(
+        ...args: RecipeArguments<A, T>
+    ) => Computed<V, T>) & {
+        readonly [RECIPE]: {
+            readonly name: string;
+            readonly fn: (...args: A) => V;
+        };
+    };
+
+    /**
+     * The {@link (Library:namespace).Recipe | recipes} of the functions of `F`,
+     * by the same keys. Made by {@link recipes}.
+     *
+     * @public
+     */
+    export type Recipes<F extends Record<string, (...args: any[]) => unknown>> =
+        {
+            readonly [K in keyof F]: Recipe<Parameters<F[K]>, ReturnType<F[K]>>;
+        };
 
     /**
      * A {@link (Library:namespace).Ref} to each token of a library of shape
@@ -430,7 +507,7 @@ export namespace Library {
     /**
      * A configuration object provided to {@link (Library:namespace).Library.extend}.
      * All tokens and groups of the source library are optional, and token
-     * values may be static values or refs. Token types are inherited
+     * values may be static values, refs or computed values. Token types are inherited
      * from the source library.
      *
      * @public
@@ -475,7 +552,7 @@ type RawLibrary = { [key: string]: any };
 
 /**
  * Thrown when reading a token whose value refers back to itself through
- * one or more refs.
+ * one or more refs or computed values.
  *
  * @public
  */
@@ -838,9 +915,10 @@ const tokenAt = (
 
 /**
  * Resolves a value in a library's tokens. A ref is replaced by its token's
- * value. Plain data is copied from its own properties, including
- * symbol-keyed and non-enumerable ones, with its refs resolved, and the copy
- * is frozen, so the config isn't. A getter is read once, into a data
+ * value, and a computed value by the result of its recipe's function, called
+ * with its arguments resolved. Plain data is copied from its own properties,
+ * including symbol-keyed and non-enumerable ones, with its refs resolved, and
+ * the copy is frozen, so the config isn't. A getter is read once, into a data
  * property. An object that is in the value twice, or in itself, has one copy.
  * Anything else, such as a class instance or a function, is returned as it
  * is: it can't be rebuilt, so it isn't copied, searched or frozen.
@@ -855,6 +933,12 @@ const resolve = (value: unknown, tokens: RawLibrary): unknown => {
 
         if (isRef(value)) {
             return walk(tokenAt(tokens, value[REF]).$value);
+        }
+
+        if (isComputed(value)) {
+            const { recipe, args } = value[COMPUTED];
+
+            return walk(recipe[RECIPE].fn(...args.map(walk)));
         }
 
         if (copies.has(value)) {

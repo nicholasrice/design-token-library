@@ -1,3 +1,4 @@
+import { recipes } from "../lib/recipe.js";
 import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
@@ -53,7 +54,22 @@ export interface CustomTheme {
 const $ = refs<CustomTheme>();
 
 /**
- * A config exercising static values, refs, deep refs, refs to
+ * Recipes of custom values, and of a custom value from a standard one.
+ */
+export const CustomRecipes = recipes({
+    raise: (
+        elevation: DesignToken.DeepReadonly<Elevation>,
+        ratio: number,
+    ): DesignToken.DeepReadonly<Elevation> => ({
+        ...elevation,
+        level: ratio * 2,
+    }),
+    label: (font: DesignToken.Values.Readonly.FontFamily) =>
+        [font].flat().join(", "),
+});
+
+/**
+ * A config exercising static values, refs, computed values, deep refs, refs to
  * standard and custom tokens, and group type inheritance.
  */
 export const customConfig = (): Library.Config<CustomTheme> => ({
@@ -77,21 +93,16 @@ export const customConfig = (): Library.Config<CustomTheme> => ({
                 offsets: [$.unit, px(0)],
             },
         },
-        // Deep refs to a custom token and to standard tokens
-        high: {
-            $value: {
-                level: $.ratio,
-                shadowColor: $.colors.accent,
-                offsets: [$.unit, px(0)],
-            },
-        },
+        // A computed custom value
+        high: { $value: CustomRecipes.raise($.elevation.low, $.ratio) },
         // Inherits "elevation" through a nested group; a ref to a token
         raised: { top: { $value: $.elevation.high } },
         // A nested group overrides the inherited type
         scale: { $type: "ratio", step: { $value: 1.25 } },
     },
     ratio: { $type: "ratio", $value: 1.5 },
-    label: { $type: "label", $value: "Inter, sans-serif" },
+    // A custom token computed from a standard token's value
+    label: { $type: "label", $value: CustomRecipes.label($.font) },
     flag: { $type: "flag", $value: true },
     // Array elements referring to another custom type's compatible value
     steps: {

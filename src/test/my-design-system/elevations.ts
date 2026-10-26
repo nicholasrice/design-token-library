@@ -1,3 +1,4 @@
+import { recipes } from "../../lib/recipe.js";
 import { ref, refs } from "../../lib/ref.js";
 import { DesignToken } from "../../lib/design-token.js";
 import { Library } from "../../lib/library.js";
@@ -19,6 +20,19 @@ export interface Elevations {
     raised: ElevationToken;
 }
 
+const { raise } = recipes({
+    // A shadow is one layer or several: raise each layer.
+    raise: (
+        elevation: DesignToken.DeepReadonly<Elevation>,
+        offsetY: DesignToken.Values.Readonly.Dimension,
+    ): DesignToken.DeepReadonly<Elevation> => ({
+        level: elevation.level + 1,
+        shadow: [elevation.shadow]
+            .flat()
+            .map((layer) => ({ ...layer, offsetY })),
+    }),
+});
+
 export const elevations: Library.Config<Elevations, Theme> = {
     $type: "elevation",
     flat: {
@@ -34,15 +48,6 @@ export const elevations: Library.Config<Elevations, Theme> = {
         },
     },
     raised: {
-        $value: {
-            level: 1,
-            shadow: {
-                color: ref("colors.neutral"),
-                offsetX: px(0),
-                offsetY: ref("dimensions.unit"),
-                blur: px(0),
-                spread: px(0),
-            },
-        },
+        $value: raise(ref("elevations.flat"), ref("dimensions.unit")),
     },
 };
