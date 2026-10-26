@@ -866,7 +866,7 @@ const assertNoRef = (name: string, value: object): void => {
  * the value can be frozen without freezing the config. A getter is read once,
  * into a data property. An object that is in the value twice, or in itself,
  * has one copy. Anything else is returned as it is, and throws if it holds a
- * ref. See docs/decisions/0001-refs.md.
+ * ref.
  */
 const resolve = (value: unknown, tokens: RawLibrary, name: string): unknown => {
     const copies = new Map<object, unknown>();

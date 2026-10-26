@@ -3,7 +3,6 @@ import type { Library } from "./library.js";
 /**
  * The key of a ref's path. A registered symbol, so that a ref made by another
  * copy of this package is still a ref.
- * See docs/decisions/0001-refs.md.
  *
  * @internal
  */
