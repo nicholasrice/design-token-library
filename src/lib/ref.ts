@@ -39,12 +39,12 @@ export const ref = <V, T extends {} = {}>(
  *
  * @example
  * ```ts
- * const $ = refs<Theme>();
+ * const theme = refs<Theme>();
  * const library = Library.create<Theme>({
  *     colors: {
  *         $type: DesignToken.Type.Color,
  *         primary: { $value: hex("#0000ff") },
- *         link: { $value: $.colors.primary },
+ *         link: { $value: theme.colors.primary },
  *     },
  * });
  * ```

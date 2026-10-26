@@ -114,9 +114,9 @@ The path is checked where the ref is used: the library must have a token at that
 `refs<T>()` makes the same refs from a declared shape, as properties: `refs<Colors>().static` is `ref("static")`. It needs no library, so it's made once, and its refs can be passed around and used in any config of that shape:
 
 ```ts
-const $ = refs<Colors>();
+const theme = refs<Colors>();
 
-alias: { $type: DesignToken.Type.Color, $value: $.static },
+alias: { $type: DesignToken.Type.Color, $value: theme.static },
 ```
 
 A ref is data, the path of its token. The library tells a ref from any other value by the ref's own symbol key, never by looking at what the value is, so a function, a class instance or any other object is a value like any other.
