@@ -157,6 +157,18 @@ const { elevation } = recipes({
 raised: { $value: elevation({ level: ref("scale.step2"), blur: { value: 4, unit: "px" } }) },
 ```
 
+#### Overriding a recipe
+
+A library made by `extend()` can replace the function of a recipe, for every token that computes its value with it, including the tokens it doesn't restate. `override()` checks that the function takes the recipe's arguments and returns its result's type:
+
+```ts
+import { override } from "design-token-library";
+
+const highContrast = library.extend({}, { recipes: [override(Recipes.darken, darkenMore)] });
+```
+
+The library it extends is unchanged, and a library that extends `highContrast` keeps the override unless it overrides the recipe again.
+
 #### Values
 
 A token's value is a copy of the value in the config, with its refs resolved, so changing the config afterwards doesn't change the library. Arrays and plain objects are copied, including symbol-keyed and non-enumerable properties, and an object that is in a value twice, or in itself, has one copy. A getter is read once, into a data property.
