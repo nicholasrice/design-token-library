@@ -3,7 +3,7 @@
  */
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
-import { refs } from "../lib/ref.js";
+import { ref, refs } from "../lib/ref.js";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
@@ -173,6 +173,42 @@ Groups("a custom token without an inherited type throws", () => {
         /'r'/,
     );
 });
+
+Create(
+    "a custom value can be a class instance or an object with functions",
+    () => {
+        class Palette {
+            public calls = 0;
+            constructor(readonly swatches: number[]) {}
+            swatch(index: number) {
+                this.calls++;
+                return this.swatches[index];
+            }
+        }
+        interface Theme {
+            base: DesignToken.Custom<"palette", Palette>;
+            alias: DesignToken.Custom<"palette", Palette>;
+            format: DesignToken.Custom<
+                "format",
+                { label: (n: number) => string }
+            >;
+        }
+        const base = new Palette([1, 2]);
+        const label = (n: number) => `step ${n}`;
+        const library = Library.create<Theme>({
+            base: { $type: "palette", $value: base },
+            alias: { $type: "palette", $value: ref("base") },
+            format: { $type: "format", $value: { label } },
+        });
+
+        Assert.is(library.tokens.base.$value, base);
+        Assert.is(library.tokens.alias.$value, base);
+        Assert.is(library.tokens.format.$value.label, label);
+        // The library never calls a value's functions
+        Assert.is(base.calls, 0);
+        Assert.is(library.tokens.alias.$value.swatch(1), 2);
+    },
+);
 
 Changes("set() with a static value and an alias", async () => {
     const library = custom();

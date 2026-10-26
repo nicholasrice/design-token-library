@@ -755,7 +755,6 @@ function extendToken(
     }
 
     if (node !== undefined && "$value" in node) {
-        assertNotFunction(token.name, node.$value);
         extendingToken.raw = node.$value;
     } else {
         // Subscribe to changes
@@ -827,48 +826,15 @@ const tokenAt = (
 };
 
 /**
- * Throws when a value that isn't plain data holds a ref, at any depth: it
- * isn't searched, so the ref would be returned unresolved. Only data
- * properties are read, so no getter is called.
+ * Resolves a value in a library's tokens. A ref is replaced by its token's
+ * value. Plain data is copied from its own properties, including
+ * symbol-keyed and non-enumerable ones, with its refs resolved, so the value
+ * can be frozen without freezing the config. A getter is read once, into a
+ * data property. An object that is in the value twice, or in itself, has one
+ * copy. Anything else, such as a class instance or a function, is returned as
+ * it is: it can't be rebuilt, so it isn't copied or searched.
  */
-const assertNoRef = (name: string, value: object): void => {
-    const seen = new Set<object>();
-    const visit = (node: object): void => {
-        if (seen.has(node)) {
-            return;
-        }
-        seen.add(node);
-
-        for (const key of Reflect.ownKeys(node)) {
-            const descriptor = Reflect.getOwnPropertyDescriptor(node, key);
-            const child: unknown = descriptor?.value;
-
-            if (isRef(child)) {
-                const holder = Object.getPrototypeOf(value)?.constructor?.name;
-                throw new TypeError(
-                    `The value of "${name}" has a ref in ${holder && holder !== "Object" ? `a ${holder}` : "an object with a prototype"}, which isn't plain data, so the ref isn't resolved. Only arrays and plain objects can hold refs.`,
-                );
-            }
-
-            if (isObject(child)) {
-                visit(child);
-            }
-        }
-    };
-
-    visit(value);
-};
-
-/**
- * Resolves the value of the token `name` in a library's tokens. A ref is
- * replaced by its token's value. Plain data is copied from its own properties,
- * including symbol-keyed and non-enumerable ones, with its refs resolved, so
- * the value can be frozen without freezing the config. A getter is read once,
- * into a data property. An object that is in the value twice, or in itself,
- * has one copy. Anything else is returned as it is, and throws if it holds a
- * ref.
- */
-const resolve = (value: unknown, tokens: RawLibrary, name: string): unknown => {
+const resolve = (value: unknown, tokens: RawLibrary): unknown => {
     const copies = new Map<object, unknown>();
 
     const walk = (value: unknown): unknown => {
@@ -885,7 +851,6 @@ const resolve = (value: unknown, tokens: RawLibrary, name: string): unknown => {
         }
 
         if (!isPlain(value)) {
-            assertNoRef(name, value);
             return value;
         }
 
@@ -919,18 +884,6 @@ const resolve = (value: unknown, tokens: RawLibrary, name: string): unknown => {
     };
 
     return walk(value);
-};
-
-/**
- * A function is never a token value. One given as a value is probably an
- * alias in the form that came before refs.
- */
-const assertNotFunction = (name: string, value: unknown): void => {
-    if (typeof value === "function") {
-        throw new TypeError(
-            `The value of "${name}" is a function. A reference to a token is a ref, as in ref("colors.primary").`,
-        );
-    }
 };
 
 const assertNoRoot = (config: RawConfig): void => {
@@ -1007,7 +960,6 @@ class LibraryToken<T extends DesignToken.Any>
         private readonly _deprecated: boolean | string,
         private queue: IQueue<Library.Token<DesignToken.Any, any>>,
     ) {
-        assertNotFunction(name, value);
         this.raw = value;
         // A copy, so changing the config's top-level keys can't change the token.
         this._extensions = { ...extensions };
@@ -1057,7 +1009,6 @@ class LibraryToken<T extends DesignToken.Any>
             const value = resolve(
                 this.raw,
                 this.context,
-                this.name,
             ) as DesignToken.ValueByToken<T>;
 
             this.cached = value;
@@ -1090,7 +1041,6 @@ class LibraryToken<T extends DesignToken.Any>
     }
 
     public set(value: Library.ConfigTokenValue<T, any>) {
-        assertNotFunction(this.name, value);
         this.raw = value;
         this.onChange();
     }

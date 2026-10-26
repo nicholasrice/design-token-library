@@ -220,18 +220,59 @@ function declarationNegatives() {
         >
     >;
 
-    // function values, top-level and nested
+    // a value can be a function, or may be one: it's data
     const functions: Library.Config<{
         f: DesignToken.Custom<"fn", () => void>;
-        n: DesignToken.Custom<"nestedFn", { a: { b: () => void } }>;
+        maybe: DesignToken.Custom<"maybeFn", string | (() => void)>;
     }> = {
-        // @ts-expect-error custom values cannot contain functions
         f: { $type: "fn", $value: () => {} },
-        // @ts-expect-error custom values cannot contain functions
-        n: { $type: "nestedFn", $value: { a: { b: () => {} } } },
+        maybe: { $type: "maybeFn", $value: "none" },
     };
+    type FunctionTypes = [
+        Expect<Equal<DesignToken.Custom<"fn", () => void>["$type"], "fn">>,
+        Expect<
+            Equal<
+                DesignToken.Custom<"maybeFn", string | (() => void)>["$type"],
+                "maybeFn"
+            >
+        >,
+    ];
 
-    // a value that contains itself, like a tree, is accepted when it has no functions
+    // an object or a class instance with functions is data
+    class Palette {
+        constructor(readonly swatches: number[]) {}
+        first() {
+            return this.swatches[0];
+        }
+    }
+    interface WithFunctions {
+        a: { b: () => void };
+        visit: (node: WithFunctions) => void;
+        children: WithFunctions[];
+    }
+    const withFunctions: Library.Config<{
+        p: DesignToken.Custom<"palette", Palette>;
+        w: DesignToken.Custom<"withFunctions", WithFunctions>;
+    }> = {
+        p: { $type: "palette", $value: new Palette([1]) },
+        w: {
+            $type: "withFunctions",
+            $value: { a: { b: () => {} }, visit: () => {}, children: [] },
+        },
+    };
+    type DataTypes = [
+        Expect<
+            Equal<DesignToken.Custom<"palette", Palette>["$type"], "palette">
+        >,
+        Expect<
+            Equal<
+                DesignToken.Custom<"withFunctions", WithFunctions>["$type"],
+                "withFunctions"
+            >
+        >,
+    ];
+
+    // a value that contains itself, like a tree, is accepted
     interface Tree {
         fn: string;
         args: Array<number | Tree>;
@@ -246,34 +287,13 @@ function declarationNegatives() {
         Equal<DesignToken.Custom<"tree", Tree>["$type"], "tree">
     >;
 
-    // and rejected when it has one, in the value that contains itself, or nested in properties
-    interface TreeWithFunction {
-        children: TreeWithFunction[];
-        visit: () => void;
-    }
-    type TreeWithFunctionMessage = Expect<
-        Equal<
-            DesignToken.Custom<"treeFn", TreeWithFunction>["$type"],
-            "Error: custom token values must be serializable and cannot contain functions"
-        >
-    >;
-    interface Shallow {
-        a: { b: { c: () => void } };
-    }
-    type ShallowMessage = Expect<
-        Equal<
-            DesignToken.Custom<"shallow", Shallow>["$type"],
-            "Error: custom token values must be serializable and cannot contain functions"
-        >
-    >;
-
     // the config type must match the declared name
     const mismatched: Library.Config<{ r: RatioToken }> = {
         // @ts-expect-error 'label' is not 'ratio'
         r: { $type: "label", $value: 1 },
     };
 
-    return [reserved, functions, recursive, mismatched];
+    return [reserved, functions, withFunctions, recursive, mismatched];
 }
 
 /* Group type inheritance. Inheriting, nested inheritance and overriding are covered by `customConfig`. */

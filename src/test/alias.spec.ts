@@ -641,30 +641,14 @@ Circular("CircularReferenceError is exported and extends Error", () => {
     );
 });
 
-Values("a function throws where it's given as a value", () => {
-    const config = {
-        a: { $type: C, $value: hex("#111111") },
-        b: { $type: C, $value: (context: any) => context.a },
-    };
-    const message = /The value of "b" is a function.*ref\("colors\.primary"\)/;
+Values("a function given as a value is the value, and isn't called", () => {
+    const format = spy(() => "formatted");
+    const library = Library.create<any>({
+        a: { $type: "formatter", $value: format },
+    });
 
-    Assert.throws(() => Library.create<any>(config), message);
-
-    const library = aliasedPair();
-    Assert.throws(
-        // @ts-expect-error a function is not a value
-        () => library.tokens.b.set(() => hex("#222222")),
-        message,
-    );
-    Assert.throws(
-        () =>
-            library.extend({
-                // @ts-expect-error a function is not a value
-                b: { $value: () => hex("#222222") },
-            }),
-        message,
-    );
-    Assert.equal(library.tokens.b.$value, hex("#111111"));
+    Assert.is(library.tokens.a.$value, format);
+    Assert.is(format.callCount, 0);
 });
 
 Values("a ref made by another copy of the package is a ref", () => {

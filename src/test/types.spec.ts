@@ -216,15 +216,15 @@ inferred.tokens.space.set({ value: 1, unit: "rm" });
 // @ts-expect-error set() checks an inferred token against its type
 inferred.tokens.line.set("wavy");
 
-// A value is a ref, or data. Never called: `create`
-// throws for a function.
+// A value is checked against its token's type, so a function isn't a
+// color. Never called: these are type errors.
 const refChecks = () => {
     Library.create<Theme>({
         ...config,
-        // @ts-expect-error a function is not a value
+        // @ts-expect-error a function is not a color
         b: { $type: DesignToken.Type.Color, $value: () => hex("#111111") },
     });
-    // @ts-expect-error a function is not a value
+    // @ts-expect-error a function is not a color
     library.tokens.b.set(() => hex("#111111"));
     // @ts-expect-error a ref has the value type of its token
     library.tokens.b.set($.border);

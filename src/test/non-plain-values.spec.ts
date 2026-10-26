@@ -20,8 +20,8 @@ class Palette {
     }
 }
 
-// Library values with a class or built in type don't type check as custom tokens, so the
-// config is untyped here the same way a value cast through `any` would be.
+// The configs are untyped, as a value cast through `any` would be, so that the runtime is
+// tested without the types. Typed class values are tested with the custom types.
 const create = (config: Record<string, unknown>) => Library.create<any>(config);
 
 const $ = refs<{ n: DesignToken.Number; source: DesignToken.Number }>();
@@ -206,70 +206,28 @@ Copy("an object literal from another realm is plain data", async () => {
     Assert.is(value.n, 3);
 });
 
-const Throws = suite("Refs in values that aren't plain data");
+const Opaque = suite("Values that aren't plain data");
 
-Throws(
-    "a ref in a class instance throws, naming the token and the class",
-    () => {
-        class Holder {
-            readonly level = $.n;
-        }
-        const library = create({
-            n: { $type: "number", $value: 3 },
-            v: { $type: "composite", $value: new Holder() },
-        });
-
-        Assert.throws(
-            () => library.tokens.v.$value,
-            /The value of "v" has a ref in a Holder, which isn't plain data/,
-        );
-    },
-);
-
-Throws("a ref deeper in a class instance throws", () => {
+Opaque("a ref in a class instance isn't resolved, and isn't read", () => {
     class Holder {
-        readonly nested = { list: [$.n] };
-    }
-    const library = create({
-        n: { $type: "number", $value: 3 },
-        v: { $type: "composite", $value: { holder: new Holder() } },
-    });
-
-    Assert.throws(() => library.tokens.v.$value, /has a ref in a Holder/);
-});
-
-Throws("a class instance that contains itself is checked", () => {
-    class Node {
-        readonly self = this;
         readonly level = $.n;
     }
-    const library = create({
+    const holder = new Holder();
+    const value = create({
         n: { $type: "number", $value: 3 },
-        v: { $type: "composite", $value: new Node() },
-    });
+        v: { $type: "composite", $value: { holder } },
+    }).tokens.v.$value;
 
-    Assert.throws(() => library.tokens.v.$value, /has a ref in a Node/);
+    Assert.is(value.holder, holder);
+    Assert.is(value.holder.level, $.n);
 });
 
-Throws("a ref in an object with a prototype throws", () => {
-    const value = Object.assign(Object.create({ inherited: 1 }), { n: $.n });
-    const library = create({
-        n: { $type: "number", $value: 3 },
-        v: { $type: "composite", $value: value },
-    });
-
-    Assert.throws(
-        () => library.tokens.v.$value,
-        /has a ref in an object with a prototype, which isn't plain data/,
-    );
-});
-
-Throws("a getter of a class instance isn't called by the check", () => {
+Opaque("a getter of a class instance isn't called", () => {
     let reads = 0;
     class Lazy {
         get n() {
             reads++;
-            return $.n;
+            return 1;
         }
     }
     const instance = new Lazy();
@@ -280,4 +238,4 @@ Throws("a getter of a class instance isn't called by the check", () => {
 
 NonPlain.run();
 Copy.run();
-Throws.run();
+Opaque.run();

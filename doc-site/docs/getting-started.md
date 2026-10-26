@@ -119,13 +119,13 @@ const $ = refs<Colors>();
 alias: { $type: DesignToken.Type.Color, $value: $.static },
 ```
 
-A ref is data, the path of its token. A function is never a value: a function given as one is an error, at compile time and when the library is created.
+A ref is data, the path of its token. The library tells a ref from any other value by the ref's own symbol key, never by looking at what the value is, so a function, a class instance or any other object is a value like any other.
 
 #### Values
 
 A token's value is a copy of the value in the config, with its refs resolved, so changing the config afterwards doesn't change the library. Arrays and plain objects are copied, including symbol-keyed and non-enumerable properties, and an object that is in a value twice, or in itself, has one copy. A getter is read once, into a data property.
 
-Any other value, such as a class instance, a `Date` or a `Map`, is returned as it is: it's neither copied nor searched for refs, and its methods are never called. A ref inside one would be returned unresolved, so it throws when the token is read.
+Any other value, such as a class instance, a `Date`, a `Map` or a function, is returned as it is, and its functions are never called. It can't be rebuilt, so it's neither copied nor searched for refs: a ref belongs in plain data.
 
 ### Groups
 
@@ -257,10 +257,7 @@ library.tokens.elevations.raised.$value;
 library.tokens.elevations.raised.$type; // "elevation", inherited from the group
 ```
 
-Custom types have two restrictions, both enforced at compile time:
-
-- `Name` can't be a DTCG type name such as `"color"`.
-- `Value` must be serializable: the resolved value can't be, or contain, a function. A config can still give the value, or any property of it, as an alias.
+`Name` can't be a DTCG type name such as `"color"`, which is checked at compile time. `Value` can be any type, such as a plain object, a class instance, or an object with methods, which the library never calls. A function isn't written by `toString()`, so a value with functions is converted to CSS with its converter.
 
 #### CSS
 
