@@ -36,7 +36,7 @@ type ConvertersOf<C> = {
         $type: N;
     }
         ? C extends DesignToken.Shape
-            ? CSSConverter<DesignToken.ValueByToken<C>, C>
+            ? CSSConverter<DesignToken.ReadonlyValueByToken<C>, C>
             : never
         : never;
 };
@@ -46,8 +46,8 @@ type ConvertersOf<C> = {
  * of the library.
  */
 type StandardConverters = {
-    [N in keyof DesignToken.ValueByType]?: CSSConverter<
-        DesignToken.ValueByType[N],
+    [N in keyof DesignToken.ReadonlyValueByType]?: CSSConverter<
+        DesignToken.ReadonlyValueByType[N],
         Extract<DesignToken.Standard, { $type: N }>
     >;
 };
@@ -471,9 +471,9 @@ const TokenConverters = {
  *
  * @public
  */
-export function convert<Name extends keyof DesignToken.ValueByType>(
+export function convert<Name extends keyof DesignToken.ReadonlyValueByType>(
     type: Name,
-    value: DesignToken.ValueByType[Name],
+    value: DesignToken.ReadonlyValueByType[Name],
 ): string {
     const converter = (
         TokenConverters as Record<string, ((value: any) => string) | undefined>

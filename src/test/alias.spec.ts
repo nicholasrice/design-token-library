@@ -156,7 +156,7 @@ Alias("an array value re-resolves when a token it refers to changes", () => {
 /**
  * Narrows a Border's stroke style to its object form.
  */
-function dashedStyle(border: DesignToken.Values.Border) {
+function dashedStyle(border: DesignToken.Values.Readonly.Border) {
     const { style } = border;
     if (typeof style === "string") {
         throw new Error(`Expected an object stroke style, got '${style}'`);
@@ -360,7 +360,7 @@ const borderWithDashes = (): DesignToken.Border => ({
     },
 });
 
-Alias.skip("object values are deeply frozen (fails: #24)", () => {
+Alias("object values are deeply frozen", () => {
     const library = Library.create<BorderTheme>({ a: borderWithDashes() });
     const value = library.tokens.a.$value;
 
@@ -369,28 +369,25 @@ Alias.skip("object values are deeply frozen (fails: #24)", () => {
     Assert.ok(Object.isFrozen(dashedStyle(value).dashArray), "nested array");
 });
 
-Alias.skip(
-    "mutating a value throws and leaves the token unchanged (fails: #24)",
-    () => {
-        const library = Library.create<BorderTheme>({ a: borderWithDashes() });
-        // Typed as mutable so this compiles before and after #24.
-        const value: { width: DesignToken.Values.Dimension } =
-            library.tokens.a.$value;
+Alias("mutating a value throws and leaves the token unchanged", () => {
+    const library = Library.create<BorderTheme>({ a: borderWithDashes() });
+    // Typed as mutable so this compiles before and after #24.
+    const value: { width: DesignToken.Values.Dimension } =
+        library.tokens.a.$value;
 
-        Assert.throws(() => (value.width = px(9)), "top level");
-        Assert.throws(
-            () =>
-                Array.prototype.push.call(
-                    dashedStyle(library.tokens.a.$value).dashArray,
-                    px(3),
-                ),
-            "nested array",
-        );
-        Assert.equal(library.tokens.a.$value, borderWithDashes().$value);
-    },
-);
+    Assert.throws(() => (value.width = px(9)), "top level");
+    Assert.throws(
+        () =>
+            Array.prototype.push.call(
+                dashedStyle(library.tokens.a.$value).dashArray,
+                px(3),
+            ),
+        "nested array",
+    );
+    Assert.equal(library.tokens.a.$value, borderWithDashes().$value);
+});
 
-Alias.skip("array values and their items are frozen (fails: #24)", () => {
+Alias("array values and their items are frozen", () => {
     interface Theme {
         fonts: DesignToken.FontFamily;
         gradient: DesignToken.Gradient;
@@ -411,34 +408,28 @@ Alias.skip("array values and their items are frozen (fails: #24)", () => {
     Assert.ok(Object.isFrozen(library.tokens.gradient.$value[0]), "stop");
 });
 
-Alias.skip(
-    "values resolved from deep refs are deeply frozen (fails: #24)",
-    () => {
-        interface Theme {
-            a: DesignToken.Color;
-            border: DesignToken.Border;
-        }
-        const $ = refs<Theme>();
-        const library = Library.create<Theme>({
-            a: { $type: C, $value: hex("#111111") },
-            border: {
-                $type: DesignToken.Type.Border,
-                $value: {
-                    color: $.a,
-                    width: px(1),
-                    style: { dashArray: [px(1)], lineCap: "round" },
-                },
+Alias("values resolved from deep refs are deeply frozen", () => {
+    interface Theme {
+        a: DesignToken.Color;
+        border: DesignToken.Border;
+    }
+    const $ = refs<Theme>();
+    const library = Library.create<Theme>({
+        a: { $type: C, $value: hex("#111111") },
+        border: {
+            $type: DesignToken.Type.Border,
+            $value: {
+                color: $.a,
+                width: px(1),
+                style: { dashArray: [px(1)], lineCap: "round" },
             },
-        });
-        const value = library.tokens.border.$value;
+        },
+    });
+    const value = library.tokens.border.$value;
 
-        Assert.ok(Object.isFrozen(value), "value");
-        Assert.ok(
-            Object.isFrozen(dashedStyle(value).dashArray),
-            "nested array",
-        );
-    },
-);
+    Assert.ok(Object.isFrozen(value), "value");
+    Assert.ok(Object.isFrozen(dashedStyle(value).dashArray), "nested array");
+});
 
 Alias("the config object passed to create is not frozen", () => {
     const border = borderWithDashes();

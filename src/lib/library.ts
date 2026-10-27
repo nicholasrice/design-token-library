@@ -228,7 +228,9 @@ export namespace Library {
         C extends {},
         G extends string = never,
     > = {
-        set(value: ConfigTokenValue<T, C>): void;
+        set(
+            value: ConfigTokenValue<T, C> | DesignToken.ReadonlyValueByToken<T>,
+        ): void;
         /**
          * A JSON representation of the token's name, type, resolved value,
          * description, extensions and deprecation.
@@ -236,7 +238,7 @@ export namespace Library {
         toString(): string;
         readonly $type: DesignToken.TypeByToken<T, G>;
         readonly $extensions: Record<string, any>;
-        readonly $value: DesignToken.ValueByToken<T>;
+        readonly $value: DesignToken.ReadonlyValueByToken<T>;
         readonly $description: string;
         /**
          * `false`, `true`, or the explanation the token was deprecated with.
@@ -837,11 +839,11 @@ const tokenAt = (
 /**
  * Resolves a value in a library's tokens. A ref is replaced by its token's
  * value. Plain data is copied from its own properties, including
- * symbol-keyed and non-enumerable ones, with its refs resolved, so the value
- * can be frozen without freezing the config. A getter is read once, into a
- * data property. An object that is in the value twice, or in itself, has one
- * copy. Anything else, such as a class instance or a function, is returned as
- * it is: it can't be rebuilt, so it isn't copied or searched.
+ * symbol-keyed and non-enumerable ones, with its refs resolved, and the copy
+ * is frozen, so the config isn't. A getter is read once, into a data
+ * property. An object that is in the value twice, or in itself, has one copy.
+ * Anything else, such as a class instance or a function, is returned as it
+ * is: it can't be rebuilt, so it isn't copied, searched or frozen.
  */
 const resolve = (value: unknown, tokens: RawLibrary): unknown => {
     const copies = new Map<object, unknown>();
@@ -869,7 +871,7 @@ const resolve = (value: unknown, tokens: RawLibrary): unknown => {
             for (let i = 0; i < value.length; i++) {
                 copy[i] = walk(value[i]);
             }
-            return copy;
+            return Object.freeze(copy);
         }
 
         const copy = Object.create(Object.getPrototypeOf(value));
@@ -889,7 +891,7 @@ const resolve = (value: unknown, tokens: RawLibrary): unknown => {
                       },
             );
         }
-        return copy;
+        return Object.freeze(copy);
     };
 
     return walk(value);
@@ -947,8 +949,10 @@ class LibraryImpl implements Library.Library<any> {
 class LibraryToken<T extends DesignToken.Any>
     implements Library.Token<any, any>, ISubscriber<unknown>, IWatcher
 {
-    private raw: Library.ConfigTokenValue<T, any>;
-    private cached: DesignToken.ValueByToken<T> | typeof empty = empty;
+    private raw:
+        | Library.ConfigTokenValue<T, any>
+        | DesignToken.ReadonlyValueByToken<T>;
+    private cached: DesignToken.ReadonlyValueByToken<T> | typeof empty = empty;
     private resolving = false;
     private notifying = false;
     private subscriptions: Set<INotifier<any>> = new Set();
@@ -993,7 +997,7 @@ class LibraryToken<T extends DesignToken.Any>
     /**
      * Gets the token value
      */
-    public get $value(): DesignToken.ValueByToken<T> {
+    public get $value(): DesignToken.ReadonlyValueByToken<T> {
         if (this.cached !== empty) {
             return this.cached;
         }
@@ -1018,7 +1022,7 @@ class LibraryToken<T extends DesignToken.Any>
             const value = resolve(
                 this.raw,
                 this.context,
-            ) as DesignToken.ValueByToken<T>;
+            ) as DesignToken.ReadonlyValueByToken<T>;
 
             this.cached = value;
 
@@ -1049,7 +1053,11 @@ class LibraryToken<T extends DesignToken.Any>
         });
     }
 
-    public set(value: Library.ConfigTokenValue<T, any>) {
+    public set(
+        value:
+            | Library.ConfigTokenValue<T, any>
+            | DesignToken.ReadonlyValueByToken<T>,
+    ) {
         if (Object.is(this.raw, value)) {
             return;
         }

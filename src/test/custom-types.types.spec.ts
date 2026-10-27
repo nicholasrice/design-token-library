@@ -39,18 +39,25 @@ type Tokens = typeof library.tokens;
 /* Value and type resolution */
 type Resolution = [
     // Object values
-    Expect<Equal<Tokens["elevation"]["low"]["$value"], Elevation>>,
+    Expect<
+        Equal<
+            Tokens["elevation"]["low"]["$value"],
+            DesignToken.DeepReadonly<Elevation>
+        >
+    >,
     // Primitive values
     Expect<Equal<Tokens["ratio"]["$value"], number>>,
     Expect<Equal<Tokens["label"]["$value"], string>>,
     Expect<Equal<Tokens["flag"]["$value"], boolean>>,
     // Array, nested object and tuple values
-    Expect<Equal<Tokens["steps"]["$value"], number[]>>,
-    Expect<Equal<Tokens["nested"]["$value"], Nested>>,
+    Expect<Equal<Tokens["steps"]["$value"], readonly number[]>>,
+    Expect<Equal<Tokens["nested"]["$value"], DesignToken.DeepReadonly<Nested>>>,
     Expect<
         Equal<
             Tokens["elevation"]["low"]["$value"]["offsets"],
-            [DesignToken.Values.Dimension, DesignToken.Values.Dimension]
+            DesignToken.DeepReadonly<
+                [DesignToken.Values.Dimension, DesignToken.Values.Dimension]
+            >
         >
     >,
     // Literal type names, including inherited ones
@@ -60,10 +67,15 @@ type Resolution = [
     Expect<Equal<Tokens["elevation"]["$type"], "elevation">>,
     // Standard tokens are unchanged
     Expect<
-        Equal<Tokens["colors"]["accent"]["$value"], DesignToken.Values.Color>
+        Equal<
+            Tokens["colors"]["accent"]["$value"],
+            DesignToken.Values.Readonly.Color
+        >
     >,
     Expect<Equal<Tokens["colors"]["accent"]["$type"], DesignToken.Type.Color>>,
-    Expect<Equal<Tokens["unit"]["$value"], DesignToken.Values.Dimension>>,
+    Expect<
+        Equal<Tokens["unit"]["$value"], DesignToken.Values.Readonly.Dimension>
+    >,
     // Nothing public is `any` or `unknown`
     Expect<IsKnown<Tokens["elevation"]["low"]["$value"]>>,
     Expect<IsKnown<Tokens["elevation"]["low"]["$type"]>>,
@@ -79,14 +91,16 @@ library.subscribe({
         for (const record of records) {
             if (record.$type === "elevation") {
                 const value = record.$value;
-                type Narrowed = Expect<Equal<typeof value, Elevation>>;
+                type Narrowed = Expect<
+                    Equal<typeof value, DesignToken.DeepReadonly<Elevation>>
+                >;
             } else if (record.$type === "ratio") {
                 const value = record.$value;
                 type Narrowed = Expect<Equal<typeof value, number>>;
             } else if (record.$type === DesignToken.Type.Color) {
                 const value = record.$value;
                 type Narrowed = Expect<
-                    Equal<typeof value, DesignToken.Values.Color>
+                    Equal<typeof value, DesignToken.Values.Readonly.Color>
                 >;
             }
         }
@@ -416,14 +430,24 @@ const extended = library.extend<Extension>({
 });
 type ExtendedTokens = typeof extended.tokens;
 type Extended = [
-    Expect<Equal<ExtendedTokens["elevation"]["floating"]["$value"], Elevation>>,
+    Expect<
+        Equal<
+            ExtendedTokens["elevation"]["floating"]["$value"],
+            DesignToken.DeepReadonly<Elevation>
+        >
+    >,
     Expect<
         Equal<ExtendedTokens["elevation"]["floating"]["$type"], "elevation">
     >,
     Expect<Equal<ExtendedTokens["spacing"]["tight"]["$type"], "ratio">>,
     Expect<Equal<ExtendedTokens["z"]["$value"], number>>,
     Expect<Equal<ExtendedTokens["z"]["$type"], "z-index">>,
-    Expect<Equal<ExtendedTokens["elevation"]["low"]["$value"], Elevation>>,
+    Expect<
+        Equal<
+            ExtendedTokens["elevation"]["low"]["$value"],
+            DesignToken.DeepReadonly<Elevation>
+        >
+    >,
     Expect<
         Equal<
             Library.TokenRecord<CustomTheme & Extension>["$type"],
@@ -448,12 +472,15 @@ function extendNegatives() {
 /* convert */
 type Convert = [
     Expect<
-        Equal<Parameters<typeof convert<"color">>[1], DesignToken.Values.Color>
+        Equal<
+            Parameters<typeof convert<"color">>[1],
+            DesignToken.Values.Readonly.Color
+        >
     >,
     Expect<
         Equal<
             Parameters<typeof convert<"dimension">>[1],
-            DesignToken.Values.Dimension
+            DesignToken.Values.Readonly.Dimension
         >
     >,
     Expect<Equal<ReturnType<typeof convert>, string>>,
@@ -481,9 +508,17 @@ const converters: CSSConverters<CustomTheme> = {
 type CSSTypes = [
     // Converter arguments
     Expect<
-        Equal<Parameters<CSSConverters<CustomTheme>["elevation"]>[0], Elevation>
+        Equal<
+            Parameters<CSSConverters<CustomTheme>["elevation"]>[0],
+            DesignToken.DeepReadonly<Elevation>
+        >
     >,
-    Expect<Equal<Parameters<CSSConverters<CustomTheme>["steps"]>[0], number[]>>,
+    Expect<
+        Equal<
+            Parameters<CSSConverters<CustomTheme>["steps"]>[0],
+            readonly number[]
+        >
+    >,
     // Only custom types have converters
     Expect<
         Equal<
@@ -580,9 +615,16 @@ function cssCases() {
         converters: {
             ...converters,
             elevation: (value, token) => {
-                type Value = Expect<Equal<typeof value, Elevation>>;
+                type Value = Expect<
+                    Equal<typeof value, DesignToken.DeepReadonly<Elevation>>
+                >;
                 type Type = Expect<Equal<typeof token.$type, "elevation">>;
-                type TokenValue = Expect<Equal<typeof token.$value, Elevation>>;
+                type TokenValue = Expect<
+                    Equal<
+                        typeof token.$value,
+                        DesignToken.DeepReadonly<Elevation>
+                    >
+                >;
                 return token.name;
             },
         },
