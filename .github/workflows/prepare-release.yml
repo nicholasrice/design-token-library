@@ -49,9 +49,9 @@ jobs:
           git checkout -b $BRANCH_NAME
           
           # Run release-it to modify CHANGELOG.md and package.json locally
-          npx release-it ${{ github.event.inputs.increment }} --ci \
+          npx -y --no-package-json -p release-it -p @release-it/keep-a-changelog release-it ${{ github.event.inputs.increment }} --ci \
             --plugins.@release-it/keep-a-changelog.filename=CHANGELOG.md \
-            --git.commitMessage="chore(release): v\${version}" \
+            --git.commitMessage='chore(release): v\${version}' \
             --git.tag=false \
             --git.push=false \
             --npm.publish=false
