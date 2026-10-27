@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `Token.set()` with the value the token already has, by `Object.is`, doesn't notify subscribers or resolve the token again (#22). On an extended token it still detaches the token from its source.
+- `extend()` throws, naming the token, when an override's `$type` differs from the source token's type, including a type the source token inherits from its group (#16). Restating the same type is allowed.
 - A value that isn't plain data, such as a class instance, a `Date`, a `Map` or a `Set`, is returned as it is. It was copied to a plain object, which lost its prototype and internal state, and a function property of it was called as an alias (#55). A cyclic value no longer overflows the stack.
 - `extend()` has an overload for a config that only has values of tokens, which has no tokens to infer (#62). A new token with a value of the wrong type is reported for the call, as no overload matching, instead of for the token.
 - A custom token type with a value type that contains itself, like a tree, compiles (#61).
