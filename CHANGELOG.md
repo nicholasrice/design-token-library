@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Token values that are plain objects with a `value` key are no longer unwrapped as tokens; only library tokens are.
 - Array values resolve faster: they are copied with an indexed loop instead of `for...in`. Holes in a sparse array value now resolve to `undefined` elements.
 - Recomputing a token keeps its subscriptions to the dependencies it reads again, instead of unsubscribing from all of them and subscribing again, which makes updates faster.
+- `Library.extend()` config is typed with the new `Library.ExtendConfig` and its type parameter defaults to `{}` instead of `any`.
 
 ### Fixed
 
@@ -45,7 +46,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `DeepAlias` accepts aliases inside Gradient stops (#28).
 - Resolving a token of an extended library no longer disconnects its source token from its dependencies, which left the source token reported as changed when a dependency it no longer used changed.
 - Number aliases in a CubicBezier accept Number tokens (#29).
-
 - `Library.extend()` no longer throws when the source library contains groups.
 - `Library.extend()` supports adding new groups, and new tokens inherit the type of their ancestor group.
 - `Library.extend()` accepts alias values when overriding existing tokens, and resolves them against the extending library.
@@ -58,10 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Array entries in `Library.create()` and `extend()` configs are ignored like other non-token entries, instead of creating an empty group (which `toProperties` also emitted).
 - A library subscriber that throws no longer stops later subscribers from being notified. Every subscriber is called, then each error is re-thrown as the same instance in its own microtask, so it surfaces as an uncaught error, like a DOM event listener's.
 - Tokens in a config whose shape is inferred (no type argument to `Library.create()` or `extend()`) are checked against their `$type`, and their `$value` and `set()` use that type's value instead of the widened literal. Their `$type` keeps its literal type, including a custom type's name. A token with a child (a key without a `$` prefix), which `create()` throws for, is a type error. Custom types and tokens that inherit a group's type are not checked. `Library.ConfigValueCheck` and `Library.ConfigTypeHint` are added. Requires TypeScript 5.4 or later (`NoInfer`).
-
-### Changed
-
-- `Library.extend()` config is typed with the new `Library.ExtendConfig` and its type parameter defaults to `{}` instead of `any`.
 
 ## [0.1.0] - 2023-05-16
 
