@@ -132,3 +132,6 @@ dist
 # Temporary files
 temp/*
 docs/*
+
+# MacOS 
+.DS_Store

@@ -10,6 +10,7 @@
             "default": "./dist/lib/index.js"
         }
     },
+    "files": ["./dist/lib/**.*", "CHANGELOG.md"],
     "types": "./dist/lib/index.d.ts",
     "scripts": {
         "build": "tsc -b",
