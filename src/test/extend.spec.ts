@@ -295,7 +295,7 @@ Extend("overrides without description or extensions keep the source's", () => {
     Assert.is.not(extended.tokens.a.$extensions, source.tokens.a.$extensions);
 });
 
-Extend.skip("an override with a different type throws (fails: #16)", () => {
+Extend("an override with a different type throws", () => {
     const source = single();
 
     Assert.throws(
@@ -306,6 +306,33 @@ Extend.skip("an override with a different type throws (fails: #16)", () => {
             }),
         /'a'/,
     );
+});
+
+Extend(
+    "an override with a different type than its inherited group type throws",
+    () => {
+        const source = grouped();
+
+        Assert.throws(
+            () =>
+                source.extend<{}>({
+                    g: {
+                        // @ts-expect-error an override can't change a token's type
+                        a: { $type: DesignToken.Type.Dimension, $value: px(1) },
+                    },
+                }),
+            /'g\.a'/,
+        );
+    },
+);
+
+Extend("an override restating its inherited group type is allowed", () => {
+    const extended = grouped().extend<{}>({
+        g: { a: { $type: C, $value: hex("#222222") } },
+    });
+
+    Assert.is(extended.tokens.g.a.$type, C);
+    Assert.equal(extended.tokens.g.a.$value, hex("#222222"));
 });
 
 Extend("an override restating the same type is allowed", () => {
