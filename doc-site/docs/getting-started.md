@@ -42,7 +42,7 @@ With the Library interface defined, the concrete library config can be construct
 Token values use the shapes of the [DTCG 2025.10 format](https://www.designtokens.org/tr/2025.10/format/): a color is `{ colorSpace, components, alpha?, hex? }`, and a dimension and a duration are a number with a unit, `{ value: 14, unit: "px" }` and `{ value: 200, unit: "ms" }`.
 
 ```ts
-import { Library } from "design-token-library";
+import { Library, ref } from "design-token-library";
 
 const myLibraryConfig: Library.Config<IMyLibrary> = {
   colors: {
@@ -56,14 +56,14 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
     },
   },
   typography: {
-    fonts: {
+    base: {
       $type: DesignToken.Type.FontFamily,
       $value: "Helvetica"
     },
     body: {
       $type: DesignToken.Type.Typography
       $value: {
-        fontFamily: (tokens) => tokens.typography.fonts.base, // Alias
+        fontFamily: ref("typography.base"), // Alias
         fontSize: { value: 14, unit: "px" },
         fontWeight: 400,
         letterSpacing: { value: 0, unit: "px" },
@@ -76,13 +76,14 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
 
 ### Tokens
 
-Each token in the library must have a `$value` property, and groups must not have a `$value`. Tokens can be assigned three types of values: **static**, **alias**, and **computed**.
+Each token in the library must have a `$value` property, and groups must not have a `$value`. A token's value is a **static** value, or an **alias** to another token: a ref.
 
 ```ts
+import { ref } from "design-token-library";
+
 interface Colors {
   static: DesignToken.Color;
   alias: DesignToken.Color;
-  computed: DesignToken.Color;
 }
 
 const config: Library.Config<Colors> = {
@@ -92,15 +93,39 @@ const config: Library.Config<Colors> = {
   },
   alias: {
     $type: DesignToken.Type.Color,
-    $value: (tokens) => tokens.static, // alias to the 'static' token
-  },
-  computed: {
-    $type: DesignToken.Type.Color,
-    // Operate on the value of the 'alias' token
-    $value: (tokens) => darken(tokens.alias.$value, 0.3),
+    $value: ref("static"), // alias to the 'static' token
   },
 };
 ```
+
+#### Refs
+
+`ref("group.token")` refers to a token by its dotted path, and the token's value is its value. It's resolved when its token is read, and again when the token it refers to changes. A ref can be anywhere in a value, such as a property of a border or an element of a gradient:
+
+```ts
+border: {
+  $type: DesignToken.Type.Border,
+  $value: { color: ref("colors.primary"), width: { value: 1, unit: "px" }, style: "solid" },
+},
+```
+
+The path is checked where the ref is used: the library must have a token at that path, with a value of the type expected there. So `ref("colors.primry")`, or a color where a dimension is expected, is a compile error, also where a string is expected, as in a font family. Where the library's shape is inferred, as in `Library.create({ ... })` without a type argument, or for a new token in `extend()`, the path can't be checked, so give the shape as a type argument.
+
+`refs<T>()` makes the same refs from a declared shape, as properties: `refs<Colors>().static` is `ref("static")`. It needs no library, so it's made once, and its refs can be passed around and used in any config of that shape:
+
+```ts
+const theme = refs<Colors>();
+
+alias: { $type: DesignToken.Type.Color, $value: theme.static },
+```
+
+A ref is data, the path of its token. The library tells a ref from any other value by the ref's own symbol key, never by looking at what the value is, so a function, a class instance or any other object is a value like any other.
+
+#### Values
+
+A token's value is a copy of the value in the config, with its refs resolved, so changing the config afterwards doesn't change the library. Arrays and plain objects are copied, including symbol-keyed and non-enumerable properties, and an object that is in a value twice, or in itself, has one copy. A getter is read once, into a data property.
+
+Any other value, such as a class instance, a `Date`, a `Map` or a function, is returned as it is, and its functions are never called. It can't be rebuilt, so it's neither copied nor searched for refs: a ref belongs in plain data.
 
 ### Groups
 
@@ -204,7 +229,7 @@ const library = Library.create<MyLibrary>({
       $value: {
         level: 0,
         shadow: {
-          color: (tokens) => tokens.colors.neutral, // deep alias
+          color: ref("colors.neutral"), // deep alias
           offsetX: { value: 0, unit: "px" },
           offsetY: { value: 0, unit: "px" },
           blur: { value: 0, unit: "px" },
@@ -213,14 +238,14 @@ const library = Library.create<MyLibrary>({
       },
     },
     raised: {
-      $value: (tokens) => ({ ...tokens.elevations.flat.$value, level: 1 }),
+      $value: ref("elevations.flat"),
     },
   },
 });
 
 library.tokens.elevations.raised.$value;
 // {
-//   level: 1,
+//   level: 0,
 //   shadow: {
 //     color: { colorSpace: "srgb", components: [1, 1, 1] },
 //     offsetX: { value: 0, unit: "px" },
@@ -232,10 +257,7 @@ library.tokens.elevations.raised.$value;
 library.tokens.elevations.raised.$type; // "elevation", inherited from the group
 ```
 
-Custom types have two restrictions, both enforced at compile time:
-
-- `Name` can't be a DTCG type name such as `"color"`.
-- `Value` must be serializable. Functions aren't allowed anywhere in the value, because functions in a token value are evaluated as aliases.
+`Name` can't be a DTCG type name such as `"color"`, which is checked at compile time. `Value` can be any type, such as a plain object, a class instance, or an object with methods, which the library never calls. A function isn't written by `toString()`, so a value with functions is converted to CSS with its converter.
 
 #### CSS
 
@@ -264,7 +286,7 @@ const properties = toProperties(library, options);
 
 ## Creating a Library
 
-With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling alias and computed values with those changes.
+With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling aliases with those changes.
 
 ```ts
 const library = Library.create(myLibraryConfig);
@@ -302,12 +324,12 @@ library.subscribe(subscriber);
 library.tokens.foreground.set({ colorSpace: "srgb", components: [0.53, 0.53, 0.53] });
 ```
 
-Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
+Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If an alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
 
 ```ts
-const library = Library.create({
+const library = Library.create<{ a: DesignToken.Color; b: DesignToken.Color }>({
   a: { $type: DesignToken.Type.Color, $value: { colorSpace: "srgb", components: [0, 0, 0] } },
-  b: { $type: DesignToken.Type.Color, $value: (tokens) => tokens.a },
+  b: { $type: DesignToken.Type.Color, $value: ref("a") },
 });
 
 library.subscribe({

@@ -14,6 +14,7 @@ import {
     toCSS,
     toProperties,
 } from "../lib/css-reflector.js";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import {
@@ -65,7 +66,7 @@ type Resolution = [
     // Nothing public is `any` or `unknown`
     Expect<IsKnown<Tokens["elevation"]["low"]["$value"]>>,
     Expect<IsKnown<Tokens["elevation"]["low"]["$type"]>>,
-    Expect<IsKnown<Library.Context<CustomTheme>["elevation"]["low"]["$value"]>>,
+    Expect<IsKnown<Library.TokenValues<CustomTheme>["elevation"]["low"]>>,
     Expect<IsKnown<Library.TokenRecord<CustomTheme>["$value"]>>,
     Expect<IsKnown<Library.TokenRecord<CustomTheme>["$type"]>>,
     Expect<IsKnown<Parameters<CSSConverters<CustomTheme>["elevation"]>[0]>>,
@@ -105,27 +106,28 @@ type RecordTypes = Expect<
     >
 >;
 
-/* Config values. Static values, aliases and deep aliases are covered by `customConfig`. */
+/* Config values. Static values, refs and deep refs are covered by `customConfig`. */
 interface Standard {
     a: DesignToken.Color;
     n: DesignToken.Number;
     gradient: DesignToken.Gradient;
     curve: DesignToken.CubicBezier;
 }
-// Gradient stop aliases (#28) and CubicBezier number aliases (#29)
+const standard = refs<Standard>();
+// Gradient stop refs (#28) and CubicBezier number refs (#29)
 const standardAliases: Library.Config<Standard> = {
     a: { $type: C, $value: hex("#111111") },
     n: { $type: DesignToken.Type.Number, $value: 0.5 },
     gradient: {
         $type: DesignToken.Type.Gradient,
         $value: [
-            { color: (context) => context.a, position: 0 },
-            { color: hex("#222222"), position: (context) => context.n },
+            { color: standard.a, position: 0 },
+            { color: hex("#222222"), position: standard.n },
         ],
     },
     curve: {
         $type: DesignToken.Type.CubicBezier,
-        $value: [(context) => context.n, 0, 1, 1],
+        $value: [standard.n, 0, 1, 1],
     },
 };
 
@@ -171,7 +173,7 @@ function configValueNegatives() {
     const wrongAlias: Library.Config<Theme> = {
         ...valid,
         // @ts-expect-error a Color token is not a number
-        r: { $type: "ratio", $value: (context) => context.c },
+        r: { $type: "ratio", $value: $.c },
     };
     // deep alias resolving to an incompatible token
     const wrongDeepAlias: Library.Config<Theme> = {
@@ -180,7 +182,7 @@ function configValueNegatives() {
             $type: "elevation",
             $value: {
                 // @ts-expect-error a Color token is not a number
-                level: (context) => context.c,
+                level: $.c,
                 shadowColor: hex("#111111"),
                 offsets: [px(0), px(0)],
             },
@@ -194,7 +196,7 @@ function configValueNegatives() {
     // @ts-expect-error a ratio is a number
     lib.tokens.r.set("1");
     // @ts-expect-error a Color token is not a number
-    lib.tokens.r.set((context) => context.c);
+    lib.tokens.r.set($.c);
 
     return [wrongField, wrongValue, wrongAlias, wrongDeepAlias];
 }
@@ -218,18 +220,59 @@ function declarationNegatives() {
         >
     >;
 
-    // function values, top-level and nested
+    // a value can be a function, or may be one: it's data
     const functions: Library.Config<{
         f: DesignToken.Custom<"fn", () => void>;
-        n: DesignToken.Custom<"nestedFn", { a: { b: () => void } }>;
+        maybe: DesignToken.Custom<"maybeFn", string | (() => void)>;
     }> = {
-        // @ts-expect-error custom values cannot contain functions
         f: { $type: "fn", $value: () => {} },
-        // @ts-expect-error custom values cannot contain functions
-        n: { $type: "nestedFn", $value: { a: { b: () => {} } } },
+        maybe: { $type: "maybeFn", $value: "none" },
     };
+    type FunctionTypes = [
+        Expect<Equal<DesignToken.Custom<"fn", () => void>["$type"], "fn">>,
+        Expect<
+            Equal<
+                DesignToken.Custom<"maybeFn", string | (() => void)>["$type"],
+                "maybeFn"
+            >
+        >,
+    ];
 
-    // a value that contains itself, like a tree, is accepted when it has no functions
+    // an object or a class instance with functions is data
+    class Palette {
+        constructor(readonly swatches: number[]) {}
+        first() {
+            return this.swatches[0];
+        }
+    }
+    interface WithFunctions {
+        a: { b: () => void };
+        visit: (node: WithFunctions) => void;
+        children: WithFunctions[];
+    }
+    const withFunctions: Library.Config<{
+        p: DesignToken.Custom<"palette", Palette>;
+        w: DesignToken.Custom<"withFunctions", WithFunctions>;
+    }> = {
+        p: { $type: "palette", $value: new Palette([1]) },
+        w: {
+            $type: "withFunctions",
+            $value: { a: { b: () => {} }, visit: () => {}, children: [] },
+        },
+    };
+    type DataTypes = [
+        Expect<
+            Equal<DesignToken.Custom<"palette", Palette>["$type"], "palette">
+        >,
+        Expect<
+            Equal<
+                DesignToken.Custom<"withFunctions", WithFunctions>["$type"],
+                "withFunctions"
+            >
+        >,
+    ];
+
+    // a value that contains itself, like a tree, is accepted
     interface Tree {
         fn: string;
         args: Array<number | Tree>;
@@ -244,34 +287,13 @@ function declarationNegatives() {
         Equal<DesignToken.Custom<"tree", Tree>["$type"], "tree">
     >;
 
-    // and rejected when it has one, in the value that contains itself, or nested in properties
-    interface TreeWithFunction {
-        children: TreeWithFunction[];
-        visit: () => void;
-    }
-    type TreeWithFunctionMessage = Expect<
-        Equal<
-            DesignToken.Custom<"treeFn", TreeWithFunction>["$type"],
-            "Error: custom token values must be serializable and cannot contain functions"
-        >
-    >;
-    interface Shallow {
-        a: { b: { c: () => void } };
-    }
-    type ShallowMessage = Expect<
-        Equal<
-            DesignToken.Custom<"shallow", Shallow>["$type"],
-            "Error: custom token values must be serializable and cannot contain functions"
-        >
-    >;
-
     // the config type must match the declared name
     const mismatched: Library.Config<{ r: RatioToken }> = {
         // @ts-expect-error 'label' is not 'ratio'
         r: { $type: "label", $value: 1 },
     };
 
-    return [reserved, functions, recursive, mismatched];
+    return [reserved, functions, withFunctions, recursive, mismatched];
 }
 
 /* Group type inheritance. Inheriting, nested inheritance and overriding are covered by `customConfig`. */
@@ -357,9 +379,10 @@ interface Extension {
     spacing: { $type: "ratio"; tight: RatioToken };
     z: DesignToken.Custom<"z-index", number>;
 }
+const $ = refs<CustomTheme>();
 const extended = library.extend<Extension>({
     elevation: {
-        // static, alias and deep alias overrides
+        // static, ref and deep ref overrides
         low: {
             $value: {
                 level: 0,
@@ -367,11 +390,11 @@ const extended = library.extend<Extension>({
                 offsets: [px(0), px(0)],
             },
         },
-        high: { $value: (context) => context.elevation.low },
+        high: { $value: $.elevation.low },
         raised: {
             top: {
                 $value: {
-                    level: (context) => context.ratio,
+                    level: $.ratio,
                     shadowColor: hex("#000000"),
                     offsets: [px(0), px(0)],
                 },
@@ -381,7 +404,7 @@ const extended = library.extend<Extension>({
         floating: {
             $value: {
                 level: 3,
-                shadowColor: (context) => context.colors.muted,
+                shadowColor: $.colors.muted,
                 offsets: [px(0), px(1)],
             },
         },

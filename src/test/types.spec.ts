@@ -4,6 +4,7 @@
  */
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { Equal, Expect } from "./helpers.js";
@@ -16,16 +17,17 @@ interface Theme {
     b: DesignToken.Color;
     border: DesignToken.Border;
 }
+const $ = refs<Theme>();
 
 const config: Library.Config<Theme> = {
     a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
-    // Alias values are accepted
-    b: { $type: DesignToken.Type.Color, $value: (context) => context.a },
+    // Refs are accepted
+    b: { $type: DesignToken.Type.Color, $value: $.a },
     border: {
         $type: DesignToken.Type.Border,
-        // Deep alias values are accepted
+        // Deep refs are accepted
         $value: {
-            color: (context) => context.a,
+            color: $.a,
             width: px(1),
             style: "solid",
         },
@@ -46,8 +48,8 @@ const color: DesignToken.Values.Color = library.tokens.a.$value;
 // @ts-expect-error a Color value is not a number
 const notNumber: number = library.tokens.a.$value;
 
-// An alias in extend() has the context of the library, for a token in a group, and with a new token
-interface AliasTheme {
+// A ref in extend() is checked against the library, for a token in a group, and with a new token
+interface RefTheme {
     blue: DesignToken.Color;
     link: DesignToken.Color;
     sizes: {
@@ -56,7 +58,8 @@ interface AliasTheme {
         large: DesignToken.Number;
     };
 }
-const aliasLibrary = Library.create<AliasTheme>({
+const r = refs<RefTheme>();
+const refLibrary = Library.create<RefTheme>({
     blue: { $type: DesignToken.Type.Color, $value: hex("#0000ff") },
     link: { $type: DesignToken.Type.Color, $value: hex("#000000") },
     sizes: {
@@ -65,46 +68,30 @@ const aliasLibrary = Library.create<AliasTheme>({
         large: { $value: 2 },
     },
 });
-aliasLibrary.extend({ link: { $value: (context) => context.blue } });
-aliasLibrary.extend({
-    sizes: { small: { $value: (context) => context.sizes.large } },
+refLibrary.extend({ link: { $value: r.blue } });
+refLibrary.extend({
+    sizes: { small: { $value: r.sizes.large } },
 });
-aliasLibrary.extend({
-    sizes: { small: { $value: (context) => context.sizes.large } },
+refLibrary.extend({
+    sizes: { small: { $value: r.sizes.large } },
     extra: { $type: DesignToken.Type.Number, $value: 1 },
 });
-aliasLibrary.extend({
+refLibrary.extend({
     sizes: {
         small: {
-            // @ts-expect-error the context has no token with that name
-            $value: (context) => context.sizes.none,
+            $value:
+                // @ts-expect-error the library has no token with that name
+                r.sizes.none,
         },
     },
 });
-aliasLibrary.extend({
+refLibrary.extend({
     sizes: {
         small: {
-            // @ts-expect-error an alias returns a value of the type of its token
-            $value: (context) => context.blue,
+            // @ts-expect-error a ref has the value type of its token
+            $value: r.blue,
         },
     },
-});
-
-// A token in the context of an alias has a name
-Library.create<Theme>({
-    a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
-    b: {
-        $type: DesignToken.Type.Color,
-        $value: (context) => {
-            const name: string = context.a.name;
-            // @ts-expect-error the name is not writable
-            context.a.name = name;
-            // @ts-expect-error a group has no name
-            context.name;
-            return context.a;
-        },
-    },
-    border: config.border,
 });
 
 // extend<K> exposes both source and new keys
@@ -123,17 +110,10 @@ library.tokens.a.set(12);
 // Overriding a source token with a static value keeps the source token type
 const overridden = library.extend({
     a: { $value: hex("#000000") },
-    b: {
-        $value: (context) => {
-            type Check = Expect<
-                Equal<typeof context.a.$value, DesignToken.Values.Color>
-            >;
-            return context.a;
-        },
-    },
+    b: { $value: $.a },
 });
 overridden.tokens.a.set(hex("#123456"));
-// The extended library's context type is `Theme & {}`, so the token types are
+// The extended library's shape is `Theme & {}`, so the token types are
 // compared by assignability, and their `$value` and `$type` exactly.
 const overriddenToSource: typeof library.tokens = overridden.tokens;
 const sourceToOverridden: typeof overridden.tokens = library.tokens;
@@ -236,6 +216,42 @@ inferred.tokens.space.set({ value: 1, unit: "rm" });
 // @ts-expect-error set() checks an inferred token against its type
 inferred.tokens.line.set("wavy");
 
+// A value is checked against its token's type, so a function isn't a
+// color. Never called: these are type errors.
+const refChecks = () => {
+    Library.create<Theme>({
+        ...config,
+        // @ts-expect-error a function is not a color
+        b: { $type: DesignToken.Type.Color, $value: () => hex("#111111") },
+    });
+    // @ts-expect-error a function is not a color
+    library.tokens.b.set(() => hex("#111111"));
+    // @ts-expect-error a ref has the value type of its token
+    library.tokens.b.set($.border);
+};
+// A ref has its token's value type and the token values of its library.
+const toA = $.a;
+library.tokens.b.set(toA);
+type RefTypes = [
+    Expect<
+        Equal<
+            typeof toA,
+            Library.Ref<DesignToken.Values.Color, Library.TokenValues<Theme>>
+        >
+    >,
+];
+// A config whose type is inferred takes refs of a shape with the same
+// token values.
+const inferredWithRef = Library.create({
+    a: { $type: DesignToken.Type.Color, $value: hex("#111111") },
+    b: {
+        $type: DesignToken.Type.Color,
+        $value: refs<{ a: DesignToken.Color }>().a,
+    },
+});
+const inferredRefValue: DesignToken.Values.Color =
+    inferredWithRef.tokens.b.$value;
+
 // A dimension's unit is "px" or "rem" (#26).
 const remDimension: DesignToken.Values.Dimension = { value: 1, unit: "rem" };
 // @ts-expect-error "rm" is not a dimension unit
@@ -267,6 +283,8 @@ Types("type-level assertions compile", () => {
         newToken,
         remDimension,
         rmDimension,
+        refChecks,
+        inferredRefValue,
     ]);
 });
 

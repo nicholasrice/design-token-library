@@ -9,15 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `ref("colors.primary")` and `refs<T>()` make a ref to a token, by its dotted path or by a ref for each token of a shape: `$value: ref("colors.primary")` or `$value: $.colors.primary`. They make the same ref, which is data, the path of its token, and has the token's value type. `ref()` takes its types from where it's used, so a path that isn't a token, or a token of the wrong type, is a compile error. Adds the `Library.Ref`, `Library.Refs`, `Library.TokenValues`, `Library.TokenValue`, `Library.TokenPath` and `Library.DeepValue` types.
+- A custom value can be any type, including a class instance, an object with methods or function properties, or a function, and the library never calls its functions: `DesignToken.Custom<"palette", Palette>`. `DesignToken.HasFunction`, which rejected a value type with a function in it, is removed.
 - A custom type's converter in `toCSS` can be `false`, which leaves tokens of that type out of the CSS (#58). `toProperties` accepts the same `converters` option and leaves out those tokens. Every custom type still needs an entry, so a forgotten converter is still an error. Adds the `CSSConverterEntries` and `ToPropertiesOptions` types.
 - `$root` as a token in its group, and not at the top level of a library (its CSS custom property is named for the group), `$deprecated` on tokens, and group metadata (`$description`, `$extensions`, `$deprecated`) that survives `extend()`. A circular reference throws a `CircularReferenceError`, whose `chain` and message list the tokens in the cycle (`a → b → a`), instead of overflowing the stack.
-- Custom token types via `DesignToken.Custom<Name, Value>`, with static values, aliases, deep aliases, group type inheritance, `set()` and `extend()` support. Reserved DTCG type names and non-serializable values are rejected at compile time.
+- Custom token types via `DesignToken.Custom<Name, Value>`, with static values, aliases, deep aliases, group type inheritance, `set()` and `extend()` support. Reserved DTCG type names are rejected at compile time.
 - `toCSS(library, options)` accepts `options.converters`, a converter for each custom type that receives the value and the token. It's required for every custom type in the library. At runtime `toCSS` throws for a custom type without a converter.
-- `Library.TokensOf`, `Library.TokenRecord`, `Library.GroupType`, `Library.ValueAlias`, `Library.ValueSource`, `CSSOptions`, `CSSConverter`, `CSSConverters` and `CustomTokensOf` types.
+- `Library.TokensOf`, `Library.TokenRecord`, `Library.GroupType`, `CSSOptions`, `CSSConverter`, `CSSConverters` and `CustomTokensOf` types.
 - `Token.toString()` returns a JSON representation of the token's `name`, `$type`, resolved `$value`, `$description`, `$extensions` and `$deprecated`. It throws a `CircularReferenceError` for a token in a cycle. It was declared but stringified as `[object Object]`.
 
 ### Changed
 
+- **Breaking:** an alias is a ref, `$value: ref("colors.primary")`, instead of a function given the library's tokens, and a function in a value is never called. `Library.Context`, `Library.ValueAlias`, `Library.Alias`, `Library.ValueSource` and `Library.DeepAlias` are removed, and `Token.set()` takes the same values as a config, including deep refs.
+- A token's value is a copy of plain data, made from its own properties: symbol-keyed and non-enumerable properties are kept, an object that is in the value twice, or in itself, has one copy, and a getter is read once into a data property. Plain data is an array that isn't a subclass of `Array`, or an object whose prototype chain has at most one link, including an object literal from another realm. Anything else, including a function, is returned as it is.
 - **Breaking:** token values use the [DTCG 2025.10](https://www.designtokens.org/tr/2025.10/format/) shapes. A color is `{ colorSpace, components, alpha?, hex? }`, a dimension is `{ value, unit: "px" | "rem" }` and a duration is `{ value, unit: "ms" | "s" }`. A shadow may be an array of layers and may be `inset`, the font weight keyword `"smi-bold"` is corrected to `"semi-bold"`, and a list inside a value (such as a stroke style's dash array) can contain aliases.
 - `toCSS` and `toProperties` convert the new shapes: sRGB colors become hex and other color spaces the CSS color function, font weight keywords become numbers, `cubic-bezier()` and transition shorthand order are corrected, and a standard type with no converter is written as JSON instead of `[object Object]`.
 - **Breaking:** tokens and groups use the DTCG property names: `$value`, `$type`, `$description`, `$extensions` and `$deprecated` on tokens, and `$type`, `$description`, `$extensions` and `$deprecated` on groups, both in a config and on `library.tokens`. `name`, `set()` and `toString()` are unchanged. A token is told apart from a group by having a `$value`.
@@ -31,9 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- An alias in the config of `Library.extend()` has the context of the library for its parameter, for a token in a group and with a new token in the same call, where it had no type (an implicit `any`) or the call was a type error. `extend()` has an overload for a config that only has values of tokens, which has no tokens to infer (#62). A new token with a value of the wrong type is reported for the call, as no overload matching, instead of for the token.
-- A custom token type with a value type that contains itself, like a tree, compiles. The check that a custom value has no functions searches the properties to a depth of 8 instead of without an end, which failed with a circular reference error (#61).
-- A token in the context of an alias has a `name` in its type, as it does at runtime (#60). The alias given to `Token.set()` has the same context as an alias in a config, which it didn't have the type of before.
+- A value that isn't plain data, such as a class instance, a `Date`, a `Map` or a `Set`, is returned as it is. It was copied to a plain object, which lost its prototype and internal state, and a function property of it was called as an alias (#55). A cyclic value no longer overflows the stack.
+- `extend()` has an overload for a config that only has values of tokens, which has no tokens to infer (#62). A new token with a value of the wrong type is reported for the call, as no overload matching, instead of for the token.
+- A custom token type with a value type that contains itself, like a tree, compiles (#61).
 - `DeepAlias` accepts aliases inside Gradient stops (#28).
 - Resolving a token of an extended library no longer disconnects its source token from its dependencies, which left the source token reported as changed when a dependency it no longer used changed.
 - Number aliases in a CubicBezier accept Number tokens (#29).

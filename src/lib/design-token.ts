@@ -380,44 +380,16 @@ export namespace DesignToken {
     export type ReservedTypeName = `${DesignToken.Type}`;
 
     /**
-     * Resolves to `true` if `V` is, or contains, a function.
-     *
-     * @remarks
-     * The properties are searched to a depth, so a value type that contains itself, like a tree, can be
-     * checked. A function deeper than that is not found.
-     *
-     * @internal
-     */
-    export type HasFunction<
-        V,
-        Depth extends unknown[] = [],
-    > = V extends Function
-        ? true
-        : Depth["length"] extends 8
-          ? false
-          : V extends object
-            ? true extends {
-                  [K in keyof V]-?: HasFunction<V[K], [...Depth, unknown]>;
-              }[keyof V]
-                ? true
-                : false
-            : false;
-
-    /**
      * The `$type` of a {@link DesignToken.Custom} token. Resolves to an error
-     * message type when `Name` is reserved or `Value` is not serializable, so
-     * that invalid custom tokens cannot be configured.
+     * message type when `Name` is reserved, so that a custom type can't
+     * replace a DTCG type.
      *
      * @internal
      */
-    export type CustomTypeName<
-        Name extends string,
-        Value,
-    > = Name extends ReservedTypeName
-        ? `Error: '${Name}' is a reserved DTCG type name`
-        : HasFunction<Value> extends true
-          ? "Error: custom token values must be serializable and cannot contain functions"
-          : Name;
+    export type CustomTypeName<Name extends string> =
+        Name extends ReservedTypeName
+            ? `Error: '${Name}' is a reserved DTCG type name`
+            : Name;
 
     /**
      * A token of a custom type that is not defined by
@@ -425,8 +397,10 @@ export namespace DesignToken {
      *
      * @remarks
      * `Name` identifies the type and must not be a {@link DesignToken.ReservedTypeName}.
-     * `Value` can be any serializable (JSON-like) value. Functions are not allowed
-     * because function values are evaluated as aliases.
+     * `Value` can be any type, such as a plain object, a class instance, or an
+     * object with methods. The library returns the value as it is, and never
+     * calls its functions. A config can give the value, or any property of
+     * plain data in it, as a {@link ref}.
      *
      * @example
      * ```ts
@@ -436,7 +410,7 @@ export namespace DesignToken {
      */
     export interface Custom<Name extends string, Value> {
         $description?: string;
-        $type: CustomTypeName<Name, Value>;
+        $type: CustomTypeName<Name>;
         $extensions?: Record<string, any>;
         $deprecated?: boolean | string;
         $value: Value;

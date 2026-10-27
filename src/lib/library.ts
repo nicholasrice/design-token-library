@@ -1,8 +1,21 @@
+import { REF, isRef } from "./ref.js";
 import { DesignToken } from "./design-token.js";
 import { INotifier, ISubscriber, getNotifier } from "./notifier.js";
 import { IQueue, Queue } from "./queue.js";
 import { empty, isToken } from "./utilities.js";
 import { IWatcher, Watcher } from "./watcher.js";
+
+/**
+ * The key of the phantom type of a ref: what it
+ * resolves to, in a library of what shape. It's never set.
+ */
+declare const RESOLVES: unique symbol;
+
+/**
+ * The key of the phantom type that marks a token in
+ * {@link (Library:namespace).TokenValues}. It's never set.
+ */
+declare const TOKEN: unique symbol;
 
 /**
  * @public
@@ -13,10 +26,11 @@ export namespace Library {
         subscribe(subscriber: Library.Subscriber<R>): void;
         unsubscribe(subscriber: Library.Subscriber<R>): void;
         /**
-         * Creates a library with the values of the tokens replaced, which are static values or aliases.
+         * Creates a library with the values of the tokens replaced.
          *
          * @remarks
-         * This has no tokens to add, so the context of an alias is known wherever its token is.
+         * This has no tokens to add, so a value is checked against the type
+         * of its token wherever the token is.
          */
         extend(config: ExtendConfig<T, R>): Library<T, R>;
         extend<K extends NoRoot<K> = {}>(
@@ -110,61 +124,94 @@ export namespace Library {
     };
 
     /**
-     * Any object with a `$value` of type `V`, such as a token.
+     * The value type of each token of a library of shape `T`, by its path.
+     * Refs are typed by it, so they're given only to a library that has their
+     * tokens, with values of the same types, whether its shape is declared or
+     * inferred from its config.
      *
      * @public
      */
-    export interface ValueSource<V> {
-        readonly $value: V;
+    export type TokenValues<T> = {
+        [K in keyof T as K extends keyof DesignToken.Group
+            ? never
+            : K]: T[K] extends DesignToken.Shape
+            ? TokenValue<DesignToken.ValueByToken<T[K]>>
+            : T[K] extends object
+              ? TokenValues<T[K]>
+              : never;
+    };
+
+    /**
+     * A token with a value of type `V`, in
+     * {@link (Library:namespace).TokenValues}. It's only a type: it marks
+     * where a path ends at a token rather than going into its value.
+     *
+     * @public
+     */
+    export interface TokenValue<V> {
+        readonly [TOKEN]: V;
     }
 
     /**
-     * A function that resolves to a value of type `V`, or to a token
-     * with a value of type `V`.
+     * The dotted path of each token in `T`, the
+     * {@link (Library:namespace).TokenValues} of a library, whose value is a
+     * `V`. These are the paths {@link ref} takes where a `V` is expected.
      *
      * @public
      */
-    export type ValueAlias<V, R> = (context: R) => V | ValueSource<V>;
+    export type TokenPath<T, V> = {
+        [K in keyof T & string]: T[K] extends TokenValue<infer W>
+            ? [W] extends [V]
+                ? K
+                : never
+            : `${K}.${TokenPath<T[K], V>}`;
+    }[keyof T & string];
 
     /**
-     * A token value that serves as an alias to another token value
-     *
-     * @public
-     */
-    export type Alias<
-        T extends DesignToken.Shape,
-        R extends Context<any>,
-    > = ValueAlias<DesignToken.ValueByToken<T>, R>;
-
-    /**
-     * A value whose properties and elements, at any depth, may be
-     * static values or {@link (Library:namespace).ValueAlias | aliases}.
-     * Supports complex token value types such as {@link DesignToken.Border}.
-     *
-     * @public
-     */
-    export type DeepAlias<V, T extends Context<any>> = V extends object
-        ? {
-              [K in keyof V]: V[K] | ValueAlias<V[K], T> | DeepAlias<V[K], T>;
-          }
-        : V;
-
-    /**
-     * Context object provided to {@link (Library:namespace).Alias} values at runtime
+     * A reference to a token whose value is of type `V`, in a library whose
+     * token values are `T`. It's resolved to the token's value when the token
+     * that has it is read. Made by {@link ref} and {@link refs}.
      *
      * @remarks
-     * A token in the context has a `name`, like the tokens of the library.
+     * A ref is data: the path of its token. `T`, the
+     * {@link (Library:namespace).TokenValues} of the library, is only in its
+     * type, so that a ref can only be given to a library that has its token.
      *
      * @public
      */
-    export type Context<T extends {}, R extends {} = T> = {
-        [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape
-            ? Readonly<T[K]> & { readonly name: string }
-            : K extends keyof DesignToken.Group
-              ? T[K]
-              : T[K] extends {}
-                ? Context<T[K], R>
-                : never;
+    export interface Ref<V, T> {
+        readonly [REF]: readonly string[];
+        readonly [RESOLVES]?: (library: T) => V;
+    }
+
+    /**
+     * A value of type `V` in a configuration: the value, a
+     * {@link (Library:namespace).Ref}, or, when `V` is an object or an array,
+     * `V` with any of its properties and elements, at any depth, given as one
+     * of those.
+     *
+     * @public
+     */
+    export type DeepValue<V, T> =
+        | V
+        | Ref<V, T>
+        | (V extends object ? { [K in keyof V]: DeepValue<V[K], T> } : never);
+
+    /**
+     * A {@link (Library:namespace).Ref} to each token of a library of shape
+     * `R`, at the path of the token in `T`, the shape of a group of it. Made by
+     * {@link refs}.
+     *
+     * @public
+     */
+    export type Refs<T extends {}, R extends {} = T> = {
+        readonly [K in keyof T as K extends keyof DesignToken.Group
+            ? never
+            : K]-?: T[K] extends DesignToken.Shape
+            ? Ref<DesignToken.ValueByToken<T[K]>, TokenValues<R>>
+            : T[K] extends {}
+              ? Refs<T[K], R>
+              : never;
     };
 
     /**
@@ -181,7 +228,7 @@ export namespace Library {
         C extends {},
         G extends string = never,
     > = {
-        set(value: DesignToken.ValueByToken<T> | Alias<T, Context<C>>): void;
+        set(value: ConfigTokenValue<T, C>): void;
         /**
          * A JSON representation of the token's name, type, resolved value,
          * description, extensions and deprecation.
@@ -229,15 +276,15 @@ export namespace Library {
         : G;
 
     /**
-     * The value of a token in a configuration object: a static value,
-     * an {@link (Library:namespace).Alias}, or a {@link (Library:namespace).DeepAlias}.
+     * The value of a token in a configuration object, in a library of shape
+     * `R`: a {@link (Library:namespace).DeepValue} of the token's value type.
      *
      * @public
      */
-    export type ConfigTokenValue<T extends DesignToken.Shape, R extends {}> =
-        | DesignToken.ValueByToken<T>
-        | Library.Alias<T, Context<R>>
-        | Library.DeepAlias<DesignToken.ValueByToken<T>, Context<R>>;
+    export type ConfigTokenValue<
+        T extends DesignToken.Shape,
+        R extends {},
+    > = DeepValue<DesignToken.ValueByToken<T>, TokenValues<R>>;
 
     /**
      * A token in a configuration object.
@@ -381,7 +428,7 @@ export namespace Library {
     /**
      * A configuration object provided to {@link (Library:namespace).Library.extend}.
      * All tokens and groups of the source library are optional, and token
-     * values may be static values or aliases. Token types are inherited
+     * values may be static values or refs. Token types are inherited
      * from the source library.
      *
      * @public
@@ -426,7 +473,7 @@ type RawLibrary = { [key: string]: any };
 
 /**
  * Thrown when reading a token whose value refers back to itself through
- * one or more aliases.
+ * one or more refs.
  *
  * @public
  */
@@ -458,12 +505,6 @@ const isGroup = (
     value: DesignToken.Group | any,
 ): value is DesignToken.Group => {
     return isObject(value) && !Array.isArray(value) && !isToken(value);
-};
-
-const isAlias = <T extends DesignToken.Any, K extends {}>(
-    value: any,
-): value is Library.Alias<T, K> => {
-    return typeof value === "function";
 };
 
 const GROUP_METADATA = [
@@ -509,8 +550,8 @@ const defineToken = (
 ): void => {
     Reflect.defineProperty(library, key, {
         get() {
-            // Token access needs to be tracked because an alias token
-            // is a function that returns a token
+            // Token access is tracked because a ref reads its token from
+            // the library
             Watcher.track(token);
             return token;
         },
@@ -687,7 +728,7 @@ const recurseExtend = (
 
 function extendToken(
     token: Library.Token<any, any>,
-    context: Library.Context<any>,
+    context: RawLibrary,
     queue: IQueue<any>,
     node?: Record<string, any>,
 ) {
@@ -736,47 +777,113 @@ function extendToken(
     return extendingToken;
 }
 
-const recurseResolve = (value: any, context: Library.Context<any>): any => {
-    if (Array.isArray(value)) {
-        const r = new Array(value.length);
-        for (let i = 0; i < value.length; i++) {
-            let v = value[i];
+/**
+ * The number of links in an object's prototype chain.
+ */
+const prototypeDepth = (value: object): number => {
+    let depth = 0;
+    for (
+        let prototype = Object.getPrototypeOf(value);
+        prototype !== null;
+        prototype = Object.getPrototypeOf(prototype)
+    ) {
+        depth++;
+    }
+    return depth;
+};
 
-            if (isAlias(v)) {
-                v = v(context);
-            }
+/**
+ * Tests whether an object is plain data, which may hold refs: an array that
+ * isn't a subclass of `Array`, or an object whose prototype chain has at most
+ * one link, such as an object literal from any realm or `Object.create(null)`.
+ * Any other object, such as a class instance, a `Date` or a `Map`, is a value
+ * as it is.
+ */
+const isPlain = (value: object): boolean => {
+    return Array.isArray(value)
+        ? prototypeDepth(value) === 2
+        : prototypeDepth(value) <= 1;
+};
 
-            if (v instanceof LibraryToken) {
-                v = v.$value;
-            }
-
-            r[i] = isObject(v) ? recurseResolve(v, context) : v;
-        }
-        return r;
+/**
+ * The token at a path of a library. Each group and the token are read from
+ * the library, so the token that reads it depends on it.
+ */
+const tokenAt = (
+    tokens: RawLibrary,
+    path: readonly string[],
+): LibraryToken<any> => {
+    let node: unknown = tokens;
+    for (const key of path) {
+        node = isObject(node) ? Reflect.get(node, key) : undefined;
     }
 
-    const r: any = {};
-    for (const key in value) {
-        let v = value[key];
-
-        if (isAlias(v)) {
-            v = v(context);
-        }
-
-        // Only unwrap library tokens. Plain objects with a `value` key are
-        // data, e.g. a custom token value.
-        if (v instanceof LibraryToken) {
-            v = v.$value;
-        }
-
-        if (isObject(v)) {
-            r[key] = recurseResolve(v, context);
-        } else {
-            r[key] = v;
-        }
+    if (!(node instanceof LibraryToken)) {
+        throw new Error(`The library has no token "${path.join(".")}".`);
     }
 
-    return r;
+    return node;
+};
+
+/**
+ * Resolves a value in a library's tokens. A ref is replaced by its token's
+ * value. Plain data is copied from its own properties, including
+ * symbol-keyed and non-enumerable ones, with its refs resolved, so the value
+ * can be frozen without freezing the config. A getter is read once, into a
+ * data property. An object that is in the value twice, or in itself, has one
+ * copy. Anything else, such as a class instance or a function, is returned as
+ * it is: it can't be rebuilt, so it isn't copied or searched.
+ */
+const resolve = (value: unknown, tokens: RawLibrary): unknown => {
+    const copies = new Map<object, unknown>();
+
+    const walk = (value: unknown): unknown => {
+        if (!isObject(value)) {
+            return value;
+        }
+
+        if (isRef(value)) {
+            return walk(tokenAt(tokens, value[REF]).$value);
+        }
+
+        if (copies.has(value)) {
+            return copies.get(value);
+        }
+
+        if (!isPlain(value)) {
+            return value;
+        }
+
+        if (Array.isArray(value)) {
+            const copy = new Array(value.length);
+            copies.set(value, copy);
+            for (let i = 0; i < value.length; i++) {
+                copy[i] = walk(value[i]);
+            }
+            return copy;
+        }
+
+        const copy = Object.create(Object.getPrototypeOf(value));
+        copies.set(value, copy);
+        for (const key of Reflect.ownKeys(value)) {
+            const descriptor = Reflect.getOwnPropertyDescriptor(value, key)!;
+            Reflect.defineProperty(
+                copy,
+                key,
+                "value" in descriptor
+                    ? { ...descriptor, value: walk(descriptor.value) }
+                    : {
+                          value: walk(Reflect.get(value, key)),
+                          enumerable: descriptor.enumerable,
+                          writable: true,
+                          configurable: true,
+                      },
+            );
+        }
+        return copy;
+    };
+
+    return walk(value);
 };
 
 const assertNoRoot = (config: RawConfig): void => {
@@ -829,12 +936,9 @@ class LibraryImpl implements Library.Library<any> {
  * An individual token value in a library
  */
 class LibraryToken<T extends DesignToken.Any>
-    implements
-        Library.Token<any, any>,
-        ISubscriber<Library.Alias<T, any>>,
-        IWatcher
+    implements Library.Token<any, any>, ISubscriber<unknown>, IWatcher
 {
-    private raw: DesignToken.ValueByToken<T> | Library.Alias<T, any>;
+    private raw: Library.ConfigTokenValue<T, any>;
     private cached: DesignToken.ValueByToken<T> | typeof empty = empty;
     private resolving = false;
     private notifying = false;
@@ -848,16 +952,15 @@ class LibraryToken<T extends DesignToken.Any>
 
     constructor(
         public readonly name: string,
-        value: DesignToken.ValueByToken<T> | Library.Alias<T, any>,
+        value: Library.ConfigTokenValue<T, any>,
         private readonly _type: DesignToken.TypeByToken<T>,
-        private readonly context: Library.Context<any>,
+        private readonly context: RawLibrary,
         private readonly _description: string,
         extensions: Record<string, any>,
         private readonly _deprecated: boolean | string,
         private queue: IQueue<Library.Token<DesignToken.Any, any>>,
     ) {
         this.raw = value;
-        this.context = context;
         // A copy, so changing the config's top-level keys can't change the token.
         this._extensions = { ...extensions };
     }
@@ -902,12 +1005,11 @@ class LibraryToken<T extends DesignToken.Any>
         const stopWatching = Watcher.use(this);
 
         try {
-            const raw = isAlias(this.raw) ? this.raw(this.context) : this.raw;
-            const normalized = raw instanceof LibraryToken ? raw.$value : raw;
-
-            const value = isObject(normalized)
-                ? recurseResolve(normalized, this.context)
-                : normalized;
+            // The config's types guarantee what the raw value resolves to.
+            const value = resolve(
+                this.raw,
+                this.context,
+            ) as DesignToken.ValueByToken<T>;
 
             this.cached = value;
 
@@ -938,7 +1040,7 @@ class LibraryToken<T extends DesignToken.Any>
         });
     }
 
-    public set(value: DesignToken.ValueByToken<T> | Library.Alias<T, any>) {
+    public set(value: Library.ConfigTokenValue<T, any>) {
         this.raw = value;
         this.onChange();
     }
