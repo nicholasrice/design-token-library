@@ -338,60 +338,51 @@ Subscription(
     },
 );
 
-SameValue.skip(
-    "setting the same primitive does not notify (fails: #22)",
-    async () => {
-        const library = Library.create<A>({
-            a: { $type: C, $value: hex("#111111") },
-        });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+SameValue("setting the same primitive does not notify", async () => {
+    const library = Library.create<{ n: DesignToken.Number }>({
+        n: { $type: DesignToken.Type.Number, $value: 1 },
+    });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.a.set(hex("#111111"));
-        await nextUpdate();
+    library.tokens.n.set(1);
+    await nextUpdate();
 
-        Assert.equal(subscriber.batches, []);
-    },
-);
+    Assert.equal(subscriber.batches, []);
+});
 
-SameValue.skip(
-    "setting the same ref again does not notify (fails: #22)",
-    async () => {
-        const toA = ab.a;
-        const library = Library.create<AB>({
-            a: { $type: C, $value: hex("#111111") },
-            b: { $type: C, $value: toA },
-        });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+SameValue("setting the same ref again does not notify", async () => {
+    const toA = ab.a;
+    const library = Library.create<AB>({
+        a: { $type: C, $value: hex("#111111") },
+        b: { $type: C, $value: toA },
+    });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.b.set(toA);
-        await nextUpdate();
+    library.tokens.b.set(toA);
+    await nextUpdate();
 
-        Assert.equal(subscriber.batches, []);
-    },
-);
+    Assert.equal(subscriber.batches, []);
+});
 
-SameValue.skip(
-    "setting the same object reference does not notify (fails: #22)",
-    async () => {
-        const value: DesignToken.Values.Border = {
-            color: hex("#111111"),
-            width: px(1),
-            style: "solid",
-        };
-        const library = Library.create<BorderTheme>({
-            a: { $type: DesignToken.Type.Border, $value: value },
-        });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+SameValue("setting the same object reference does not notify", async () => {
+    const value: DesignToken.Values.Border = {
+        color: hex("#111111"),
+        width: px(1),
+        style: "solid",
+    };
+    const library = Library.create<BorderTheme>({
+        a: { $type: DesignToken.Type.Border, $value: value },
+    });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.a.set(value);
-        await nextUpdate();
+    library.tokens.a.set(value);
+    await nextUpdate();
 
-        Assert.equal(subscriber.batches, []);
-    },
-);
+    Assert.equal(subscriber.batches, []);
+});
 
 SameValue("setting a structurally equal but new object notifies", async () => {
     const library = Library.create<BorderTheme>({
@@ -427,7 +418,7 @@ SameValue("setting an equal but new ref notifies", async () => {
     Assert.equal(subscriber.batches, [["b"]]);
 });
 
-SameValue.skip("a no-op set does not invalidate the cache (fails: #22)", () => {
+SameValue("a no-op set does not invalidate the cache", () => {
     const library = Library.create<AB>({
         a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: ab.a },
@@ -456,6 +447,23 @@ SameValue(
 );
 
 SameValue(
+    "setting the inherited ref on an extended token detaches it from the source",
+    () => {
+        const toA = ab.a;
+        const source = Library.create<AB>({
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: toA },
+        });
+        const extended = source.extend<{}>({});
+
+        extended.tokens.b.set(toA);
+        source.tokens.b.set(hex("#222222"));
+
+        Assert.equal(extended.tokens.b.$value, hex("#111111"));
+    },
+);
+
+SameValue(
     "after detaching, source changes neither change nor notify the extended token",
     async () => {
         const source = Library.create<A>({
@@ -475,12 +483,13 @@ SameValue(
     },
 );
 
-SameValue.skip(
-    "setting the inherited value on an extended token does not notify (fails: #22)",
+SameValue(
+    "setting the inherited value on an extended token does not notify",
     async () => {
+        const value = hex("#111111");
         const toA = ab.a;
         const source = Library.create<AB>({
-            a: { $type: C, $value: hex("#111111") },
+            a: { $type: C, $value: value },
             b: { $type: C, $value: toA },
         });
         const extended = source.extend<{}>({});
@@ -488,7 +497,7 @@ SameValue.skip(
         const subscriber = recorder();
         extended.subscribe(subscriber);
 
-        extended.tokens.a.set(hex("#111111"));
+        extended.tokens.a.set(value);
         extended.tokens.b.set(toA);
         await nextUpdate();
 
