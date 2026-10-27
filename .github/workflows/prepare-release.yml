@@ -50,7 +50,7 @@ jobs:
           npx -y --no-package-json -p release-it -p @release-it/keep-a-changelog \
             release-it ${{ github.event.inputs.increment }} --ci \
             --git.requireCleanWorkingDir=false \
-            --git.requireUpstream=false
+            --git.requireUpstream=false \
             --plugins.@release-it/keep-a-changelog.filename=CHANGELOG.md \
             --git.commitMessage='chore(release): v${version}' \
             --git.tag=false \
