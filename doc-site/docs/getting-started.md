@@ -284,6 +284,28 @@ const css = toCSS(library, options);
 const properties = toProperties(library, options);
 ```
 
+A converter of a custom type that has values of the standard types can write each with `convert`, which does what `toCSS` does for a token of the type:
+
+```ts
+const css = toCSS(library, {
+  converters: {
+    elevation: (value) => `${convert("dimension", value.offset)} ${convert("color", value.color)}`,
+  },
+});
+```
+
+`converters` can have a converter for a standard type as well, which is used in place of the one of the library, with the value of the type:
+
+```ts
+const css = toCSS(library, {
+  converters: {
+    elevation: (value) => `${value.level}`,
+    // A color as rgb() instead of hex
+    color: (value) => `rgb(${value.components.map((c) => Math.round(Number(c) * 255)).join(" ")})`,
+  },
+});
+```
+
 ## Creating a Library
 
 With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling aliases with those changes.
@@ -349,6 +371,6 @@ library.tokens.a.set({ colorSpace: "srgb", components: [0.07, 0.07, 0.07] });
 
 ### CSS
 
-`toCSS` and `toProperties` convert the DTCG value shapes to CSS. An sRGB color becomes hex (`#ff8000`) and a color in another color space becomes the CSS `color()` function, or `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()` or `oklch()`. Dimensions and durations are written with their unit, font weight keywords become numbers, a cubic Bézier becomes `cubic-bezier()`, a transition uses CSS shorthand order, and a shadow may be layered and inset. A standard type with no converter, such as typography, is written as JSON.
+`toCSS` and `toProperties` convert the DTCG value shapes to CSS. An sRGB color becomes hex (`#ff8000`) and a color in another color space becomes the CSS `color()` function, or `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()` or `oklch()`. Dimensions and durations are written with their unit, font weight keywords become numbers, a cubic Bézier becomes `cubic-bezier()`, a transition uses CSS shorthand order, and a shadow may be layered and inset. A number is written as it is, and typography is the `font` shorthand, which does not have `letterSpacing`.
 
 A group's `$root` token is named for the group, so `color.$root` is `--color`.

@@ -240,24 +240,23 @@ export namespace DesignToken {
     }
 
     /**
-     * The value type of each {@link DesignToken.Type}.
-     *
-     * @internal
+     * The value type of each {@link DesignToken.Type}, keyed by its name, like
+     * `color`.
      */
     export interface ValueByType {
-        [Type.Border]: Values.Border;
-        [Type.Color]: Values.Color;
-        [Type.CubicBezier]: Values.CubicBezier;
-        [Type.Dimension]: Values.Dimension;
-        [Type.Duration]: Values.Duration;
-        [Type.FontFamily]: Values.FontFamily;
-        [Type.FontWeight]: Values.FontWeight;
-        [Type.Gradient]: Values.Gradient;
-        [Type.Number]: Values.Number;
-        [Type.Shadow]: Values.Shadow;
-        [Type.StrokeStyle]: Values.StrokeStyle;
-        [Type.Transition]: Values.Transition;
-        [Type.Typography]: Values.Typography;
+        border: Values.Border;
+        color: Values.Color;
+        cubicBezier: Values.CubicBezier;
+        dimension: Values.Dimension;
+        duration: Values.Duration;
+        fontFamily: Values.FontFamily;
+        fontWeight: Values.FontWeight;
+        gradient: Values.Gradient;
+        number: Values.Number;
+        shadow: Values.Shadow;
+        strokeStyle: Values.StrokeStyle;
+        transition: Values.Transition;
+        typography: Values.Typography;
     }
 
     /**

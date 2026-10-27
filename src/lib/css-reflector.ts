@@ -42,6 +42,17 @@ type ConvertersOf<C> = {
 };
 
 /**
+ * A converter for any of the standard types, which is used in place of the one
+ * of the library.
+ */
+type StandardConverters = {
+    [N in keyof DesignToken.ValueByType]?: CSSConverter<
+        DesignToken.ValueByType[N],
+        Extract<DesignToken.Standard, { $type: N }>
+    >;
+};
+
+/**
  * What a library of shape `T` accepts for each custom token type: a
  * {@link CSSConverter}, or `false` for a type that is not serialized.
  *
@@ -90,13 +101,15 @@ export interface ToPropertiesOptions extends CSSPropertiesOptions {
  * `converters` is required when the library contains custom token types,
  * and must have an entry for each of them: a converter, or `false` for a type
  * whose tokens are not written to CSS.
+ * It can have a converter for a standard type as well, which is used in place
+ * of the one of the library, see {@link convert} for what it does.
  *
  * @public
  */
 export type CSSOptions<T> = CSSPropertiesOptions &
     ([CustomTokensOf<T>] extends [never]
-        ? { converters?: { readonly [type: string]: never } }
-        : { converters: CSSConverterEntries<T> });
+        ? { converters?: StandardConverters }
+        : { converters: CSSConverterEntries<T> & StandardConverters });
 
 /**
  * The trailing arguments of {@link toCSS}: {@link CSSOptions} are
@@ -114,6 +127,7 @@ export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never]
  * @remarks
  * Libraries with custom token types must provide a converter for each
  * custom type, or `false` to leave tokens of that type out of the CSS.
+ * A converter for a standard type is used in place of the one of the library.
  *
  * @public
  */
@@ -234,9 +248,7 @@ const recurseToCss = (
             const { $type: type, name } = tokenOrGroup;
             let value = tokenOrGroup.$value;
 
-            if (Reflect.has(TokenConverters, type)) {
-                value = Reflect.get(TokenConverters, type)(value);
-            } else if (Reflect.has(customConverters, type)) {
+            if (Reflect.has(customConverters, type)) {
                 const converter = customConverters[type];
 
                 if (converter === false) {
@@ -244,6 +256,8 @@ const recurseToCss = (
                 }
 
                 value = converter(value, tokenOrGroup);
+            } else if (Reflect.has(TokenConverters, type)) {
+                value = Reflect.get(TokenConverters, type)(value);
             } else if (!standardTypes.has(type)) {
                 throw new Error(
                     `No CSS converter provided for custom type '${type}' of token '${name}'.`,
@@ -431,3 +445,39 @@ const TokenConverters = {
     [DesignToken.Type.Transition]: transitionConverter,
     [DesignToken.Type.Typography]: typographyConverter,
 };
+
+/**
+ * Converts a value of a standard type to CSS, the way {@link toCSS} does for a
+ * token of the type, without a converter for the type in `converters`.
+ *
+ * @remarks
+ * A converter for a custom type that has values of standard types uses it for
+ * each of them, and a converter for a standard type can use it for what it
+ * keeps.
+ *
+ * @example
+ * ```ts
+ * toCSS(library, {
+ *     converters: {
+ *         elevation: (value) =>
+ *             `${convert("dimension", value.offset)} ${convert("color", value.color)}`,
+ *     },
+ * });
+ * ```
+ *
+ * @param type - The type, like `"color"`
+ * @param value - The value of a token of the type
+ * @returns The value as it is written to CSS
+ *
+ * @public
+ */
+export function convert<Name extends keyof DesignToken.ValueByType>(
+    type: Name,
+    value: DesignToken.ValueByType[Name],
+): string {
+    const converter = (
+        TokenConverters as Record<string, ((value: any) => string) | undefined>
+    )[type];
+
+    return converter ? converter(value) : String(value);
+}
