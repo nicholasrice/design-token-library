@@ -55,7 +55,8 @@ jobs:
             --git.commitMessage='chore(release): v${version}' \
             --git.tag=false \
             --git.push=false \
-            --npm.publish=false
+            --npm.skipChecks=true \
+            --npm.publish=false \
             
           git push origin $BRANCH_NAME
           
