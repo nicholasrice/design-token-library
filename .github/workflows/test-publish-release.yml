@@ -20,9 +20,36 @@ jobs:
 
       - name: Extract Changelog Notes
         id: parse_changelog
-        uses: anton-pyshchev/changelog-parser-action@v2
-        with:
-          input_file: 'CHANGELOG.md'
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          CHANGELOG_TEXT=$(node -e "
+            const fs = require('fs');
+            const file = fs.readFileSync('CHANGELOG.md', 'utf8');
+            // Locate the section starting with your new version header
+            const lines = file.split('\n');
+            let capturing = false;
+            let notes = [];
+            
+            for (const line of lines) {
+              if (line.trim().startsWith('## [' + '$VERSION' + ']')) {
+                capturing = true;
+                continue;
+              }
+              // Stop capturing when encountering the next version header
+              if (capturing && line.trim().startsWith('## [')) {
+                break;
+              }
+              if (capturing) {
+                notes.push(line);
+              }
+            }
+            console.log(notes.join('\n').trim());
+          ")
+          
+          # Save multi-line notes safely to the GitHub output buffer
+          echo "latest_version_body<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG_TEXT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       # Safety feature: Creates a "Pre-release/Draft" on GitHub so it's hidden
       - name: Create GitHub Release
