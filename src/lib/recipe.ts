@@ -32,7 +32,8 @@ export const RECIPE: unique symbol = Symbol.for("design-token-library.recipe");
  * is resolved again. Its arguments are frozen, as token values are, so its
  * parameters are typed readonly, as in `DesignToken.Values.Readonly.Color`:
  * mutating one throws. A generic function's recipe takes the arguments of its
- * constraint. Recipes are extended by spreading them into a new object.
+ * constraint. Recipes are extended by spreading them into a new object, and a
+ * recipe's function is replaced in an extended library with {@link override}.
  *
  * @example
  * ```ts
@@ -76,6 +77,24 @@ const recipeOf = <A extends unknown[], V>(
 
     return Object.freeze(recipe);
 };
+
+/**
+ * Replaces the function of a recipe, in a library made by
+ * `extend()`, for every token that computes
+ * its value with the recipe. `fn` takes the recipe's arguments and returns a
+ * value of its result's type.
+ *
+ * @example
+ * ```ts
+ * const contrast = library.extend({}, { recipes: [override(Recipes.darken, darkenMore)] });
+ * ```
+ *
+ * @public
+ */
+export const override = <A extends unknown[], V>(
+    recipe: Library.Recipe<A, V>,
+    fn: (...args: A) => V,
+): Library.RecipeOverride => Object.freeze({ recipe, fn });
 
 /**
  * Tests whether a value is a {@link (Library:namespace).Computed} value.
