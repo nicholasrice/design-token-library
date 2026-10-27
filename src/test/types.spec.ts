@@ -4,6 +4,7 @@
  */
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
+import { recipes } from "../lib/recipe.js";
 import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
@@ -223,7 +224,7 @@ inferred.tokens.space.set({ value: 1, unit: "rm" });
 inferred.tokens.line.set("wavy");
 
 // A value is checked against its token's type, so a function isn't a
-// color. Never called: these are type errors.
+// color, and a computed value has its recipe's result type. Never called: these are type errors.
 const refChecks = () => {
     Library.create<Theme>({
         ...config,
@@ -234,6 +235,8 @@ const refChecks = () => {
     library.tokens.b.set(() => hex("#111111"));
     // @ts-expect-error a ref has the value type of its token
     library.tokens.b.set($.border);
+    // @ts-expect-error a computed value has the type of its recipe's result
+    library.tokens.b.set(recipes({ twelve: () => 12 }).twelve());
 };
 // A ref has its token's value type and the token values of its library.
 const toA = $.a;

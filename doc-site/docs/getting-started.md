@@ -76,15 +76,19 @@ const myLibraryConfig: Library.Config<IMyLibrary> = {
 
 ### Tokens
 
-Each token in the library must have a `$value` property, and groups must not have a `$value`. A token's value is a **static** value, or an **alias** to another token: a ref.
+Each token in the library must have a `$value` property, and groups must not have a `$value`. A token's value is a **static** value, an **alias** to another token (a ref), or a **computed** value (a recipe's).
 
 ```ts
-import { ref } from "design-token-library";
+import { recipes, ref } from "design-token-library";
 
 interface Colors {
   static: DesignToken.Color;
   alias: DesignToken.Color;
+  computed: DesignToken.Color;
 }
+
+// darkenColor(color: DesignToken.Values.Readonly.Color, amount: number): DesignToken.Values.Color
+const Recipes = recipes({ darken: darkenColor });
 
 const config: Library.Config<Colors> = {
   static: {
@@ -94,6 +98,10 @@ const config: Library.Config<Colors> = {
   alias: {
     $type: DesignToken.Type.Color,
     $value: ref("static"), // alias to the 'static' token
+  },
+  computed: {
+    $type: DesignToken.Type.Color,
+    $value: Recipes.darken(ref("alias"), 0.3), // darken the value of the 'alias' token
   },
 };
 ```
@@ -120,6 +128,34 @@ alias: { $type: DesignToken.Type.Color, $value: theme.static },
 ```
 
 A ref is data, the path of its token. The library tells a ref from any other value by the ref's own symbol key, never by looking at what the value is, so a function, a class instance or any other object is a value like any other.
+
+#### Recipes
+
+A computed value calls a function of other tokens' values. Its arguments are evaluated when the config is built, before the library exists, so `darkenColor(ref("alias"), 0.3)` can't be given the value. `recipes()` makes a recipe of each function of an object, named by its key. A recipe takes its function's arguments, any of which may be refs, computed values, or values with them in it, and returns the computed value:
+
+```ts
+export const Recipes = recipes({ darken: darkenColor, lighten: lightenColor });
+
+computed: { $type: DesignToken.Type.Color, $value: Recipes.darken(ref("alias"), 0.3) },
+hover: { $type: DesignToken.Type.Color, $value: Recipes.darken(Recipes.darken(ref("alias"), 0.3), 0.1) },
+```
+
+The function is called when the token is read and again when a token it reads changes, so it must be pure. Its arguments are all resolved before it's called, so it depends on each of them. It gets them as tokens get their values: a ref's value and a copy of plain data are frozen, so mutating one throws, and anything else, such as a class instance, is passed as it is. So type the function's parameters readonly, as in `DesignToken.Values.Readonly.Color`. A readonly parameter still accepts a mutable value, and the function can return a readonly value, because the library copies and freezes its result. The arguments are type-checked against the function's parameters, and the result against the token's type. A computed value is data, the recipe and its arguments, and every recipe has a name. A set of recipes is extended by spreading it:
+
+```ts
+export const MyRecipes = { ...Recipes, ...recipes({ tint: tintColor }) };
+```
+
+A recipe also builds a class value from other tokens. Its function gets the resolved fields, and calls the class's constructor:
+
+```ts
+const { elevation } = recipes({
+  elevation: (fields: { level: number; blur: DesignToken.Values.Readonly.Dimension }) =>
+    new Elevation(fields.level, fields.blur),
+});
+
+raised: { $value: elevation({ level: ref("scale.step2"), blur: { value: 4, unit: "px" } }) },
+```
 
 #### Values
 
@@ -213,7 +249,7 @@ interface MyLibrary {
 }
 ```
 
-Custom tokens support everything standard tokens do: static values, aliases, deep aliases into their properties, group type inheritance, `set()`, and `extend()`:
+Custom tokens support everything standard tokens do: static values, aliases, deep aliases into their properties, computed values, group type inheritance, `set()`, and `extend()`:
 
 ```ts
 const library = Library.create<MyLibrary>({
@@ -308,7 +344,7 @@ const css = toCSS(library, {
 
 ## Creating a Library
 
-With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling aliases with those changes.
+With the configuration defined, the library can be created. The purpose of the library is to enable changes to token values, notify subscribers to changes, and reconciling alias and computed values with those changes.
 
 ```ts
 const library = Library.create(myLibraryConfig);
@@ -346,7 +382,7 @@ library.subscribe(subscriber);
 library.tokens.foreground.set({ colorSpace: "srgb", components: [0.53, 0.53, 0.53] });
 ```
 
-Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If an alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
+Change notifications are batched and subscribers get notified each microtask. It's important to note that token values are lazily evaluated. If a computed or alias token has not been accessed, it will **not** notify itself to subscribers even if it's dependencies change:
 
 ```ts
 const library = Library.create<{ a: DesignToken.Color; b: DesignToken.Color }>({

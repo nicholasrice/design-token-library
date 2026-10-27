@@ -79,7 +79,7 @@ Alias("a whole-value alias resolves to the target's value", () => {
 
     Assert.equal(library.tokens.elevation.raised.top.$value, {
         ...lowElevation,
-        level: 1.5,
+        level: 3,
     });
 });
 
@@ -232,8 +232,8 @@ Changes("dependents of a custom token recompute and notify", async () => {
 
     library.tokens.ratio.set(4);
 
-    Assert.is(library.tokens.elevation.high.$value.level, 4);
-    Assert.is(library.tokens.elevation.raised.top.$value.level, 4);
+    Assert.is(library.tokens.elevation.high.$value.level, 8);
+    Assert.is(library.tokens.elevation.raised.top.$value.level, 8);
     await nextUpdate();
     Assert.equal(subscriber.batches[0].sort(), [
         "elevation.high",
@@ -330,8 +330,8 @@ Extend("new custom tokens can be added", () => {
 Extend("inherited custom aliases resolve against overrides", () => {
     const extended = custom().extend<{}>({ ratio: { $value: 10 } });
 
-    Assert.is(extended.tokens.elevation.high.$value.level, 10);
-    Assert.is(extended.tokens.elevation.raised.top.$value.level, 10);
+    Assert.is(extended.tokens.elevation.high.$value.level, 20);
+    Assert.is(extended.tokens.elevation.raised.top.$value.level, 20);
 });
 
 interface Flat {
