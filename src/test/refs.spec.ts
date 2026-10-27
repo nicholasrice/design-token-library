@@ -230,37 +230,101 @@ const refChecks = () => {
     });
 };
 
-// A ref of the shape a function needs works in any library that has it (#68).
-interface Needs {
+// Config typed by the shapes it needs works in any library that has them,
+// with no type parameter for the library (#68).
+interface Sizes {
     size: { base: DesignToken.Dimension };
 }
-const needs = refs<Needs>();
-function spacing<Root extends Needs>(): Library.Config<
-    { $type: DesignToken.Type.Dimension; gap: DesignToken.Dimension },
-    Root
-> {
-    return {
-        $type: DesignToken.Type.Dimension,
-        gap: { $value: needs.size.base },
-    };
+interface Palette {
+    palette: { accent: DesignToken.Color };
 }
-interface WithSpacing extends Needs {
-    spacing: { $type: DesignToken.Type.Dimension; gap: DesignToken.Dimension };
-}
+type Spacing = {
+    $type: DesignToken.Type.Dimension;
+    gap: DesignToken.Dimension;
+};
+type Outline = { $type: DesignToken.Type.Border; focus: DesignToken.Border };
 
-Refs("a ref of a shape that a library extends resolves in the library", () => {
-    const library = Library.create<WithSpacing>({
-        size: {
-            base: { $type: DesignToken.Type.Dimension, $value: px(8) },
+const sizes = refs<Sizes>();
+const spacing = (): Library.Config<Spacing, Sizes> => ({
+    $type: DesignToken.Type.Dimension,
+    gap: { $value: sizes.size.base },
+});
+const outline = (): Library.Config<Outline, Sizes & Palette> => ({
+    $type: DesignToken.Type.Border,
+    focus: {
+        $value: {
+            color: ref("palette.accent"),
+            width: ref("size.base"),
+            style: "solid",
         },
-        spacing: spacing<WithSpacing>(),
-    });
-
-    Assert.equal(library.tokens.spacing.gap.$value, px(8));
+    },
 });
 
+interface WithSpacing extends Sizes {
+    spacing: Spacing;
+}
+interface Shared extends Sizes, Palette {
+    spacing: Spacing;
+    outline: Outline;
+}
+const sharedChecks = () => {
+    // A library without a token the config needs, or with a token of another
+    // type, rejects it.
+    interface NoPalette extends Sizes {
+        outline: Outline;
+    }
+    Library.create<NoPalette>({
+        size: { base: { $type: DesignToken.Type.Dimension, $value: px(8) } },
+        // @ts-expect-error the library has no `palette.accent`
+        outline: outline(),
+    });
+    interface ColorSize {
+        size: { base: DesignToken.Color };
+        spacing: Spacing;
+    }
+    Library.create<ColorSize>({
+        size: { base: { $type: C, $value: hex("#ff0000") } },
+        // @ts-expect-error `size.base` is a color
+        spacing: spacing(),
+    });
+};
+
+Refs(
+    "config typed by the shape it needs resolves in a library that extends it",
+    () => {
+        const library = Library.create<WithSpacing>({
+            size: {
+                base: { $type: DesignToken.Type.Dimension, $value: px(8) },
+            },
+            spacing: spacing(),
+        });
+
+        Assert.equal(library.tokens.spacing.gap.$value, px(8));
+    },
+);
+
+Refs(
+    "config typed by an intersection of shapes resolves in a library that has them all",
+    () => {
+        const library = Library.create<Shared>({
+            size: {
+                base: { $type: DesignToken.Type.Dimension, $value: px(8) },
+            },
+            palette: { accent: { $type: C, $value: hex("#ff0000") } },
+            spacing: spacing(),
+            outline: outline(),
+        });
+
+        Assert.equal(library.tokens.outline.focus.$value, {
+            color: hex("#ff0000"),
+            width: px(8),
+            style: "solid",
+        });
+    },
+);
+
 Refs("type-level assertions compile", () => {
-    Assert.ok([refChecks]);
+    Assert.ok([refChecks, sharedChecks]);
 });
 
 Ref("ref() is exported by the package", () => {
@@ -345,7 +409,7 @@ const refPathChecks = () => {
 // A config typed by the tokens it needs takes ref() too.
 function gap(): Library.Config<
     { $type: DesignToken.Type.Dimension; gap: DesignToken.Dimension },
-    Needs
+    Sizes
 > {
     return {
         $type: DesignToken.Type.Dimension,

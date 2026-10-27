@@ -17,7 +17,9 @@ export const REF: unique symbol = Symbol.for("design-token-library.ref");
  * Where the shape of the library is inferred, as in `Library.create({ ... })`
  * without a type argument, or for a new token in `extend()`, the path can't
  * be checked, so the shape is given as a type argument, or the ref is made
- * with {@link refs}.
+ * with {@link refs}. Config to share between libraries is typed by the
+ * shapes it needs, as in `Library.Config<Outline, Colors & Sizes>`, not by a
+ * type parameter for the library, whose paths can't be checked.
  *
  * @example
  * ```ts
@@ -36,6 +38,15 @@ export const ref = <V, T extends {} = {}>(
  * `T`, at the token's path: `refs<Theme>().colors.primary` is the same ref as
  * `ref("colors.primary")`. It needs no library, so the refs are made once,
  * before the library's config, and serve every library of the shape.
+ *
+ * @remarks
+ * A ref is checked against the tokens of the library it's used in, so the
+ * refs of a shape also work in a library that extends it, and the refs of
+ * several shapes in one that has them all. Config to share between libraries
+ * is typed by the shapes it needs, as in
+ * `Library.Config<Outline, Colors & Sizes>`. The refs of a type parameter
+ * for the library, `refs<Root>()`, can't be read, because TypeScript doesn't
+ * resolve their types through its constraint.
  *
  * @example
  * ```ts
