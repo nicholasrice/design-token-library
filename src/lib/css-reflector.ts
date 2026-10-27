@@ -13,34 +13,6 @@ export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (
 ) => string;
 
 /**
- * The name of each of the types that are defined by
- * {@link https://www.designtokens.org/tr/2025.10/format/#types}, like `color`.
- *
- * @public
- */
-export type StandardTypeName = `${DesignToken.Type}`;
-
-/**
- * The value of a token of each of the standard types, keyed by the name of the
- * type.
- *
- * @public
- */
-export type StandardValues = {
-    [Type in DesignToken.Type as `${Type}`]: DesignToken.ValueByType[Type];
-};
-
-/**
- * A {@link CSSConverter} for any of the standard types, keyed by the name of
- * the type, which is used in place of the one of the library.
- *
- * @public
- */
-export type StandardCSSConverters = {
-    [Name in StandardTypeName]?: CSSConverter<StandardValues[Name]>;
-};
-
-/**
  * A union of the custom tokens in a library of shape `T`: tokens whose
  * type is not defined by {@link https://www.designtokens.org/tr/2025.10/format/#types}.
  *
@@ -67,6 +39,17 @@ type ConvertersOf<C> = {
             ? CSSConverter<DesignToken.ValueByToken<C>, C>
             : never
         : never;
+};
+
+/**
+ * A converter for any of the standard types, which is used in place of the one
+ * of the library.
+ */
+type StandardConverters = {
+    [N in keyof DesignToken.ValueByType]?: CSSConverter<
+        DesignToken.ValueByType[N],
+        Extract<DesignToken.Standard, { $type: N }>
+    >;
 };
 
 /**
@@ -125,8 +108,8 @@ export interface ToPropertiesOptions extends CSSPropertiesOptions {
  */
 export type CSSOptions<T> = CSSPropertiesOptions &
     ([CustomTokensOf<T>] extends [never]
-        ? { converters?: StandardCSSConverters }
-        : { converters: CSSConverterEntries<T> & StandardCSSConverters });
+        ? { converters?: StandardConverters }
+        : { converters: CSSConverterEntries<T> & StandardConverters });
 
 /**
  * The trailing arguments of {@link toCSS}: {@link CSSOptions} are
@@ -488,9 +471,9 @@ const TokenConverters = {
  *
  * @public
  */
-export function convert<Name extends StandardTypeName>(
+export function convert<Name extends keyof DesignToken.ValueByType>(
     type: Name,
-    value: StandardValues[Name],
+    value: DesignToken.ValueByType[Name],
 ): string {
     const converter = (
         TokenConverters as Record<string, ((value: any) => string) | undefined>
