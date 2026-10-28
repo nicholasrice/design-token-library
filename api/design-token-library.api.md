@@ -596,6 +596,30 @@ export const ms: (value: number) => DesignToken.Values.Duration;
 export const override: <A extends unknown[], V>(recipe: Library.Recipe<A, V>, fn: (...args: A) => V) => Library.RecipeOverride;
 
 // @public
+export function parse(document: string | object, options?: ParseOptions): Library.Config<any>;
+
+// @public
+export class ParseError extends Error {
+    constructor(issues: ReadonlyArray<ParseIssue>);
+    // (undocumented)
+    readonly issues: ReadonlyArray<ParseIssue>;
+    // (undocumented)
+    readonly name = "ParseError";
+}
+
+// @public
+export interface ParseIssue {
+    // (undocumented)
+    readonly message: string;
+    readonly path: string;
+}
+
+// @public
+export interface ParseOptions {
+    readonly types?: readonly string[];
+}
+
+// @public
 export const pathOf: (ref: Library.Ref<unknown, never>) => readonly string[];
 
 // @public
