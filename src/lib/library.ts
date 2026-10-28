@@ -226,9 +226,11 @@ export namespace Library {
      * properties and elements, at any depth, given as one of those.
      *
      * @remarks
-     * A computed value may be readonly, as a recipe's function that takes
-     * readonly arguments returns: the library copies and freezes a recipe's
-     * result.
+     * Its objects and arrays may be readonly, as a token's value is, so a
+     * token's value can be given where a config takes a value, as `set()`
+     * takes it. A computed value may be readonly, as a recipe's function that
+     * takes readonly arguments returns: the library copies and freezes a
+     * recipe's result.
      *
      * @public
      */
@@ -236,7 +238,9 @@ export namespace Library {
         | V
         | Ref<V, T>
         | Computed<DesignToken.DeepReadonly<V>, T>
-        | (V extends object ? { [K in keyof V]: DeepValue<V[K], T> } : never);
+        | (V extends object
+              ? { readonly [K in keyof V]: DeepValue<V[K], T> }
+              : never);
 
     /**
      * The arguments of a {@link (Library:namespace).Recipe} whose function has
