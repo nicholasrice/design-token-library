@@ -22,3 +22,7 @@ Install using your package manager of choice from the NPM registry.
 ```
 npm install design-token-library
 ```
+
+## Contributing
+
+Bug reports, feature ideas, and pull requests are welcome. See the [contributing guide](https://github.com/nicholasrice/design-token-library/blob/main/CONTRIBUTING.md) on GitHub for development setup, changelog conventions, and the release process.
