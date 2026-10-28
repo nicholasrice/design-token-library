@@ -36,9 +36,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@://github.com"
 
-      - name: Install Release Tools
-        run: npm install release-it @release-it/keep-a-changelog
-
       - name: Run Release It
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
