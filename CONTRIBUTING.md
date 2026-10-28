@@ -11,11 +11,13 @@ Thank you for contributing to `design-token-library`. This document covers local
 
 ```bash
 npm ci
-npm run build    # compile TypeScript (project references)
+npm run build    # compile TypeScript, then API Extractor rollup for dist/lib/public.d.ts typings
 npm test         # run tests (build first)
 npm run test:coverage
 npm run prettier # format src/
 ```
+
+After you change the public API (`src/lib/` exports or `@public` types), run `npm run build` and `npm run api-report`. That refreshes the tracked report at [api/design-token-library.api.md](./api/design-token-library.api.md) and writes the trimmed API Extractor rollup to `dist/lib/public.d.ts` (the package typings). Commit the report when the export surface changes. `npm run build` runs `api-report:check` (production mode, no `--local`) so the report must match and `ae-forgotten-export` fails the build.
 
 CI on `main` and pull requests runs `npm ci`, `npm run build`, and `npm run test:coverage`. Pushes to `main` also deploy the doc site to GitHub Pages.
 

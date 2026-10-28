@@ -17,7 +17,6 @@ jobs:
           node-version: "22.x"
       - run: npm ci
       - run: npm run build
-      - run: npm run api-report
       - run: npm run docs:api-reference
       - name: Install dependencies
         working-directory: ./doc-site

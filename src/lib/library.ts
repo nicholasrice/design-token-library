@@ -544,7 +544,7 @@ export namespace Library {
     };
 
     /**
-     * A configuration object provided to {@link (Library:namespace).Library.extend}.
+     * A configuration object provided to `Library.extend()`.
      * All tokens and groups of the source library are optional, and token
      * values may be static values, refs or computed values. Token types are inherited
      * from the source library.
