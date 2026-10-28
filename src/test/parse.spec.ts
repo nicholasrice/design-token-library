@@ -7,6 +7,7 @@ import { Library } from "../lib/library.js";
 import { toCSS } from "../lib/css-reflector.js";
 import { isRef, refs } from "../lib/ref.js";
 import { override, recipes } from "../lib/recipe.js";
+import { createBase } from "./parse.fixtures.js";
 import { hex, px } from "./values.js";
 
 // The fixtures live in src/, and the tests run from dist/.
@@ -42,6 +43,7 @@ const Pointers = suite("parse.pointers");
 const Custom = suite("parse.custom");
 const Recipes = suite("parse.recipes");
 const Compliant = suite("parse.compliant");
+const Extending = suite("parse.extending");
 const Invalid = suite("parse.invalid");
 
 const srgb = (...components: number[]) => ({ colorSpace: "srgb", components });
@@ -886,6 +888,67 @@ Compliant("a document without the extension needs no options", () => {
     Assert.is(color.blue.$type, "color");
 });
 
+// --- A document that extends a library ------------------------------------
+
+const black = srgb(0, 0, 0);
+
+Extending("a token it restates takes the library token's type", () => {
+    const base = createBase();
+    const extended = base.extend(
+        parse({ colors: { primary: { $value: black } } }, { extends: base }),
+    );
+
+    Assert.equal(extended.tokens.colors.primary.$value, black);
+    Assert.is(extended.tokens.colors.primary.$type, "color");
+    Assert.equal(base.tokens.colors.primary.$value.components, [0, 0, 1]);
+});
+
+Extending("a reference can name the library's tokens", () => {
+    const base = createBase();
+    const extended = base.extend(
+        parse(
+            { colors: { primary: { $value: "{colors.secondary}" } } },
+            { extends: base },
+        ),
+    );
+
+    Assert.equal(
+        extended.tokens.colors.primary.$value,
+        base.tokens.colors.secondary.$value,
+    );
+});
+
+Extending("a new token takes the type of the library's group", () => {
+    const base = createBase();
+    const extended: any = base.extend(
+        parse({ colors: { tertiary: { $value: black } } }, { extends: base }),
+    );
+
+    Assert.is(extended.tokens.colors.tertiary.$type, "color");
+    Assert.equal(extended.tokens.colors.tertiary.$value, black);
+});
+
+Extending("the library's custom types are known", () => {
+    const base = createBase();
+    const config: any = parse(
+        { ratio: { $value: 2 }, more: { $type: "ratio", $value: 3 } },
+        { extends: base },
+    );
+
+    Assert.is(config.ratio.$type, "ratio");
+    Assert.is(config.more.$type, "ratio");
+});
+
+Extending("a group may restate the library's $type", () => {
+    const config: any = parse(
+        { colors: { $type: "color", primary: { $value: black } } },
+        { extends: createBase() },
+    );
+
+    Assert.is(config.colors.$type, undefined);
+    Assert.is(config.colors.primary.$type, "color");
+});
+
 // --- Invalid documents -----------------------------------------------------
 
 const caught = (document: object, options = {}): ParseError => {
@@ -1590,6 +1653,56 @@ Invalid("an alias in the DTCG form with no DTCG type to take", () => {
     );
 });
 
+Invalid("a token it restates, checked as the library's", () => {
+    const options = { extends: createBase() };
+
+    rejects(
+        { colors: { primary: { $value: "#000000" } } },
+        /^colors\.primary\.\$value: is not a color/,
+        options,
+    );
+    rejects(
+        { colors: { primary: { $value: "{size.small}" } } },
+        /a dimension token, where a color is needed/,
+        options,
+    );
+    rejects(
+        {
+            colors: {
+                primary: {
+                    $type: "dimension",
+                    $value: { value: 1, unit: "px" },
+                },
+            },
+        },
+        /^colors\.primary\.\$type: is "dimension", but the token is a color in the library it extends/,
+        options,
+    );
+});
+
+Invalid("a group in place of a library's token, or a token for a group", () => {
+    const options = { extends: createBase() };
+
+    rejects(
+        { colors: { primary: { nested: { $value: 1 } } } },
+        /^colors\.primary: is a token in the library it extends, so it can't be a group/,
+        options,
+    );
+    rejects(
+        { colors: { $type: "color", $value: black } },
+        /^colors: is a group in the library it extends, so it can't be a token/,
+        options,
+    );
+});
+
+Invalid("a group that changes the library's $type", () => {
+    rejects(
+        { colors: { $type: "dimension" } },
+        /^colors\.\$type: is "dimension", but the group is of color in the library/,
+        { extends: createBase() },
+    );
+});
+
 Invalid("a ParseError lists the path and message of each issue", () => {
     const { message, name } = caught({ t: { $value: 1 } });
 
@@ -1608,4 +1721,5 @@ Pointers.run();
 Custom.run();
 Recipes.run();
 Compliant.run();
+Extending.run();
 Invalid.run();

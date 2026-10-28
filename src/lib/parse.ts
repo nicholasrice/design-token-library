@@ -20,7 +20,7 @@ export interface ParseIssue {
 }
 
 /**
- * Thrown by {@link parse} for a document with problems. It reports every
+ * Thrown by {@link (parse:1)} for a document with problems. It reports every
  * problem found, not only the first.
  *
  * @public
@@ -46,7 +46,7 @@ export class ParseError extends Error {
 }
 
 /**
- * Options of {@link parse}.
+ * Options of {@link (parse:1)}.
  *
  * @public
  */
@@ -67,6 +67,22 @@ export interface ParseOptions {
      * the same name.
      */
     readonly recipes?: Readonly<Record<string, Library.Recipe<any, unknown>>>;
+}
+
+/**
+ * Options of {@link (parse:1)} for a document that extends a library.
+ *
+ * @public
+ */
+export interface ParseExtendOptions<T extends {}, R extends {}>
+    extends ParseOptions {
+    /**
+     * The library the document extends. The document is checked against
+     * it: a token it restates keeps its type and is checked as it, a group
+     * keeps its type, a reference may name its tokens, and its custom types
+     * are known.
+     */
+    readonly extends: Library.Library<T, R>;
 }
 
 type RecipesByName = ReadonlyMap<string, Library.Recipe<any, unknown>>;
@@ -620,9 +636,60 @@ const resolveExtension = (
     return { doc: walk(doc, [], undefined), compliant };
 };
 
+/**
+ * A token or group found by its path: a token of the document, with the type
+ * its groups give it and the type of the library's token it restates, a
+ * token only in the library being extended, or a group.
+ */
 type Found =
-    | { kind: "token"; node: Node; inherited: string | undefined }
-    | { kind: "group"; node: Node };
+    | {
+          kind: "token";
+          node: Node;
+          inherited: string | undefined;
+          library: string | undefined;
+      }
+    | { kind: "library"; type: string | undefined }
+    | { kind: "group" };
+
+/**
+ * The child of a group of a library's tokens. A library's group is an
+ * object, its token an object with a `$value`, as in a document.
+ */
+const childOf = (group: unknown, key: string): unknown =>
+    isGroupNode(group) && Object.hasOwn(group, key) ? group[key] : undefined;
+
+/**
+ * The `$type` of a library's token or group, which is never its value.
+ */
+const typeIn = (node: unknown): string | undefined => {
+    const type = isObject(node) ? Reflect.get(node, "$type") : undefined;
+
+    return typeof type === "string" ? type : undefined;
+};
+
+/**
+ * Every `$type` of the tokens and groups of a library.
+ */
+const typesIn = (tokens: object): Set<string> => {
+    const found = new Set<string>();
+    const walk = (node: unknown) => {
+        const type = typeIn(node);
+
+        if (type !== undefined) {
+            found.add(type);
+        }
+
+        if (isGroupNode(node)) {
+            for (const key of Object.keys(node)) {
+                walk(node[key]);
+            }
+        }
+    };
+
+    walk(tokens);
+
+    return found;
+};
 
 /**
  * Checks a document and turns it into the {@link (Library:namespace).Config}
@@ -630,6 +697,7 @@ type Found =
  */
 const convert = (
     doc: Node,
+    base: object | undefined,
     compliant: ReadonlyMap<string, CompliantForm>,
     customTypes: ReadonlySet<string>,
     recipes: RecipesByName,
@@ -642,33 +710,54 @@ const convert = (
     const knownType = (type: string): boolean =>
         isStandardType(type) || customTypes.has(type);
 
-    // Finds a token or group by path, with the type its groups give it.
+    // The token or group of the library at a path.
+    const inBase = (path: string[]): unknown =>
+        path.reduce<unknown>(childOf, base);
+
+    // The $type a group gives its tokens: the library's, which an extension
+    // can't change, else the document's.
+    const groupType = (node: unknown, baseNode: unknown): string | undefined =>
+        (isGroupNode(baseNode) ? typeIn(baseNode) : undefined) ??
+        (isGroupNode(node) ? typeIn(node) : undefined);
+
+    // Finds a token or group by path, in the document or the library it
+    // extends, with the type its groups give it.
     const find = (path: string[]): Found | undefined => {
         let node: unknown = doc;
-        let inherited: string | undefined =
-            typeof doc.$type === "string" ? doc.$type : undefined;
+        let baseNode: unknown = base;
+        let inherited = groupType(node, baseNode);
 
         for (const segment of path) {
-            if (!isGroupNode(node)) {
+            if (!isChildName(segment)) {
                 return undefined;
             }
 
-            if (!isChildName(segment) || !Object.hasOwn(node, segment)) {
+            node = childOf(node, segment);
+            baseNode = childOf(baseNode, segment);
+
+            if (node === undefined && baseNode === undefined) {
                 return undefined;
             }
 
-            node = node[segment];
-
-            if (isGroupNode(node) && typeof node.$type === "string") {
-                inherited = node.$type;
-            }
+            inherited = groupType(node, baseNode) ?? inherited;
         }
 
         if (isTokenNode(node)) {
-            return { kind: "token", node, inherited };
+            return {
+                kind: "token",
+                node,
+                inherited,
+                library: isTokenNode(baseNode) ? typeIn(baseNode) : undefined,
+            };
         }
 
-        return isObject(node) ? { kind: "group", node } : undefined;
+        if (node === undefined && isTokenNode(baseNode)) {
+            return { kind: "library", type: typeIn(baseNode) };
+        }
+
+        return isObject(node) || isObject(baseNode)
+            ? { kind: "group" }
+            : undefined;
     };
 
     // The type of a token: its own, else the type of the token it refers
@@ -682,8 +771,17 @@ const convert = (
 
         const found = find(path);
 
+        if (found?.kind === "library") {
+            return found.type;
+        }
+
         if (found?.kind !== "token") {
             return undefined;
+        }
+
+        // A token of the library keeps its type.
+        if (found.library !== undefined) {
+            return found.library;
         }
 
         if (chain.includes(key)) {
@@ -1018,6 +1116,19 @@ const convert = (
 
         checkMetadata(node, here, "a token");
 
+        const library = typeIn(inBase(path));
+
+        if (
+            library !== undefined &&
+            typeof node.$type === "string" &&
+            node.$type !== library
+        ) {
+            report(
+                `${here}.$type`,
+                `is "${node.$type}", but the token is a ${library} in the library it extends, which can't be changed.`,
+            );
+        }
+
         if (isReference(node.$value)) {
             checkCycle(path);
         }
@@ -1095,8 +1206,24 @@ const convert = (
     const convertGroup = (node: Node, path: string[]): Node => {
         const here = label(path);
         const result: Node = metadataOf(node, GROUP_PROPERTIES);
+        const library = inBase(path);
 
         checkMetadata(node, here, "a group");
+
+        // A group of the library keeps its type, and an extension doesn't
+        // restate it.
+        const libraryType = typeIn(library);
+
+        if (libraryType !== undefined && node.$type !== undefined) {
+            if (node.$type !== libraryType) {
+                report(
+                    `${here}.$type`,
+                    `is ${JSON.stringify(node.$type)}, but the group is of ${libraryType} in the library it extends, which can't be changed.`,
+                );
+            }
+
+            delete result.$type;
+        }
 
         for (const key of Object.keys(node)) {
             if (!isChildName(key)) {
@@ -1138,6 +1265,24 @@ const convert = (
                 report(
                     key,
                     `$root is the token of a group, so it cannot be at the top level of a document.`,
+                );
+                continue;
+            }
+
+            const libraryChild = childOf(library, key);
+
+            if (isTokenNode(child) && isGroupNode(libraryChild)) {
+                report(
+                    label(childPath),
+                    `is a group in the library it extends, so it can't be a token.`,
+                );
+                continue;
+            }
+
+            if (!isTokenNode(child) && isTokenNode(libraryChild)) {
+                report(
+                    label(childPath),
+                    `is a token in the library it extends, so it can't be a group.`,
                 );
                 continue;
             }
@@ -1184,10 +1329,13 @@ const convert = (
  *
  * A document's shape is known only when it's read, so the config isn't
  * typed. Give the library's shape to `Library.create` to type its tokens.
+ * A document that extends a library, such as a theme, is checked against
+ * it with `options.extends`, so its config is typed for `extend()`.
  *
  * @example
  * ```ts
- * const library = Library.create<Theme>(parse(await (await fetch("theme.tokens.json")).text()));
+ * const base = Library.create<Theme>(parse(baseText, { recipes: Recipes }));
+ * const dark = base.extend(parse(darkText, { recipes: Recipes, extends: base }));
  * ```
  *
  * @param document - the document, as JSON text or already parsed. It isn't
@@ -1195,10 +1343,26 @@ const convert = (
  *
  * @public
  */
+export function parse<T extends {}, R extends {}>(
+    document: string | object,
+    options: ParseExtendOptions<T, R>,
+): Library.ExtendConfig<T, R>;
+/**
+ * Reads a tokens document that doesn't extend a library, so its config isn't
+ * typed.
+ *
+ * @public
+ */
 export function parse(
     document: string | object,
-    options: ParseOptions = {},
-): Library.Config<any> {
+    options?: ParseOptions,
+): Library.Config<any>;
+export function parse(
+    document: string | object,
+    options: ParseOptions & {
+        readonly extends?: Library.Library<any, any>;
+    } = {},
+): Node {
     const issues: ParseIssue[] = [];
     const report: Report = (path, message) => issues.push({ path, message });
     let doc: unknown = document;
@@ -1243,10 +1407,12 @@ export function parse(
         throw error;
     }
 
+    const base = options.extends?.tokens;
     const config = convert(
         native.doc,
+        base,
         native.compliant,
-        new Set(options.types),
+        new Set([...(options.types ?? []), ...(base ? typesIn(base) : [])]),
         recipesByName(options.recipes),
         report,
     );
