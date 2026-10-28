@@ -6,6 +6,7 @@ import { ParseError, parse } from "../lib/parse.js";
 import { Library } from "../lib/library.js";
 import { toCSS } from "../lib/css-reflector.js";
 import { isRef, refs } from "../lib/ref.js";
+import { override, recipes } from "../lib/recipe.js";
 import { hex, px } from "./values.js";
 
 // The fixtures live in src/, and the tests run from dist/.
@@ -39,6 +40,7 @@ const ColorModule = suite("parse.color");
 const Extends = suite("parse.extends");
 const Pointers = suite("parse.pointers");
 const Custom = suite("parse.custom");
+const Recipes = suite("parse.recipes");
 const Invalid = suite("parse.invalid");
 
 const srgb = (...components: number[]) => ({ colorSpace: "srgb", components });
@@ -654,6 +656,169 @@ Custom("a whole custom value can refer to a token of its type", () => {
     Assert.equal(b.$value, [1]);
 });
 
+// --- Recipe calls (an extension) -------------------------------------------
+
+type Color = DesignToken.Values.Readonly.Color;
+
+const darkenComponent = (
+    component: DesignToken.Values.ColorComponent,
+    amount: number,
+) => (component === "none" ? component : component * (1 - amount));
+
+const TestRecipes = recipes({
+    darken: (color: Color, amount: number): DesignToken.Values.Color => {
+        const [a, b, c] = color.components;
+
+        return {
+            colorSpace: color.colorSpace,
+            components: [
+                darkenComponent(a, amount),
+                darkenComponent(b, amount),
+                darkenComponent(c, amount),
+            ],
+        };
+    },
+    mix: ({
+        from,
+        to,
+    }: {
+        from: Color;
+        to: Color;
+    }): DesignToken.Values.Color => {
+        const half = (index: 0 | 1 | 2) => {
+            const a = from.components[index];
+            const b = to.components[index];
+
+            return a === "none" || b === "none" ? a : (a + b) / 2;
+        };
+
+        return {
+            colorSpace: from.colorSpace,
+            components: [half(0), half(1), half(2)],
+        };
+    },
+    scale: (
+        dimension: DesignToken.Values.Readonly.Dimension,
+        factor: number,
+    ): DesignToken.Values.Dimension => ({
+        value: dimension.value * factor,
+        unit: dimension.unit,
+    }),
+    text: (value: string) => value,
+});
+
+const withRecipes = { recipes: TestRecipes };
+
+Recipes("a call is the value of its recipe", () => {
+    const { color, size } = load("recipes", withRecipes);
+
+    Assert.equal(color.hover.$value, srgb(0, 0.2, 0.5));
+    Assert.equal(size.large.$value, { value: 8, unit: "px" });
+    Assert.is(color.hover.$type, "color");
+});
+
+Recipes("a call is a computed value", () => {
+    const config = parse(fixture("recipes"), withRecipes);
+
+    Assert.not.ok(isRef(config.color.hover.$value));
+    Assert.is(typeof config.color.hover.$value, "object");
+});
+
+Recipes("a call follows the tokens of its arguments", () => {
+    const { color, amount, border } = load("recipes", withRecipes);
+
+    color.blue.set(srgb(1, 1, 1));
+    Assert.equal(color.hover.$value, srgb(0.5, 0.5, 0.5));
+
+    amount.set(0);
+    Assert.equal(border.$value.color, srgb(1, 1, 1));
+});
+
+Recipes("a call can be an argument of a call", () => {
+    const { color } = load("recipes", withRecipes);
+
+    Assert.equal(color.pressed.$value, srgb(0, 0.1, 0.25));
+});
+
+Recipes("a call can take an object, with refs in it", () => {
+    const { color } = load("recipes", withRecipes);
+
+    Assert.equal(color.mid.$value.components, [0.5, 0.7, 1]);
+});
+
+Recipes("a call can be inside a composite value", () => {
+    const { border } = load("recipes", withRecipes);
+
+    Assert.equal(border.$value, {
+        color: srgb(0, 0.2, 0.5),
+        width: { value: 1, unit: "px" },
+        style: "solid",
+    });
+});
+
+Recipes("a call can be anywhere in a custom value", () => {
+    const { t } = tokensOf(
+        { t: { $type: "steps", $value: { label: ['text("a")'] } } },
+        { ...withRecipes, types: ["steps"] },
+    );
+
+    Assert.equal(t.$value, { label: ["a"] });
+});
+
+Recipes("a string in a call is a string, not a reference", () => {
+    const { t } = tokensOf(
+        { t: { $type: "label", $value: 'text("{not.a.ref}")' } },
+        { ...withRecipes, types: ["label"] },
+    );
+
+    Assert.is(t.$value, "{not.a.ref}");
+});
+
+Recipes("a string that calls something else stays a string", () => {
+    const { css, font } = tokensOf(
+        {
+            css: { $type: "css", $value: "calc(100% - 4px)" },
+            font: { $type: "fontFamily", $value: "darken(Sans)" },
+        },
+        { types: ["css"] },
+    );
+
+    Assert.is(css.$value, "calc(100% - 4px)");
+    Assert.is(font.$value, "darken(Sans)");
+});
+
+Recipes("a recipe is called by its name, not its key", () => {
+    const { t } = tokensOf(
+        { t: { $type: "label", $value: 'text("a")' } },
+        { recipes: { renamed: TestRecipes.text }, types: ["label"] },
+    );
+
+    Assert.is(t.$value, "a");
+});
+
+Recipes("a recipe can be given under two keys", () => {
+    Assert.ok(
+        parse(
+            { t: { $type: "label", $value: 'text("a")' } },
+            {
+                recipes: { ...TestRecipes, other: TestRecipes.text },
+                types: ["label"],
+            },
+        ),
+    );
+});
+
+Recipes("an override in extend() applies to a parsed call", () => {
+    const library = create(fixture("recipes"), withRecipes);
+    const extended = library.extend(
+        {},
+        { recipes: [override(TestRecipes.darken, (color) => color)] },
+    );
+    const { color }: any = extended.tokens;
+
+    Assert.equal(color.hover.$value, color.blue.$value);
+});
+
 // --- Invalid documents -----------------------------------------------------
 
 const caught = (document: object, options = {}): ParseError => {
@@ -1216,6 +1381,71 @@ Format("a document can start with a byte order mark", () => {
     Assert.is(tokensOf(config).a.$value, 1);
 });
 
+Invalid("two different recipes with one name", () => {
+    const other = recipes({ text: (value: string) => value });
+
+    Assert.throws(
+        () => parse({}, { recipes: { ...TestRecipes, otherText: other.text } }),
+        /Two different recipes are named "text"/,
+    );
+});
+
+Invalid("a value that calls a name that isn't a recipe", () => {
+    rejects(
+        { t: { $type: "color", $value: "darkn({t}, 0.2)" } },
+        /^t\.\$value: is not a color\..* It looks like a recipe call, but "darkn" is not one of the recipes\./,
+        withRecipes,
+    );
+});
+
+Invalid("a call of a name that isn't a recipe, in a call", () => {
+    rejects(
+        {
+            c: { $type: "color", $value: srgb(0, 0, 0) },
+            t: { $type: "color", $value: "darken(lighten({c}), 0.2)" },
+        },
+        /calls "lighten", which is not one of the recipes/,
+        withRecipes,
+    );
+});
+
+Invalid("a call that isn't valid", () => {
+    rejects(
+        { t: { $type: "color", $value: "darken({c}, 0.2" } },
+        /is not a valid recipe call: expected "," or "\)" at position 16/,
+        withRecipes,
+    );
+    rejects(
+        { t: { $type: "color", $value: "darken({c}) more" } },
+        /expected the end of the call/,
+        withRecipes,
+    );
+    rejects(
+        { t: { $type: "color", $value: 'darken({ "a" 1 })' } },
+        /expected ":" after "a"/,
+        withRecipes,
+    );
+});
+
+Invalid("a call with a reference to a token that does not exist", () => {
+    rejects(
+        { t: { $type: "color", $value: "darken({nope}, 0.2)" } },
+        /t\.\$value: references "\{nope\}", which does not exist/,
+        withRecipes,
+    );
+});
+
+Invalid("a call doesn't give its token a type", () => {
+    rejects(
+        {
+            c: { $type: "color", $value: srgb(0, 0, 0) },
+            t: { $value: "darken({c}, 0.2)" },
+        },
+        /^t: has no \$type.*not the type of a recipe's result/,
+        withRecipes,
+    );
+});
+
 Invalid("a ParseError lists the path and message of each issue", () => {
     const { message, name } = caught({ t: { $value: 1 } });
 
@@ -1232,4 +1462,5 @@ ColorModule.run();
 Extends.run();
 Pointers.run();
 Custom.run();
+Recipes.run();
 Invalid.run();
