@@ -31,7 +31,10 @@ export type CustomTokensOf<T> = Exclude<
  */
 export type CSSConverters<T> = ConvertersOf<CustomTokensOf<T>>;
 
-type ConvertersOf<C> = {
+/**
+ * @public
+ */
+export type ConvertersOf<C> = {
     [N in C extends { $type: infer N extends string } ? N : never]: C extends {
         $type: N;
     }
@@ -44,8 +47,10 @@ type ConvertersOf<C> = {
 /**
  * A converter for any of the standard types, which is used in place of the one
  * of the library.
+ *
+ * @public
  */
-type StandardConverters = {
+export type StandardConverters = {
     [N in keyof DesignToken.ReadonlyValueByType]?: CSSConverter<
         DesignToken.ReadonlyValueByType[N],
         Extract<DesignToken.Standard, { $type: N }>
@@ -155,13 +160,16 @@ const defaultName: NameFn = (token) =>
 
 type RuntimeConverters = Readonly<Record<string, CSSConverter<any> | false>>;
 
-interface CSSPropertyValues {
+/**
+ * @public
+ */
+export interface CSSPropertyValues {
     readonly var: `var(--${string})`;
     readonly property: `--${string}`;
 }
 
 /**
- * A collection of `var` and `property` values per token that mirrors the
+ * A collection of {@link CSSPropertyValues} (`var` and `property` per token) that mirrors the
  * structure of the source {@link (Library:namespace).Library}.
  *
  * @public

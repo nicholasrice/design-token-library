@@ -3,10 +3,11 @@
     "version": "0.2.0",
     "description": "A library for managing design tokens",
     "type": "module",
+    "sideEffects": false,
     "main": "./dist/lib/index.js",
     "exports": {
         ".": {
-            "types": "./dist/lib/index.d.ts",
+            "types": "./dist/lib/public.d.ts",
             "default": "./dist/lib/index.js"
         }
     },
@@ -14,15 +15,16 @@
         "./dist/lib/**.*",
         "CHANGELOG.md"
     ],
-    "types": "./dist/lib/index.d.ts",
+    "types": "./dist/lib/public.d.ts",
     "scripts": {
-        "build": "tsc -b",
+        "build": "tsc -b && npm run api-report:check",
         "watch": "tsc -b -w",
         "watch:test": "watchlist dist/test -- npm test",
         "test": "npx uvu dist/test .spec.js$",
         "test:coverage": "c8 uvu dist/test .spec.js$",
         "report-size": "npx esbuild dist/lib/index.js --bundle --outfile=temp/bundle.js --minify; rm -rf temp",
         "api-report": "npx api-extractor run --local --verbose",
+        "api-report:check": "npx api-extractor run --verbose",
         "docs:api-reference": "npx api-documenter markdown --input-folder temp --output-folder doc-site/docs/api-reference",
         "prettier": "npx prettier ./src --write"
     },
