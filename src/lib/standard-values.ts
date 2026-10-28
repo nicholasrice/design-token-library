@@ -40,3 +40,64 @@ export const FONT_WEIGHTS: Readonly<Record<FontWeightKeyword, number>> = {
     "extra-black": 950,
     "ultra-black": 950,
 };
+
+type StrokeStyleKeyword = Extract<DesignToken.Values.StrokeStyle, string>;
+
+/**
+ * The stroke style keywords.
+ *
+ * @see {@link https://www.designtokens.org/tr/2025.10/format/#stroke-style}
+ *
+ * @internal
+ */
+export const STROKE_STYLES: Readonly<Record<StrokeStyleKeyword, true>> = {
+    solid: true,
+    dashed: true,
+    dotted: true,
+    double: true,
+    groove: true,
+    ridge: true,
+    outset: true,
+    inset: true,
+};
+
+type LineCap = Exclude<DesignToken.Values.StrokeStyle, string>["lineCap"];
+
+/**
+ * The line caps of a stroke style with a dash array.
+ *
+ * @internal
+ */
+export const LINE_CAPS: Readonly<Record<LineCap, true>> = {
+    round: true,
+    butt: true,
+    square: true,
+};
+
+/**
+ * The units of a dimension.
+ *
+ * @internal
+ */
+export const DIMENSION_UNITS: Readonly<
+    Record<DesignToken.Values.Dimension["unit"], true>
+> = { px: true, rem: true };
+
+/**
+ * The units of a duration.
+ *
+ * @internal
+ */
+export const DURATION_UNITS: Readonly<
+    Record<DesignToken.Values.Duration["unit"], true>
+> = { ms: true, s: true };
+
+/**
+ * Tests whether a value is one of the keys of a table.
+ *
+ * @internal
+ */
+export const isKeyOf = <K extends string>(
+    table: Readonly<Record<K, unknown>>,
+    value: unknown,
+): value is K => typeof value === "string" && Object.hasOwn(table, value);

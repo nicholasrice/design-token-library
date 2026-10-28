@@ -10,6 +10,8 @@ export {
     ownTokensOf,
 } from "./library.js";
 export { isComputed, override, recipes } from "./recipe.js";
+export { parse, ParseError } from "./parse.js";
+export type { ParseIssue, ParseOptions } from "./parse.js";
 export { isRef, pathOf, ref, refs } from "./ref.js";
 export {
     convert,
