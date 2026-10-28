@@ -289,6 +289,41 @@ function readonlyValues() {
     gradient.tokens.g.$value[0].position = 1;
 }
 
+// A token's value is readonly, and it's a value in a config, in extend()
+// and as a recipe's argument, as it is in set() (#92).
+interface ReadonlyTheme {
+    a: DesignToken.Color;
+    b: DesignToken.Color;
+    gradient: DesignToken.Gradient;
+}
+const ro = refs<ReadonlyTheme>();
+const white: DesignToken.Values.Readonly.Color = library.tokens.a.$value;
+// A readonly value with a ref in it
+const stops = [
+    { color: ro.a, position: 0 },
+    { color: white, position: 1 },
+] as const;
+const readonlyLibrary = Library.create<ReadonlyTheme>({
+    a: { $type: DesignToken.Type.Color, $value: white },
+    b: { $type: DesignToken.Type.Color, $value: ro.a },
+    gradient: { $type: DesignToken.Type.Gradient, $value: stops },
+});
+Library.create({ c: { $type: DesignToken.Type.Color, $value: white } });
+readonlyLibrary.extend({ b: { $value: readonlyLibrary.tokens.a.$value } });
+readonlyLibrary.extend({
+    gradient: { $value: readonlyLibrary.tokens.gradient.$value },
+});
+readonlyLibrary.tokens.gradient.set(stops);
+// A function whose parameter isn't readonly, such as one written for other
+// code, gets a frozen copy of its argument all the same.
+const { opaque } = recipes({
+    opaque: (color: DesignToken.Values.Color): DesignToken.Values.Color => ({
+        ...color,
+        alpha: 1,
+    }),
+});
+readonlyLibrary.extend({ b: { $value: opaque(white) } });
+
 Types("type-level assertions compile", () => {
     Assert.ok([
         invalidConfig,
