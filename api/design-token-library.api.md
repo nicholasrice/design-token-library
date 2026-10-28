@@ -640,6 +640,9 @@ export const override: <A extends unknown[], V>(recipe: Library.Recipe<A, V>, fn
 export const ownTokensOf: <R extends {}>(library: Library.Library<any, R>) => ReadonlyArray<Library.TokenRecord<R>>;
 
 // @public
+export function parse<T extends {}, R extends {}>(document: string | object, options: ParseExtendOptions<T, R>): Library.ExtendConfig<T, R>;
+
+// @public
 export function parse(document: string | object, options?: ParseOptions): Library.Config<any>;
 
 // @public
@@ -649,6 +652,11 @@ export class ParseError extends Error {
     readonly issues: ReadonlyArray<ParseIssue>;
     // (undocumented)
     readonly name = "ParseError";
+}
+
+// @public
+export interface ParseExtendOptions<T extends {}, R extends {}> extends ParseOptions {
+    readonly extends: Library.Library<T, R>;
 }
 
 // @public
