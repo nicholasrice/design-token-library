@@ -30,6 +30,7 @@ const sidebars: SidebarsConfig = {
         "advanced/custom-types",
         "advanced/configured-values",
         "advanced/walking-a-library",
+        "advanced/tokens-files",
       ],
     },
     {
