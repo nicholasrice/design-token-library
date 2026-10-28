@@ -335,6 +335,46 @@ Extend("an override restating its inherited group type is allowed", () => {
     Assert.equal(extended.tokens.g.a.$value, hex("#222222"));
 });
 
+Extend("an extension restating its group's type is allowed", () => {
+    const source = grouped();
+    const restated = source.extend({
+        g: { $type: C, a: { $value: hex("#222222") } },
+    });
+    const withNew = source.extend<{ g: { b: DesignToken.Color } }>({
+        g: { $type: C, b: { $value: hex("#333333") } },
+    });
+
+    Assert.is(restated.tokens.g.$type, C);
+    Assert.equal(restated.tokens.g.a.$value, hex("#222222"));
+    Assert.is(withNew.tokens.g.b.$type, C);
+    Assert.equal(withNew.tokens.g.b.$value, hex("#333333"));
+});
+
+Extend("a shared group config with its type can be given to extend()", () => {
+    const g = (): Library.Config<Grouped["g"], Grouped> => ({
+        $type: C,
+        a: { $value: hex("#222222") },
+    });
+    const extended = grouped().extend({ g: g() });
+
+    Assert.equal(extended.tokens.g.a.$value, hex("#222222"));
+});
+
+Extend("an extension with a different group type throws", () => {
+    const source = grouped();
+
+    Assert.throws(
+        () =>
+            source.extend({
+                g: {
+                    // @ts-expect-error an extension can't change a group's type
+                    $type: DesignToken.Type.Dimension,
+                },
+            }),
+        /'g'/,
+    );
+});
+
 Extend("an override restating the same type is allowed", () => {
     const extended = single().extend<{}>({
         a: { $type: C, $value: hex("#222222") },

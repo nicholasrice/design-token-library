@@ -553,13 +553,11 @@ export namespace Library {
                   $type?: DesignToken.TypeByToken<T[K]>;
                   $value: ConfigTokenValue<T[K], R>;
               }
-            : K extends "$type"
-              ? never
-              : K extends keyof DesignToken.Group
-                ? T[K]
-                : T[K] extends {}
-                  ? ExtendConfig<T[K], R>
-                  : never;
+            : K extends keyof DesignToken.Group
+              ? T[K]
+              : T[K] extends {}
+                ? ExtendConfig<T[K], R>
+                : never;
     };
 
     /**
@@ -766,8 +764,19 @@ const recurseExtend = (
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
 ): void => {
-    // The source library's group type takes precedence; `$type` cannot be changed by extension
-    const groupType = Reflect.get(sourceTokens, "$type") || config.$type;
+    // An extension can restate a group's type, or give one to a group that
+    // has none, but can't change it, as for a token.
+    const sourceType = Reflect.get(sourceTokens, "$type");
+    if (
+        sourceType &&
+        config.$type !== undefined &&
+        config.$type !== sourceType
+    ) {
+        throw new Error(
+            `An override cannot change the '$type' of group '${name}' from '${sourceType}' to '${config.$type}'.`,
+        );
+    }
+    const groupType = sourceType || config.$type;
     defineGroupMetadata(
         extendedTokens,
         { $type: groupType },
