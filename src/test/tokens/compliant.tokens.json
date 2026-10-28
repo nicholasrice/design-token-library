@@ -1,0 +1,30 @@
+{
+    "$description": "A document in the DTCG form, whose tokens keep their own type and value in this library's extension.",
+    "color": {
+        "$type": "color",
+        "blue": {
+            "$value": { "colorSpace": "srgb", "components": [0, 0.4, 1] }
+        },
+        "hover": {
+            "$description": "The DTCG form is the resolved value, and the token's own is the call.",
+            "$value": { "colorSpace": "srgb", "components": [0, 0.2, 0.5] },
+            "$extensions": {
+                "com.example": { "id": 7 },
+                "design-token-library": {
+                    "$value": "darken({color.blue}, 0.5)"
+                }
+            }
+        }
+    },
+    "ratio": {
+        "$type": "number",
+        "$value": 1.5,
+        "$extensions": { "design-token-library": { "$type": "ratio" } }
+    },
+    "steps": {
+        "$type": "number",
+        "$extensions": { "design-token-library": { "$type": "ratio" } },
+        "small": { "$value": 1 },
+        "large": { "$value": "{ratio}" }
+    }
+}

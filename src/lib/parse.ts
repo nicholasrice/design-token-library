@@ -512,6 +512,114 @@ const resolvePointers = (doc: Node, report: Report): Node => {
     return walk(doc, []);
 };
 
+/**
+ * The key of this library's extension in `$extensions`. A document written in
+ * the DTCG form keeps there what DTCG can't express: a token's own `$type`
+ * and `$value`, and a group's own `$type`.
+ */
+const EXTENSION = "design-token-library";
+
+/**
+ * A token's `$type` and `$value` in the DTCG form of a document, which are
+ * checked, while the token's own, in this library's extension, are read.
+ */
+interface CompliantForm {
+    readonly type: string | undefined;
+    readonly value: unknown;
+}
+
+/**
+ * Takes a token's or group's own properties from this library's extension,
+ * in place of the ones of its DTCG form, and removes the extension. Records
+ * the DTCG form of each token that has one, by path, so it's still checked.
+ */
+const resolveExtension = (
+    doc: Node,
+    report: Report,
+): { doc: Node; compliant: ReadonlyMap<string, CompliantForm> } => {
+    const compliant = new Map<string, CompliantForm>();
+
+    // The extension's properties, which are only those of `allowed`.
+    const ownOf = (
+        node: Node,
+        result: Node,
+        here: string,
+        allowed: string[],
+    ): Node | undefined => {
+        if (!isObject(node.$extensions) || !(EXTENSION in node.$extensions)) {
+            return undefined;
+        }
+
+        const { [EXTENSION]: own, ...others } = node.$extensions;
+
+        if (Object.keys(others).length > 0) {
+            result.$extensions = others;
+        } else {
+            delete result.$extensions;
+        }
+
+        const where = `${here}.$extensions.${EXTENSION}`;
+
+        if (!isObject(own)) {
+            report(where, `must be an object.`);
+            return undefined;
+        }
+
+        for (const key of Object.keys(own)) {
+            if (!allowed.includes(key)) {
+                report(
+                    where,
+                    `has an unsupported property "${key}". It accepts ${allowed.join(", ")}.`,
+                );
+            }
+        }
+
+        return own;
+    };
+
+    const walk = (
+        node: Node,
+        path: string[],
+        inherited: string | undefined,
+    ): Node => {
+        const here = label(path);
+        const result: Node = { ...node };
+        const type = typeof node.$type === "string" ? node.$type : inherited;
+
+        if (isTokenNode(node)) {
+            const own = ownOf(node, result, here, ["$type", "$value"]);
+
+            if (own !== undefined) {
+                compliant.set(here, { type, value: node.$value });
+
+                for (const key of ["$type", "$value"]) {
+                    if (key in own) {
+                        result[key] = own[key];
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        const own = ownOf(node, result, here, ["$type"]);
+
+        if (own !== undefined && "$type" in own) {
+            result.$type = own.$type;
+        }
+
+        for (const key of Object.keys(node)) {
+            if (isChildName(key) && isObject(node[key])) {
+                setOwn(result, key, walk(node[key], [...path, key], type));
+            }
+        }
+
+        return result;
+    };
+
+    return { doc: walk(doc, [], undefined), compliant };
+};
+
 type Found =
     | { kind: "token"; node: Node; inherited: string | undefined }
     | { kind: "group"; node: Node };
@@ -522,6 +630,7 @@ type Found =
  */
 const convert = (
     doc: Node,
+    compliant: ReadonlyMap<string, CompliantForm>,
     customTypes: ReadonlySet<string>,
     recipes: RecipesByName,
     report: Report,
@@ -840,6 +949,59 @@ const convert = (
         return result;
     };
 
+    // The type of a token in its DTCG form: its own or its group's, else, for
+    // an alias, the DTCG type of the token it names, as the format says. A
+    // token without the extension is the same in both forms.
+    const dtcgTypeOf = (
+        path: string[],
+        seen: readonly string[] = [],
+    ): string | undefined => {
+        const key = label(path);
+        const form = compliant.get(key);
+
+        if (form === undefined) {
+            return typeOf(path);
+        }
+
+        return form.type !== undefined ||
+            !isReference(form.value) ||
+            seen.includes(key)
+            ? form.type
+            : dtcgTypeOf(referencePath(form.value), [...seen, key]);
+    };
+
+    // Checks the DTCG form of a token whose own form is in this library's
+    // extension. Its references only have to exist: they're of the DTCG
+    // form, and the types of the tokens are their own.
+    const checkCompliant = (form: CompliantForm, here: string) => {
+        const where = `${here}.$value`;
+        const type =
+            form.type ??
+            (isReference(form.value)
+                ? dtcgTypeOf(referencePath(form.value))
+                : undefined);
+
+        if (type === undefined) {
+            report(
+                here,
+                `has no $type in its DTCG form, its own, its group's or the one of the token it references.`,
+            );
+        } else if (!isStandardType(type)) {
+            report(
+                `${here}.$type`,
+                `${JSON.stringify(type)} is not a standard type, so the token's DTCG form isn't DTCG. Its own type goes in $extensions["${EXTENSION}"].$type.`,
+            );
+        } else if (isReference(form.value)) {
+            reference(form.value, undefined, where);
+        } else {
+            readValue(type, form.value, where, {
+                report,
+                reference: (value, _type, path) =>
+                    reference(value, undefined, path),
+            });
+        }
+    };
+
     const convertToken = (node: Node, path: string[]): Node | undefined => {
         const here = label(path);
 
@@ -915,6 +1077,12 @@ const convert = (
                 (isStandardType(type)
                     ? readValue(type, value, where, context)
                     : readCustom(value, where));
+        }
+
+        const form = compliant.get(here);
+
+        if (form !== undefined) {
+            checkCompliant(form, here);
         }
 
         return {
@@ -1008,7 +1176,10 @@ const convert = (
  * `"{color.blue}"`, becomes a {@link (Library:namespace).Ref}, so the token
  * follows the token it names. A custom type is read when it's one of
  * `options.types`. A string that calls one of `options.recipes`, such as
- * `"darken({color.blue}, 0.2)"`, is a computed value. A document with problems throws a {@link ParseError} that
+ * `"darken({color.blue}, 0.2)"`, is a computed value. A document in the DTCG
+ * form keeps a token's own `$type` and `$value`, and a group's own `$type`,
+ * in `$extensions["design-token-library"]`: those are read, and the DTCG form
+ * is checked. A document with problems throws a {@link ParseError} that
  * lists all of them.
  *
  * A document's shape is known only when it's read, so the config isn't
@@ -1052,7 +1223,7 @@ export function parse(
         ]);
     }
 
-    let native: Node;
+    let native: ReturnType<typeof resolveExtension>;
 
     try {
         const extended = resolveExtends(doc, report);
@@ -1063,7 +1234,7 @@ export function parse(
             throw new TooLarge();
         }
 
-        native = resolvePointers(extended, report);
+        native = resolveExtension(resolvePointers(extended, report), report);
     } catch (error) {
         if (error instanceof TooLarge) {
             throw new ParseError([...issues, tooLarge()]);
@@ -1073,7 +1244,8 @@ export function parse(
     }
 
     const config = convert(
-        native,
+        native.doc,
+        native.compliant,
         new Set(options.types),
         recipesByName(options.recipes),
         report,
