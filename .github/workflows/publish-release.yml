@@ -1,0 +1,83 @@
+name: Publish Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write # required for npm trusted publishing (OIDC)
+
+jobs:
+  publish:
+    # Auto-run only for merged release PRs from prepare-release.yml; always allow manual runs
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       startsWith(github.event.pull_request.head.ref, 'release/'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Trusted publishing and `npm stage publish` require a recent npm CLI
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Extract Version
+        id: get_version
+        run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      # Authenticates via OIDC (no NPM_TOKEN). The version waits in npm's staging
+      # queue until a maintainer approves it.
+      - name: Stage Package on npm
+        run: npm stage publish --access public --dry-run # TEMP: remove --dry-run
+
+      - name: Extract Changelog Notes
+        id: parse_changelog
+        env:
+          VERSION: ${{ steps.get_version.outputs.VERSION }}
+        run: |
+          NOTES=$(node -e "
+            const lines = require('fs').readFileSync('CHANGELOG.md', 'utf8').split('\n');
+            const notes = [];
+            let capturing = false;
+            for (const line of lines) {
+              const isHeader = line.trim().startsWith('## [');
+              if (capturing && isHeader) break;
+              if (capturing) notes.push(line);
+              else if (line.trim().startsWith('## [' + process.env.VERSION + ']')) capturing = true;
+            }
+            console.log(notes.join('\n').trim());
+          ")
+          DELIM="NOTES_$(openssl rand -hex 8)"
+          {
+            echo "latest_version_body<<$DELIM"
+            echo "$NOTES"
+            echo "$DELIM"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: v${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.parse_changelog.outputs.latest_version_body }}
+          draft: true # TEMP: remove draft
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
