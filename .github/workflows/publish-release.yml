@@ -46,7 +46,7 @@ jobs:
       # Authenticates via OIDC (no NPM_TOKEN). The version waits in npm's staging
       # queue until a maintainer approves it.
       - name: Stage Package on npm
-        run: npm stage publish --access public --dry-run # TEMP: remove --dry-run
+        run: npm stage publish --access public
 
       - name: Extract Changelog Notes
         id: parse_changelog
@@ -78,6 +78,5 @@ jobs:
           tag_name: v${{ steps.get_version.outputs.VERSION }}
           name: v${{ steps.get_version.outputs.VERSION }}
           body: ${{ steps.parse_changelog.outputs.latest_version_body }}
-          draft: true # TEMP: remove draft
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
