@@ -161,8 +161,9 @@ interface CSSPropertyValues {
 }
 
 /**
- * A collection of {@link @CSSPropertyValues} that mirrors the
- * structure of the source {@link Library.Library<any> | Library}.
+ * A collection of `var` and `property` values per token that mirrors the
+ * structure of the source {@link (Library:namespace).Library}.
+ *
  * @public
  */
 export type CSSPropertiesLibrary<T extends {}> = {
@@ -176,7 +177,7 @@ export type CSSPropertiesLibrary<T extends {}> = {
 };
 
 /**
- * Construct an {@link CSSPropertiesLibrary} from a {@link Library.Library<any>}.
+ * Construct an {@link CSSPropertiesLibrary} from a {@link (Library:namespace).Library}.
  *
  * @remarks
  * Pass the same `converters` given to {@link toCSS} to leave out the tokens it does
