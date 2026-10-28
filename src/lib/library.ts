@@ -884,7 +884,10 @@ function extendToken(
         };
         // token.$value;
         getNotifier(token).subscribe(subscriber);
-        const set = extendingToken.set;
+        // Not extendingToken.set: when the extended token is an extension
+        // that hasn't been set, that is the extended token's own wrapper,
+        // which sets the extended token.
+        const set = LibraryToken.prototype.set;
         extendingToken.set = (value: any) => {
             getNotifier(token).unsubscribe(subscriber);
             // Own the inherited value, so set() detaches even when the

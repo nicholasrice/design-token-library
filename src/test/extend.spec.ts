@@ -168,6 +168,21 @@ Extend("set() on an inherited token detaches it from the source", () => {
 });
 
 Extend(
+    "set() on an extension of an extension changes only that library",
+    () => {
+        const source = single();
+        const first = source.extend<{}>({});
+        const second = first.extend<{}>({});
+
+        second.tokens.a.set(hex("#222222"));
+
+        Assert.equal(source.tokens.a.$value, hex("#111111"));
+        Assert.equal(first.tokens.a.$value, hex("#111111"));
+        Assert.equal(second.tokens.a.$value, hex("#222222"));
+    },
+);
+
+Extend(
     "set() on an extended token notifies only the extending library",
     async () => {
         const source = single();
