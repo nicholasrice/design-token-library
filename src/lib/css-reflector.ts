@@ -169,7 +169,7 @@ export interface CSSPropertyValues {
 }
 
 /**
- * A collection of {@link CSSPropertyValues} values that mirrors the
+ * A collection of {@link CSSPropertyValues} (`var` and `property` per token) that mirrors the
  * structure of the source {@link (Library:namespace).Library}.
  *
  * @public
