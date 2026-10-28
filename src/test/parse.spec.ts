@@ -41,6 +41,7 @@ const Extends = suite("parse.extends");
 const Pointers = suite("parse.pointers");
 const Custom = suite("parse.custom");
 const Recipes = suite("parse.recipes");
+const Compliant = suite("parse.compliant");
 const Invalid = suite("parse.invalid");
 
 const srgb = (...components: number[]) => ({ colorSpace: "srgb", components });
@@ -819,6 +820,72 @@ Recipes("an override in extend() applies to a parsed call", () => {
     Assert.equal(color.hover.$value, color.blue.$value);
 });
 
+// --- The DTCG form, with this library's extension --------------------------
+
+const compliant = (options = {}) =>
+    load("compliant", { ...withRecipes, types: ["ratio"], ...options });
+
+Compliant("a token's own $value is read from the extension", () => {
+    const { color } = compliant();
+
+    Assert.equal(color.hover.$value, srgb(0, 0.2, 0.5));
+
+    // It's the call, not the resolved value of the DTCG form.
+    color.blue.set(srgb(1, 1, 1));
+    Assert.equal(color.hover.$value, srgb(0.5, 0.5, 0.5));
+});
+
+Compliant("a token's and a group's own $type are read from it", () => {
+    const { ratio, steps } = compliant();
+
+    Assert.is(ratio.$type, "ratio");
+    Assert.is(ratio.$value, 1.5);
+    Assert.is(steps.$type, "ratio");
+    Assert.is(steps.small.$type, "ratio");
+});
+
+Compliant("a reference sees a token's own type", () => {
+    const { steps } = compliant();
+
+    Assert.is(steps.large.$type, "ratio");
+    Assert.is(steps.large.$value, 1.5);
+});
+
+Compliant("the extension is removed, and other extensions are kept", () => {
+    const { color, ratio, steps } = compliant();
+
+    Assert.equal(color.hover.$extensions, { "com.example": { id: 7 } });
+    Assert.equal(ratio.$extensions, {});
+    Assert.is(steps.$extensions, undefined);
+    Assert.match(color.hover.$description, "resolved value");
+});
+
+Compliant("an alias in the DTCG form takes the DTCG type of its target", () => {
+    const own = (value: string) => ({
+        "design-token-library": { $type: "color", $value: value },
+    });
+    const { alias, again } = tokensOf(
+        {
+            blue: { $type: "color", $value: srgb(0, 0.4, 1) },
+            alias: {
+                $value: "{blue}",
+                $extensions: own("darken({blue}, 0.5)"),
+            },
+            again: { $value: "{alias}", $extensions: own("{alias}") },
+        },
+        withRecipes,
+    );
+
+    Assert.equal(alias.$value, srgb(0, 0.2, 0.5));
+    Assert.equal(again.$value, srgb(0, 0.2, 0.5));
+});
+
+Compliant("a document without the extension needs no options", () => {
+    const { color } = load("format");
+
+    Assert.is(color.blue.$type, "color");
+});
+
 // --- Invalid documents -----------------------------------------------------
 
 const caught = (document: object, options = {}): ParseError => {
@@ -1446,6 +1513,83 @@ Invalid("a call doesn't give its token a type", () => {
     );
 });
 
+const own = (value: unknown) => ({ "design-token-library": value });
+
+Invalid("the DTCG form of a token with the extension is still checked", () => {
+    rejects(
+        {
+            t: {
+                $type: "color",
+                $value: "#ffffff",
+                $extensions: own({ $type: "ratio", $value: 1 }),
+            },
+        },
+        /^t\.\$value: is not a color/,
+        { types: ["ratio"] },
+    );
+    rejects(
+        {
+            t: {
+                $type: "ratio",
+                $value: 1,
+                $extensions: own({ $value: 2 }),
+            },
+        },
+        /^t\.\$type: "ratio" is not a standard type, so the token's DTCG form isn't DTCG/,
+        { types: ["ratio"] },
+    );
+    rejects(
+        { t: { $value: 1, $extensions: own({ $type: "ratio" }) } },
+        /^t: has no \$type in its DTCG form/,
+        { types: ["ratio"] },
+    );
+    rejects(
+        {
+            t: {
+                $type: "number",
+                $value: "{nope}",
+                $extensions: own({ $type: "ratio", $value: 1 }),
+            },
+        },
+        /references "\{nope\}", which does not exist/,
+        { types: ["ratio"] },
+    );
+});
+
+Invalid("an extension that isn't an object, or has other properties", () => {
+    rejects(
+        { t: { $type: "number", $value: 1, $extensions: own(1) } },
+        /^t\.\$extensions\.design-token-library: must be an object/,
+    );
+    rejects(
+        {
+            t: {
+                $type: "number",
+                $value: 1,
+                $extensions: own({ $description: "x" }),
+            },
+        },
+        /has an unsupported property "\$description"\. It accepts \$type, \$value/,
+    );
+    rejects(
+        { g: { $extensions: own({ $value: 1 }) } },
+        /^g\.\$extensions\.design-token-library: has an unsupported property "\$value"\. It accepts \$type\./,
+    );
+});
+
+Invalid("an alias in the DTCG form with no DTCG type to take", () => {
+    const own = { "design-token-library": { $type: "color", $value: "{a}" } };
+
+    // The target has no type, so its alias has none either.
+    rejects(
+        {
+            a: { $value: srgb(0, 0, 1), $extensions: own },
+            b: { $value: "{a}", $extensions: own },
+        },
+        /^b: has no \$type in its DTCG form/,
+    );
+});
+
 Invalid("a ParseError lists the path and message of each issue", () => {
     const { message, name } = caught({ t: { $value: 1 } });
 
@@ -1463,4 +1607,5 @@ Extends.run();
 Pointers.run();
 Custom.run();
 Recipes.run();
+Compliant.run();
 Invalid.run();
