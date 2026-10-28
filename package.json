@@ -1,6 +1,6 @@
 {
     "name": "design-token-library",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "description": "A library for managing design tokens",
     "type": "module",
     "main": "./dist/lib/index.js",
@@ -10,7 +10,10 @@
             "default": "./dist/lib/index.js"
         }
     },
-    "files": ["./dist/lib/**.*", "CHANGELOG.md"],
+    "files": [
+        "./dist/lib/**.*",
+        "CHANGELOG.md"
+    ],
     "types": "./dist/lib/index.d.ts",
     "scripts": {
         "build": "tsc -b",
@@ -47,5 +50,9 @@
         "typescript": "^5.4.5",
         "uvu": "^0.5.6",
         "watchlist": "^0.3.1"
+    },
+    "dependencies": {
+        "@release-it/keep-a-changelog": "^8.0.1",
+        "release-it": "^21.1.1"
     }
 }
