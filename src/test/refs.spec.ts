@@ -3,13 +3,14 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import * as Package from "../lib/index.js";
 import { Library } from "../lib/library.js";
-import { REF, ref, refs } from "../lib/ref.js";
+import { REF, isRef, pathOf, ref, refs } from "../lib/ref.js";
 import { Elevation } from "./custom-types.fixtures.js";
 import { Equal, Expect, nextUpdate, recorder } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Refs = suite("refs()");
 const Ref = suite("ref()");
+const Path = suite("isRef() and pathOf()");
 const C = DesignToken.Type.Color;
 
 interface Theme {
@@ -397,5 +398,80 @@ Ref("type-level assertions compile", () => {
     Assert.ok([refPathChecks, lacksChecks]);
 });
 
+Path("isRef() and pathOf() are exported by the package", () => {
+    Assert.is(Reflect.get(Package, "isRef"), isRef);
+    Assert.is(Reflect.get(Package, "pathOf"), pathOf);
+});
+
+Path("a ref from ref() or refs() is a ref, with its token's path", () => {
+    const byPath = ref<DesignToken.Values.Color, Library.TokenValues<Theme>>(
+        "colors.primary",
+    );
+
+    Assert.ok(isRef(byPath));
+    Assert.ok(isRef($.colors.primary));
+    Assert.ok(isRef($.colors.$root));
+    Assert.equal(pathOf(byPath), ["colors", "primary"]);
+    Assert.equal(pathOf($.colors.primary), ["colors", "primary"]);
+    Assert.equal(pathOf($.colors.$root), ["colors", "$root"]);
+    Assert.ok(Object.isFrozen(pathOf($.colors.primary)));
+});
+
+Path("a ref made by another copy of the package is a ref", () => {
+    const foreign = { [Symbol.for("design-token-library.ref")]: ["a", "b"] };
+
+    Assert.ok(isRef(foreign));
+    Assert.equal(isRef(foreign) && pathOf(foreign), ["a", "b"]);
+});
+
+Path("a value that isn't a ref isn't one", () => {
+    const library = theme();
+
+    for (const value of [
+        null,
+        undefined,
+        0,
+        "colors.primary",
+        ["colors", "primary"],
+        {},
+        hex("#111111"),
+        () => $.colors.primary,
+        { [Symbol("design-token-library.ref")]: ["a"] },
+        // A value with a ref in it, and the value it resolves to
+        { color: $.colors.primary },
+        library.tokens.colors.link.$value,
+    ]) {
+        Assert.not.ok(isRef(value));
+    }
+});
+
+// isRef() narrows a value to the ref of its own type, and pathOf() takes it.
+type Operand = number | Library.Ref<number, Library.TokenValues<Theme>>;
+const operand = (arg: Operand) => {
+    if (isRef(arg)) {
+        type IsRef = [
+            Expect<
+                Equal<
+                    typeof arg,
+                    Library.Ref<number, Library.TokenValues<Theme>>
+                >
+            >,
+        ];
+        return pathOf(arg);
+    }
+    type IsNumber = [Expect<Equal<typeof arg, number>>];
+    return arg;
+};
+type PathTypes = [
+    Expect<Equal<ReturnType<typeof pathOf>, readonly string[]>>,
+    Expect<Equal<ReturnType<typeof operand>, number | readonly string[]>>,
+];
+
+Path("type-level assertions compile", () => {
+    Assert.equal(operand($.weight), ["weight"]);
+    Assert.is(operand(1), 1);
+});
+
 Refs.run();
 Ref.run();
+Path.run();

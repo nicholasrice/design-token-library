@@ -129,6 +129,15 @@ alias: { $type: DesignToken.Type.Color, $value: theme.static },
 
 A ref is data, the path of its token. The library tells a ref from any other value by the ref's own symbol key, never by looking at what the value is, so a function, a class instance or any other object is a value like any other.
 
+`isRef(value)` tells whether a value is a ref, and `pathOf(ref)` is the path of its token, as an array of names. An add-on that keeps a ref, instead of letting the library resolve it to its token's value, uses them. For example, an operand of an expression can keep its token's path, to write it as a `var()` in CSS:
+
+```ts
+import { isRef, pathOf } from "design-token-library";
+
+const operand = <T>(arg: number | Library.Ref<number, T>) =>
+  isRef(arg) ? { token: pathOf(arg).join(".") } : arg;
+```
+
 #### Recipes
 
 A computed value calls a function of other tokens' values. Its arguments are evaluated when the config is built, before the library exists, so `darkenColor(ref("alias"), 0.3)` can't be given the value. `recipes()` makes a recipe of each function of an object, named by its key. A recipe takes its function's arguments, any of which may be refs, computed values, or values with them in it, and returns the computed value:
