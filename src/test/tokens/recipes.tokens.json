@@ -1,0 +1,32 @@
+{
+    "$description": "Recipe calls, an extension of this library: a string that calls one of the recipes given to parse() is a computed value.",
+    "amount": { "$type": "number", "$value": 0.5 },
+    "color": {
+        "$type": "color",
+        "blue": {
+            "$value": { "colorSpace": "srgb", "components": [0, 0.4, 1] }
+        },
+        "white": {
+            "$value": { "colorSpace": "srgb", "components": [1, 1, 1] }
+        },
+        "hover": { "$value": "darken({color.blue}, 0.5)" },
+        "pressed": { "$value": "darken(darken({color.blue}, {amount}), 0.5)" },
+        "mid": {
+            "$description": "A recipe that takes an object.",
+            "$value": "mix({ \"from\": {color.blue}, \"to\": {color.white} })"
+        }
+    },
+    "size": {
+        "$type": "dimension",
+        "base": { "$value": { "value": 4, "unit": "px" } },
+        "large": { "$value": "scale({size.base}, 2)" }
+    },
+    "border": {
+        "$type": "border",
+        "$value": {
+            "color": "darken({color.blue}, {amount})",
+            "width": "scale({size.base}, 0.25)",
+            "style": "solid"
+        }
+    }
+}

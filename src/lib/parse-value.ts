@@ -21,8 +21,8 @@ export interface ValueContext {
 
     /**
      * Reads a value where the format allows a reference to a token of
-     * `type`. Returns the ref it stands for, or `undefined` when it isn't a
-     * reference.
+     * `type`: a reference, or a recipe call. Returns the ref or computed
+     * value it stands for, or `undefined` when it's neither.
      */
     reference(value: unknown, type: string, path: string): unknown;
 }

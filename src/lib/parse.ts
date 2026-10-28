@@ -1,6 +1,8 @@
 import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
+import { calledName, parseCall, type Expression } from "./parse-expression.js";
 import { isStandardType, readValue, type ValueContext } from "./parse-value.js";
+import { RECIPE } from "./recipe.js";
 import { refTo } from "./ref.js";
 
 /**
@@ -56,7 +58,42 @@ export interface ParseOptions {
      * of these is an error.
      */
     readonly types?: readonly string[];
+
+    /**
+     * The recipes the document may call, such as `{ ...Recipes, ...More }`.
+     * A string written as a call to one of them, such as
+     * `"darken({color.blue}, 0.2)"`, is a computed value. A recipe is known
+     * by its name, not by its key here, and two different recipes can't have
+     * the same name.
+     */
+    readonly recipes?: Readonly<Record<string, Library.Recipe<any, unknown>>>;
 }
+
+type RecipesByName = ReadonlyMap<string, Library.Recipe<any, unknown>>;
+
+/**
+ * The recipes of `options.recipes` by name, which must be unique.
+ */
+const recipesByName = (
+    recipes: ParseOptions["recipes"] = {},
+): RecipesByName => {
+    const byName = new Map<string, Library.Recipe<any, unknown>>();
+
+    for (const recipe of Object.values(recipes)) {
+        const { name } = recipe[RECIPE];
+        const known = byName.get(name);
+
+        if (known !== undefined && known !== recipe) {
+            throw new Error(
+                `Two different recipes are named "${name}", so a document can't call one of them by name.`,
+            );
+        }
+
+        byName.set(name, recipe);
+    }
+
+    return byName;
+};
 
 type Node = Record<string, any>;
 
@@ -486,6 +523,7 @@ type Found =
 const convert = (
     doc: Node,
     customTypes: ReadonlySet<string>,
+    recipes: RecipesByName,
     report: Report,
 ): Node => {
     const types = new Map<string, string | undefined>();
@@ -599,18 +637,25 @@ const convert = (
         }
     };
 
-    // Reads a reference to a token, which must be of the `expected` type
-    // when there is one.
+    // Reads a reference to a token, such as "{color.blue}", which must be of
+    // the `expected` type when there is one.
     const reference = (
         value: unknown,
         expected: string | undefined,
         path: string,
-    ): unknown => {
-        if (!isReference(value)) {
-            return undefined;
-        }
+    ): unknown =>
+        isReference(value)
+            ? refer(referencePath(value), expected, path)
+            : undefined;
 
-        const target = referencePath(value);
+    // Makes the ref to the token at `target`, which must exist and be of the
+    // `expected` type when there is one.
+    const refer = (
+        target: string[],
+        expected: string | undefined,
+        path: string,
+    ): Library.Ref<any, any> => {
+        const value = `{${label(target)}}`;
         const found = find(target);
 
         if (!found) {
@@ -634,15 +679,99 @@ const convert = (
         return refTo(target);
     };
 
-    const context: ValueContext = { report, reference };
+    // The call of a string that looks like a call to a name that isn't a
+    // recipe, by its path, to explain why its value isn't valid.
+    const unknownCalls = new Map<string, string>();
 
-    // A custom value isn't checked, but the references in it are read, at
-    // any depth.
+    // The config value of an expression of a recipe call.
+    const evaluate = (expression: Expression, path: string): unknown => {
+        switch (expression.kind) {
+            case "call": {
+                const recipe = recipes.get(expression.name);
+
+                if (recipe === undefined) {
+                    report(
+                        path,
+                        `calls "${expression.name}", which is not one of the recipes.`,
+                    );
+                    return undefined;
+                }
+
+                return recipe(
+                    ...expression.args.map((arg) => evaluate(arg, path)),
+                );
+            }
+            case "reference":
+                // A recipe decides what its arguments may be.
+                return refer(expression.path, undefined, path);
+            case "literal":
+                return expression.value;
+            case "array":
+                return expression.items.map((item) => evaluate(item, path));
+            case "object":
+                return Object.fromEntries(
+                    expression.entries.map(([key, value]) => [
+                        key,
+                        evaluate(value, path),
+                    ]),
+                );
+        }
+    };
+
+    // A string is a recipe call only when it calls one of the recipes, so a
+    // string value such as "calc(100% - 4px)" stays a string.
+    const callsRecipe = (value: unknown): value is string => {
+        const name = typeof value === "string" ? calledName(value) : undefined;
+
+        return name !== undefined && recipes.has(name);
+    };
+
+    // Reads a recipe call, such as "darken({color.blue}, 0.2)".
+    const call = (value: unknown, path: string): unknown => {
+        if (!callsRecipe(value)) {
+            const name =
+                typeof value === "string" ? calledName(value) : undefined;
+
+            if (name !== undefined) {
+                unknownCalls.set(path, name);
+            }
+
+            return undefined;
+        }
+
+        const parsed = parseCall(value);
+
+        if ("error" in parsed) {
+            report(path, `is not a valid recipe call: ${parsed.error}`);
+            // Reported, so the reader of the position doesn't report it again.
+            return value;
+        }
+
+        return evaluate(parsed.call, path);
+    };
+
+    const context: ValueContext = {
+        report: (path, message) => {
+            const name = unknownCalls.get(path);
+
+            report(
+                path,
+                name === undefined
+                    ? message
+                    : `${message} It looks like a recipe call, but "${name}" is not one of the recipes.`,
+            );
+        },
+        reference: (value, type, path) =>
+            reference(value, type, path) ?? call(value, path),
+    };
+
+    // A custom value isn't checked, but the references and recipe calls in
+    // it are read, at any depth.
     const readCustom = (value: unknown, path: string): unknown => {
-        const ref = reference(value, undefined, path);
+        const read = reference(value, undefined, path) ?? call(value, path);
 
-        if (ref !== undefined) {
-            return ref;
+        if (read !== undefined) {
+            return read;
         }
 
         if (Array.isArray(value)) {
@@ -737,7 +866,11 @@ const convert = (
             if (!circular.has(here)) {
                 report(
                     here,
-                    `has no $type. A token takes its own $type, the type of the token it references, or the $type of the nearest group.`,
+                    `has no $type. A token takes its own $type, the type of the token it references, or the $type of the nearest group${
+                        callsRecipe(node.$value)
+                            ? ", not the type of a recipe's result"
+                            : ""
+                    }.`,
                 );
             }
 
@@ -776,10 +909,12 @@ const convert = (
                     `references "${value}", but the token's group gives the $type ${JSON.stringify(inherited)}.`,
                 );
             }
-        } else if (isStandardType(type)) {
-            read = readValue(type, value, where, context);
         } else {
-            read = readCustom(value, where);
+            read =
+                call(value, where) ??
+                (isStandardType(type)
+                    ? readValue(type, value, where, context)
+                    : readCustom(value, where));
         }
 
         return {
@@ -872,7 +1007,8 @@ const convert = (
  * and every value of a standard type is checked. A reference, such as
  * `"{color.blue}"`, becomes a {@link (Library:namespace).Ref}, so the token
  * follows the token it names. A custom type is read when it's one of
- * `options.types`. A document with problems throws a {@link ParseError} that
+ * `options.types`. A string that calls one of `options.recipes`, such as
+ * `"darken({color.blue}, 0.2)"`, is a computed value. A document with problems throws a {@link ParseError} that
  * lists all of them.
  *
  * A document's shape is known only when it's read, so the config isn't
@@ -936,7 +1072,12 @@ export function parse(
         throw error;
     }
 
-    const config = convert(native, new Set(options.types), report);
+    const config = convert(
+        native,
+        new Set(options.types),
+        recipesByName(options.recipes),
+        report,
+    );
 
     if (issues.length > 0) {
         throw new ParseError(issues);

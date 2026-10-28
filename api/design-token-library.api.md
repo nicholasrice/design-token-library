@@ -660,6 +660,7 @@ export interface ParseIssue {
 
 // @public
 export interface ParseOptions {
+    readonly recipes?: Readonly<Record<string, Library.Recipe<any, unknown>>>;
     readonly types?: readonly string[];
 }
 
