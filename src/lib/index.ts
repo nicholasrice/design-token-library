@@ -1,6 +1,10 @@
 export { DesignToken } from "./design-token.js";
-export { CircularReferenceError, Library } from "./library.js";
-export { override, recipes } from "./recipe.js";
+export {
+    CircularReferenceError,
+    Library,
+    configuredValueOf,
+} from "./library.js";
+export { isComputed, override, recipes } from "./recipe.js";
 export { isRef, pathOf, ref, refs } from "./ref.js";
 export {
     convert,
