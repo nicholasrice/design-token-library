@@ -51,3 +51,14 @@ const css = toCSS(library, {
 
 A position that holds a literal or a computed value has no token to refer to, so the converter writes the resolved value there.
 
+## `dependenciesOf()`
+
+[`dependenciesOf(token)`](/design-token-library/api-reference/design-token-library.dependenciesof) is the tokens a token's value refers to, through refs anywhere in its configured value, including the arguments of its recipes, in the token's own library:
+
+```ts
+// hover: { $value: Recipes.darken(theme.colors.primary, 0.2) }
+dependenciesOf(library.tokens.colors.hover).map((token) => token.name);
+// ["colors.primary"]
+```
+
+It lists only the tokens the value is made from, not theirs in turn. A value that a recipe computes from literal arguments only has no dependencies, though it's derived, so use `configuredValueOf()` to tell given tokens from derived ones.

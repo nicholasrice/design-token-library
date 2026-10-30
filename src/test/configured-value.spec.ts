@@ -3,7 +3,7 @@ import * as Assert from "uvu/assert";
 import { convert, toCSS } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import * as Package from "../lib/index.js";
-import { Library, configuredValueOf } from "../lib/library.js";
+import { Library, configuredValueOf, dependenciesOf } from "../lib/library.js";
 import { isComputed, recipes } from "../lib/recipe.js";
 import { isRef, pathOf, ref, refs } from "../lib/ref.js";
 import { Equal, Expect } from "./helpers.js";
@@ -11,6 +11,7 @@ import { hex, px } from "./values.js";
 
 const Computed = suite("isComputed()");
 const Configured = suite("configuredValueOf()");
+const Dependencies = suite("dependenciesOf()");
 const C = DesignToken.Type.Color;
 
 type ReadonlyColor = DesignToken.Values.Readonly.Color;
@@ -298,5 +299,96 @@ Configured("type-level assertions compile", () => {
     Assert.ok(true);
 });
 
+Dependencies("dependenciesOf() is exported by the package", () => {
+    Assert.is(Reflect.get(Package, "dependenciesOf"), dependenciesOf);
+});
+
+Dependencies("a given token has none", () => {
+    const library = theme();
+
+    Assert.equal(dependenciesOf(library.tokens.colors.primary), []);
+});
+
+Dependencies("are the tokens of the refs, in a value and in arguments", () => {
+    const { tokens } = theme();
+
+    Assert.equal(dependenciesOf(tokens.colors.alias), [tokens.colors.primary]);
+    Assert.equal(dependenciesOf(tokens.colors.hover), [tokens.colors.primary]);
+    Assert.equal(dependenciesOf(tokens.border), [tokens.colors.primary]);
+    Assert.equal(dependenciesOf(tokens.control), [tokens.colors.hover]);
+    // Once each, in order, from plain data in arguments and from nested
+    // computed values, and not the tokens those depend on.
+    Assert.equal(dependenciesOf(tokens.colors.mixed), [
+        tokens.colors.alias,
+        tokens.colors.hover,
+    ]);
+    Assert.ok(Object.isFrozen(dependenciesOf(tokens.colors.mixed)));
+});
+
+Dependencies("a recipe with only literal arguments has none", () => {
+    const library = theme();
+
+    Assert.equal(dependenciesOf(library.tokens.colors.gray), []);
+});
+
+Dependencies("are the tokens of the token's own library", () => {
+    const source = theme();
+    const extended = source.extend({});
+
+    Assert.is(
+        dependenciesOf(extended.tokens.colors.alias)[0],
+        extended.tokens.colors.primary,
+    );
+    Assert.is.not(
+        dependenciesOf(extended.tokens.colors.alias)[0],
+        source.tokens.colors.primary,
+    );
+});
+
+Dependencies(
+    "a ref in a class instance isn't one, as it isn't resolved",
+    () => {
+        class Holder {
+            constructor(readonly ref: unknown) {}
+        }
+        const library = Library.create<{
+            held: DesignToken.Custom<"holder", Holder>;
+        }>({
+            held: { $type: "holder", $value: new Holder($.colors.primary) },
+        });
+
+        Assert.equal(dependenciesOf(library.tokens.held), []);
+    },
+);
+
+Dependencies("throws for a ref to a path that isn't a token", () => {
+    // A ref of an untyped library can have any path.
+    const library = Library.create<{ a: DesignToken.Color }>({
+        a: {
+            $type: C,
+            $value: ref<DesignToken.Values.Color, any>("colors.primary"),
+        },
+    });
+
+    Assert.throws(
+        () => dependenciesOf(library.tokens.a),
+        /no token "colors.primary"/,
+    );
+});
+
+type DependencyTypes = [
+    Expect<
+        Equal<
+            ReturnType<typeof dependenciesOf<DesignToken.Color, Theme>>,
+            ReadonlyArray<Library.TokenRecord<Theme>>
+        >
+    >,
+];
+
+Dependencies("type-level assertions compile", () => {
+    Assert.ok(true);
+});
+
 Computed.run();
 Configured.run();
+Dependencies.run();

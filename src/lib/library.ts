@@ -1261,6 +1261,39 @@ class LibraryToken<T extends DesignToken.Any>
     ): Library.ConfigTokenValue<T, any> | DesignToken.ReadonlyValueByToken<T> {
         return token.raw;
     }
+
+    /**
+     * The tokens that the refs in a token's configured value are to, in the
+     * token's library, searched as {@link resolve} resolves them: in plain
+     * data and in the arguments of computed values.
+     */
+    public static dependencies(
+        token: LibraryToken<any>,
+    ): ReadonlySet<LibraryToken<any>> {
+        const dependencies = new Set<LibraryToken<any>>();
+        const seen = new Set<object>();
+
+        const walk = (value: unknown): void => {
+            if (!isObject(value) || seen.has(value)) {
+                return;
+            }
+            seen.add(value);
+
+            if (isRef(value)) {
+                dependencies.add(tokenAt(token.scope.tokens, value[REF]));
+            } else if (isComputed(value)) {
+                value[COMPUTED].args.forEach(walk);
+            } else if (isPlain(value)) {
+                for (const key of Reflect.ownKeys(value)) {
+                    walk(Reflect.get(value, key));
+                }
+            }
+        };
+
+        walk(token.raw);
+
+        return dependencies;
+    }
 }
 
 const libraryTokenOf = (token: Library.Token<any, any, any>) => {
@@ -1312,3 +1345,40 @@ export const configuredValueOf = <
     token: Library.Token<T, R, G>,
 ): Library.ConfigTokenValue<T, R> | DesignToken.ReadonlyValueByToken<T> =>
     LibraryToken.configuredValue(libraryTokenOf(token));
+
+/**
+ * The tokens that a token's value refers to, through refs anywhere in its
+ * configured value, including the arguments of the recipes it's computed
+ * with, in the token's library. Each token is listed once, in the order its
+ * first ref is in the value.
+ *
+ * @remarks
+ * These are the tokens the value is made from, and not theirs in turn: a
+ * tool follows each with `dependenciesOf()` for the whole chain. A value
+ * computed by a recipe from literal arguments only has no dependencies,
+ * though it's derived: {@link configuredValueOf} tells that apart.
+ *
+ * It throws when a ref's path isn't a token of the library, as reading the
+ * token's `$value` does.
+ *
+ * @example
+ * ```ts
+ * // hover: { $value: Recipes.darken(theme.colors.primary, 0.2) }
+ * dependenciesOf(library.tokens.colors.hover).map((token) => token.name);
+ * // ["colors.primary"]
+ * ```
+ *
+ * @public
+ */
+export const dependenciesOf = <
+    T extends DesignToken.Shape,
+    R extends {},
+    G extends string = never,
+>(
+    token: Library.Token<T, R, G>,
+): ReadonlyArray<Library.TokenRecord<R>> =>
+    // The token at a ref's path is a token of the library, of shape `R`: the
+    // config's types guarantee it.
+    Object.freeze([
+        ...LibraryToken.dependencies(libraryTokenOf(token)),
+    ]) as ReadonlyArray<Library.TokenRecord<R>>;

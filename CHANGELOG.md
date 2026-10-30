@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `configuredValueOf(token)` is a token's value as configured, or as last given to `set()`, with its refs and computed values unresolved (#106). A token of an extended library that isn't given a value has its source token's. `isComputed(value)` tells whether a value is a recipe's result, also one made by another copy of the package, as `isRef()` does for a ref. A tool tells a given token from a derived one by whether its configured value has a ref or a computed value at any depth, and a converter reads a ref in a value to write it as a `var()`.
+- `dependenciesOf(token)` is the tokens a token's value refers to, through refs anywhere in its configured value, including the arguments of its recipes, in the token's own library (#106).
 
 ### Changed
 
