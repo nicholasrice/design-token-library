@@ -1251,4 +1251,134 @@ class LibraryToken<T extends DesignToken.Any>
             notifier.subscribe(this);
         }
     }
+
+    /**
+     * The value a token was configured or last set with. An extension's
+     * token that has no value of its own inherits its source's.
+     */
+    public static configuredValue<T extends DesignToken.Any>(
+        token: LibraryToken<T>,
+    ): Library.ConfigTokenValue<T, any> | DesignToken.ReadonlyValueByToken<T> {
+        return token.raw;
+    }
+
+    /**
+     * The tokens that the refs in a token's configured value are to, in the
+     * token's library, searched as {@link resolve} resolves them: in plain
+     * data and in the arguments of computed values.
+     */
+    public static dependencies(
+        token: LibraryToken<any>,
+    ): ReadonlySet<LibraryToken<any>> {
+        const dependencies = new Set<LibraryToken<any>>();
+        const seen = new Set<object>();
+
+        const walk = (value: unknown): void => {
+            if (!isObject(value) || seen.has(value)) {
+                return;
+            }
+            seen.add(value);
+
+            if (isRef(value)) {
+                dependencies.add(tokenAt(token.scope.tokens, value[REF]));
+            } else if (isComputed(value)) {
+                value[COMPUTED].args.forEach(walk);
+            } else if (isPlain(value)) {
+                for (const key of Reflect.ownKeys(value)) {
+                    walk(Reflect.get(value, key));
+                }
+            }
+        };
+
+        walk(token.raw);
+
+        return dependencies;
+    }
 }
+
+const libraryTokenOf = (token: Library.Token<any, any, any>) => {
+    if (!(token instanceof LibraryToken)) {
+        throw new Error(`"${token.name}" is not a token of a library.`);
+    }
+
+    return token;
+};
+
+/**
+ * A token's value as it was configured, or last given to `set()`, with its
+ * refs and computed values unresolved. A token of a library made by
+ * `extend()` that isn't given a value has its source token's.
+ *
+ * @remarks
+ * A token's `$value` is resolved, so it can't tell a value that is given from
+ * one that is derived from other tokens, or say where in a value a ref is. A
+ * tool that reads how a library is configured finds the refs in this value
+ * with {@link isRef} and the computed values with {@link isComputed}: a value
+ * with neither, at any depth, is given. A converter that writes a ref as a
+ * CSS `var()`, rather than its token's value, reads the ref here and its
+ * path with {@link pathOf}.
+ *
+ * It's the value the token holds, not a copy, so it isn't frozen. Changing it
+ * doesn't change the token: give a new value to `set()`. Refs and computed
+ * values are searched for in plain data, as the library resolves them, and
+ * not in a class instance or a function.
+ *
+ * @example
+ * ```ts
+ * const isGiven = (value: unknown): boolean =>
+ *     !isRef(value) &&
+ *     !isComputed(value) &&
+ *     (typeof value !== "object" || value === null ||
+ *         Object.values(value).every(isGiven));
+ *
+ * isGiven(configuredValueOf(library.tokens.colors.primary)); // true
+ * isGiven(configuredValueOf(library.tokens.colors.hover)); // false: a recipe
+ * ```
+ *
+ * @public
+ */
+export const configuredValueOf = <
+    T extends DesignToken.Shape,
+    R extends {},
+    G extends string = never,
+>(
+    token: Library.Token<T, R, G>,
+): Library.ConfigTokenValue<T, R> | DesignToken.ReadonlyValueByToken<T> =>
+    LibraryToken.configuredValue(libraryTokenOf(token));
+
+/**
+ * The tokens that a token's value refers to, through refs anywhere in its
+ * configured value, including the arguments of the recipes it's computed
+ * with, in the token's library. Each token is listed once, in the order its
+ * first ref is in the value.
+ *
+ * @remarks
+ * These are the tokens the value is made from, and not theirs in turn: a
+ * tool follows each with `dependenciesOf()` for the whole chain. A value
+ * computed by a recipe from literal arguments only has no dependencies,
+ * though it's derived: {@link configuredValueOf} tells that apart.
+ *
+ * It throws when a ref's path isn't a token of the library, as reading the
+ * token's `$value` does.
+ *
+ * @example
+ * ```ts
+ * // hover: { $value: Recipes.darken(theme.colors.primary, 0.2) }
+ * dependenciesOf(library.tokens.colors.hover).map((token) => token.name);
+ * // ["colors.primary"]
+ * ```
+ *
+ * @public
+ */
+export const dependenciesOf = <
+    T extends DesignToken.Shape,
+    R extends {},
+    G extends string = never,
+>(
+    token: Library.Token<T, R, G>,
+): ReadonlyArray<Library.TokenRecord<R>> =>
+    // The token at a ref's path is a token of the library, of shape `R`: the
+    // config's types guarantee it.
+    Object.freeze([
+        ...LibraryToken.dependencies(libraryTokenOf(token)),
+    ]) as ReadonlyArray<Library.TokenRecord<R>>;

@@ -97,13 +97,30 @@ export const override = <A extends unknown[], V>(
 ): Library.RecipeOverride => Object.freeze({ recipe, fn });
 
 /**
- * Tests whether a value is a {@link (Library:namespace).Computed} value.
+ * Tests whether a value is a {@link (Library:namespace).Computed} value, a
+ * recipe's result, also one made by another copy of this package.
  *
- * @internal
+ * @remarks
+ * The library computes a value anywhere in a token's value. A tool that reads
+ * a token's value as configured, with {@link configuredValueOf}, tells a
+ * computed value from other values with `isComputed()`, as it tells a ref
+ * with {@link isRef}.
+ *
+ * A computed value is a `Computed<unknown, never>` whatever its result and
+ * library, so a value typed as a computed value of a library is narrowed to
+ * it.
+ *
+ * @example
+ * ```ts
+ * isComputed(Recipes.darken(ref("colors.primary"), 0.2)); // true
+ * isComputed(hex("#0000ff")); // false
+ * ```
+ *
+ * @public
  */
 export const isComputed = (
     value: unknown,
-): value is Library.Computed<unknown, {}> => {
+): value is Library.Computed<unknown, never> => {
     return (
         typeof value === "object" &&
         value !== null &&

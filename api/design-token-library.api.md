@@ -13,6 +13,9 @@ export class CircularReferenceError extends Error {
 }
 
 // @public
+export const configuredValueOf: <T extends DesignToken.Shape, R extends {}, G extends string = never>(token: Library.Token<T, R, G>) => Library.ConfigTokenValue<T, R> | DesignToken.ReadonlyValueByToken<T>;
+
+// @public
 export function convert<Name extends keyof DesignToken.ReadonlyValueByType>(type: Name, value: DesignToken.ReadonlyValueByType[Name]): string;
 
 // @public (undocumented)
@@ -64,6 +67,9 @@ export interface CSSPropertyValues {
 export type CustomTokensOf<T> = Exclude<Library.TokensOf<T>, {
     $type?: DesignToken.Type;
 }>;
+
+// @public
+export const dependenciesOf: <T extends DesignToken.Shape, R extends {}, G extends string = never>(token: Library.Token<T, R, G>) => ReadonlyArray<Library.TokenRecord<R>>;
 
 // @public (undocumented)
 export namespace DesignToken {
@@ -378,6 +384,9 @@ export namespace DesignToken {
 
 // @public
 export const hex: (css: string) => DesignToken.Values.Color;
+
+// @public
+export const isComputed: (value: unknown) => value is Library.Computed<unknown, never>;
 
 // @public
 export const isRef: (value: unknown) => value is Library.Ref<unknown, never>;
