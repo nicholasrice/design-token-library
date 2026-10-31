@@ -964,9 +964,10 @@ const tokenAt = (
 
 /**
  * Resolves a value in a library's scope. A ref is replaced by its token's
- * value, and a computed value by the result of its recipe's function, or of
- * the function that overrides it in the scope, called with its arguments
- * resolved. Plain data is copied from its own properties, including
+ * value, as it is: the value is resolved and frozen already, so it isn't
+ * copied again. A computed value is replaced by the result of its recipe's
+ * function, or of the function that overrides it in the scope, called with
+ * its arguments resolved. Plain data is copied from its own properties, including
  * symbol-keyed and non-enumerable ones, with its refs resolved, and the copy
  * is frozen, so the config isn't. A getter is read once, into a data
  * property. An object that is in the value twice, or in itself, has one copy.
@@ -982,7 +983,7 @@ const resolve = (value: unknown, scope: Scope): unknown => {
         }
 
         if (isRef(value)) {
-            return walk(tokenAt(scope.tokens, value[REF]).$value);
+            return tokenAt(scope.tokens, value[REF]).$value;
         }
 
         if (isComputed(value)) {

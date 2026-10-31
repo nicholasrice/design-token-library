@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `package.json` sets `"sideEffects": false` so bundlers can tree-shake unused exports from the package.
 - Package entry uses explicit named exports instead of `export *`. Exported `ConvertersOf`, `StandardConverters`, and `CSSPropertyValues` so the public CSS types resolve without forgotten-export errors.
 - Published typings (`types` / `exports.types`) come from the API Extractor public `.d.ts` rollup at `dist/lib/public.d.ts` (generated at the end of `npm run build`). `dist/lib/index.d.ts` stays the TypeScript barrel used as the extractor entry point.
+- A ref resolves to its token's value, which is resolved and frozen already, rather than to a copy of it. A recipe whose argument refers to a large value, like a palette of many colors, no longer copies it each time the recipe is computed.
 
 ## [0.2.0] - 2026-10-28
 
