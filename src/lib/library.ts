@@ -82,6 +82,74 @@ export namespace Library {
         [K in keyof T]: K extends "$root" ? never : T[K];
     };
 
+    /**
+     * Which entries of a library {@link (entriesOf:3)} lists: its tokens, its
+     * groups, or both. Each is the `kind` of the entries it lists.
+     *
+     * @public
+     */
+    export type Show = "all" | "token" | "group";
+
+    /**
+     * A token of a library, with the path of keys that leads to it from the
+     * root. The path of a group's own token ends with `$root`.
+     *
+     * @public
+     */
+    export interface TokenEntry<R extends {}> {
+        readonly kind: "token";
+        readonly path: readonly string[];
+        readonly token: TokenRecord<R>;
+    }
+
+    /**
+     * A group of a library, with the path of keys that leads to it from the
+     * root. The group has the `$`-prefixed properties it was configured with.
+     *
+     * @public
+     */
+    export interface GroupEntry {
+        readonly kind: "group";
+        readonly path: readonly string[];
+        readonly group: Readonly<DesignToken.Group>;
+    }
+
+    /**
+     * The entries that {@link (entriesOf:3)} lists for `S`.
+     *
+     * @public
+     */
+    export type EntryOf<S extends Show, R extends {}> = S extends "token"
+        ? TokenEntry<R>
+        : S extends "group"
+          ? GroupEntry
+          : TokenEntry<R> | GroupEntry;
+
+    /**
+     * What a {@link (entriesOf:3)} filter returns for an entry: `true` lists it,
+     * `false` leaves it out, and `"reject"` leaves it out along with
+     * everything under it.
+     *
+     * @public
+     */
+    export type FilterResult = boolean | "reject";
+
+    /**
+     * @public
+     */
+    export interface EntriesOptions<S extends Show, R extends {}> {
+        /**
+         * The kind of entries to list. Groups are visited, and their tokens
+         * listed, whichever it is. By default, all.
+         */
+        readonly whatToShow?: S;
+        /**
+         * Called with each entry of the kinds shown, before its children are
+         * visited.
+         */
+        filter?(entry: EntryOf<S, R>): FilterResult;
+    }
+
     export interface Subscriber<R extends {}> {
         onChange(records: ReadonlyArray<Library.TokenRecord<R>>): void;
     }
@@ -1382,3 +1450,104 @@ export const dependenciesOf = <
     Object.freeze([
         ...LibraryToken.dependencies(libraryTokenOf(token)),
     ]) as ReadonlyArray<Library.TokenRecord<R>>;
+
+/**
+ * The tokens and groups of a library, each with its path, in the order of
+ * the config. A group is listed before the tokens and groups in it.
+ *
+ * @remarks
+ * This is the library's own rule for what is a token and what is a group, and
+ * for which keys are children, so a tool that visits every token (an index, a
+ * report, a list of the tokens to offer for a property) doesn't walk
+ * `library.tokens` and restate it. It walks as a DOM `TreeWalker` does: an
+ * entry that `whatToShow` leaves out is not passed to `filter`, but what is
+ * under it is still visited, and `filter` can return `"reject"` to leave out
+ * a group and everything under it.
+ *
+ * The library itself isn't listed, as a `TreeWalker`'s root isn't, so its own
+ * `$`-prefixed properties are not visited. A group's own token is listed with
+ * the path of its group and `$root`.
+ *
+ * The order is the order of the keys in a JavaScript object, so a name that
+ * is an array index (`"0"`, `"123"`) is listed before the other names of its
+ * group, in ascending order, whatever its place in the config.
+ *
+ * The listing is lazy and reads the
+ * library as it goes; a token's `$value` is not read.
+ *
+ * @example
+ * ```ts
+ * // The names of every token that isn't deprecated, in a group that isn't
+ * for (const { token } of entriesOf(library, {
+ *     whatToShow: "token",
+ *     filter: ({ token }) => !token.$deprecated,
+ * })) {
+ *     names.push(token.name);
+ * }
+ *
+ * // Everything, leaving out the deprecated groups
+ * const entries = [
+ *     ...entriesOf(library, {
+ *         filter: (entry) =>
+ *             entry.kind === "group" && entry.group.$deprecated
+ *                 ? "reject"
+ *                 : true,
+ *     }),
+ * ];
+ * ```
+ *
+ * @public
+ */
+export function entriesOf<T extends {}, R extends {}>(
+    library: Library.Library<T, R>,
+    options: Library.EntriesOptions<"token", R> & { whatToShow: "token" },
+): Generator<Library.TokenEntry<R>, void, undefined>;
+/** @public */
+export function entriesOf<T extends {}, R extends {}>(
+    library: Library.Library<T, R>,
+    options: Library.EntriesOptions<"group", R> & { whatToShow: "group" },
+): Generator<Library.GroupEntry, void, undefined>;
+/** @public */
+export function entriesOf<T extends {}, R extends {}>(
+    library: Library.Library<T, R>,
+    options?: Library.EntriesOptions<"all", R>,
+): Generator<Library.EntryOf<"all", R>, void, undefined>;
+export function entriesOf<T extends {}, R extends {}>(
+    library: Library.Library<T, R>,
+    options: Library.EntriesOptions<Library.Show, R> = {},
+): Generator<Library.EntryOf<"all", R>, void, undefined> {
+    return walkEntries(library.tokens, [], options);
+}
+
+function* walkEntries<R extends {}>(
+    node: RawLibrary,
+    path: readonly string[],
+    options: Library.EntriesOptions<Library.Show, R>,
+): Generator<Library.EntryOf<"all", R>, void, undefined> {
+    const { whatToShow = "all", filter } = options;
+
+    for (const key of Object.keys(node)) {
+        if (!isChildKey(key)) {
+            continue;
+        }
+
+        const child = node[key];
+        const childPath = [...path, key];
+        const entry: Library.EntryOf<"all", R> = isToken(child)
+            ? { kind: "token", path: childPath, token: child }
+            : { kind: "group", path: childPath, group: child };
+        let result: Library.FilterResult = true;
+
+        if (whatToShow === "all" || whatToShow === entry.kind) {
+            result = filter?.(entry) ?? true;
+
+            if (result === true) {
+                yield entry;
+            }
+        }
+
+        if (entry.kind === "group" && result !== "reject") {
+            yield* walkEntries(child, childPath, options);
+        }
+    }
+}

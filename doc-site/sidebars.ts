@@ -29,6 +29,7 @@ const sidebars: SidebarsConfig = {
         "advanced/subscriptions",
         "advanced/custom-types",
         "advanced/configured-values",
+        "advanced/walking-a-library",
       ],
     },
     {
