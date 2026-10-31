@@ -383,6 +383,19 @@ export namespace DesignToken {
 }
 
 // @public
+export function entriesOf<T extends {}, R extends {}>(library: Library.Library<T, R>, options: Library.EntriesOptions<"token", R> & {
+    whatToShow: "token";
+}): Generator<Library.TokenEntry<R>, void, undefined>;
+
+// @public (undocumented)
+export function entriesOf<T extends {}, R extends {}>(library: Library.Library<T, R>, options: Library.EntriesOptions<"group", R> & {
+    whatToShow: "group";
+}): Generator<Library.GroupEntry, void, undefined>;
+
+// @public (undocumented)
+export function entriesOf<T extends {}, R extends {}>(library: Library.Library<T, R>, options?: Library.EntriesOptions<"all", R>): Generator<Library.EntryOf<"all", R>, void, undefined>;
+
+// @public
 export const hex: (css: string) => DesignToken.Values.Color;
 
 // @public
@@ -430,6 +443,12 @@ export namespace Library {
     export type DeepValue<V, T> = V | Ref<V, T> | Computed<DesignToken.DeepReadonly<V>, T> | (V extends object ? {
         readonly [K in keyof V]: DeepValue<V[K], T>;
     } : never);
+    // (undocumented)
+    export interface EntriesOptions<S extends Show, R extends {}> {
+        filter?(entry: EntryOf<S, R>): FilterResult;
+        readonly whatToShow?: S;
+    }
+    export type EntryOf<S extends Show, R extends {}> = S extends "token" ? TokenEntry<R> : S extends "group" ? GroupEntry : TokenEntry<R> | GroupEntry;
     export type ExtendConfig<T extends {}, R extends {} = T> = {
         [K in keyof T]?: T[K] extends DesignToken.Shape ? Omit<T[K], "$type" | "$value"> & {
             $type?: DesignToken.TypeByToken<T[K]>;
@@ -438,6 +457,15 @@ export namespace Library {
     };
     export interface ExtendOptions {
         readonly recipes?: readonly RecipeOverride[];
+    }
+    export type FilterResult = boolean | "reject";
+    export interface GroupEntry {
+        // (undocumented)
+        readonly group: Readonly<DesignToken.Group>;
+        // (undocumented)
+        readonly kind: "group";
+        // (undocumented)
+        readonly path: readonly string[];
     }
     export type GroupType<T, G extends string = never> = "$type" extends keyof T ? {} extends Pick<T, "$type"> ? never : T["$type"] extends string ? string extends T["$type"] ? never : true extends IsUnion<T["$type"]> ? never : T["$type"] : never : G;
     // (undocumented)
@@ -486,6 +514,7 @@ export namespace Library {
     export type Refs<T extends {}, R extends {} = T> = {
         readonly [K in keyof T as K extends keyof DesignToken.Group ? never : K]-?: T[K] extends DesignToken.Shape ? Ref<DesignToken.ValueByToken<T[K]>, TokenValues<R>> : T[K] extends {} ? Refs<T[K], R> : never;
     };
+    export type Show = "all" | "token" | "group";
     // (undocumented)
     export interface Subscriber<R extends {}> {
         // (undocumented)
@@ -501,6 +530,14 @@ export namespace Library {
         readonly $deprecated: boolean | string;
         readonly name: string;
     };
+    export interface TokenEntry<R extends {}> {
+        // (undocumented)
+        readonly kind: "token";
+        // (undocumented)
+        readonly path: readonly string[];
+        // (undocumented)
+        readonly token: TokenRecord<R>;
+    }
     // (undocumented)
     export type TokenGroup<T extends {}, R extends {}, G extends string> = {
         [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape ? Token<T[K], R, G> : K extends keyof DesignToken.Group ? T[K] : T[K] extends {} ? TokenLibrary<T[K], R, G> : never;
