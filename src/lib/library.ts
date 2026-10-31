@@ -689,6 +689,24 @@ export class CircularReferenceError extends Error {
 }
 
 /**
+ * Counts the changes to any token's configured value, so what is derived
+ * from the values of a whole library is known to be out of date.
+ */
+let configurationVersion = 0;
+
+/**
+ * For a library's tokens, the tokens whose configured values refer to each,
+ * and the configuration it was made from.
+ */
+const dependentsIndexes = new WeakMap<
+    Scope,
+    {
+        version: number;
+        dependents: Map<LibraryToken<any>, LibraryToken<any>[]>;
+    }
+>();
+
+/**
  * The tokens currently resolving their values, outermost first.
  */
 const resolving: LibraryToken<any>[] = [];
@@ -1285,6 +1303,7 @@ class LibraryToken<T extends DesignToken.Any>
         }
 
         this.raw = value;
+        configurationVersion++;
         this.onChange();
     }
 
@@ -1362,6 +1381,49 @@ class LibraryToken<T extends DesignToken.Any>
         walk(token.raw);
 
         return dependencies;
+    }
+
+    /**
+     * The tokens of the token's library whose configured values refer to it.
+     * The index is made from the library's tokens once, and again after a
+     * token is set to a different value.
+     */
+    public static dependents(
+        token: LibraryToken<any>,
+    ): readonly LibraryToken<any>[] {
+        let index = dependentsIndexes.get(token.scope);
+
+        if (index?.version !== configurationVersion) {
+            const dependents = new Map<
+                LibraryToken<any>,
+                LibraryToken<any>[]
+            >();
+
+            for (const entry of walkEntries<any>(token.scope.tokens, [], {
+                whatToShow: "token",
+            })) {
+                if (entry.kind !== "token") {
+                    continue;
+                }
+
+                const dependent = libraryTokenOf(entry.token);
+
+                for (const dependency of LibraryToken.dependencies(dependent)) {
+                    const list = dependents.get(dependency);
+
+                    if (list) {
+                        list.push(dependent);
+                    } else {
+                        dependents.set(dependency, [dependent]);
+                    }
+                }
+            }
+
+            index = { version: configurationVersion, dependents };
+            dependentsIndexes.set(token.scope, index);
+        }
+
+        return index.dependents.get(token) ?? [];
     }
 }
 
@@ -1552,3 +1614,59 @@ function* walkEntries<R extends {}>(
         }
     }
 }
+
+/**
+ * The tokens whose values refer to a token, through refs anywhere in their
+ * configured values, including the arguments of their recipes, in the
+ * token's library. It is the reverse of {@link dependenciesOf}: each token is
+ * listed once, in the order of the library.
+ *
+ * @remarks
+ * These are the tokens that refer to the token directly. A token whose value
+ * may change when this one is set is also one that refers to one of those: a
+ * tool follows each with `dependentsOf()` for the whole set, as it follows
+ * {@link dependenciesOf} for the chain the other way.
+ *
+ * This reads the configured values and not the values, so it resolves no
+ * token, and so it is known of a library whose tokens have not been read. It
+ * is found for the whole library once and kept until a token is set to a
+ * different value, so each call after the first is a lookup. A value a recipe
+ * reads other than through its arguments is not seen, as for
+ * {@link dependenciesOf}.
+ *
+ * It throws when a ref in a token of the library isn't a token of it, as
+ * reading the token's `$value` does.
+ *
+ * @example
+ * ```ts
+ * // hover: { $value: Recipes.darken(theme.colors.primary, 0.2) }
+ * dependentsOf(library.tokens.colors.primary).map((token) => token.name);
+ * // ["colors.hover"]
+ *
+ * // Every token that may change when a token is set
+ * const affected = new Set<Library.Token<any, any>>();
+ * const visit = (token: Library.Token<any, any>) => {
+ *     for (const dependent of dependentsOf(token)) {
+ *         if (!affected.has(dependent)) {
+ *             affected.add(dependent);
+ *             visit(dependent);
+ *         }
+ *     }
+ * };
+ * visit(extension.tokens.color.context);
+ * ```
+ *
+ * @public
+ */
+export const dependentsOf = <
+    T extends DesignToken.Shape,
+    R extends {},
+    G extends string = never,
+>(
+    token: Library.Token<T, R, G>,
+): ReadonlyArray<Library.TokenRecord<R>> =>
+    // The tokens that refer to a token are of its library, of shape `R`: the
+    // config's types guarantee it.
+    Object.freeze([
+        ...LibraryToken.dependents(libraryTokenOf(token)),
+    ]) as ReadonlyArray<Library.TokenRecord<R>>;
