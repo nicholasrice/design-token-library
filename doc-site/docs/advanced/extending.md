@@ -38,6 +38,12 @@ Calling `.set()` on an inherited token **detaches** it from the source: later `s
 
 Chained `extend()` calls stack: changes on the original source propagate through intermediate libraries to the last one, including overrides applied in the middle of the chain.
 
+## Cost and lifetime
+
+An extension is cheap to make: its tokens are made when they are first read, except those its config gives, which are checked when `extend()` is called. Walking it with `entriesOf()`, writing its CSS or calling `dependentsOf()` on one of its tokens makes all of them.
+
+The library an extension extends refers to it only weakly, so an extension that nothing else refers to is collected, and its subscribers are no longer called. A design system can make an extension for each part of a page and drop it when the part goes. To keep getting notifications, keep the extension, not only its subscriber.
+
 ## Recipe overrides
 
 Pass recipe replacements in the second argument:
