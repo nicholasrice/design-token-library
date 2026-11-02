@@ -3,14 +3,38 @@ import { Library } from "./library.js";
 import { isToken } from "./utilities.js";
 
 /**
+ * The values of the custom properties of a token, by what is added to the
+ * name of the token's property with `-`: `""` is the token's own property,
+ * and `hover` is `--fill-hover` for a token named `fill`.
+ *
+ * @public
+ */
+export type CSSValues = { readonly [suffix: string]: string };
+
+/**
+ * What a {@link CSSConverter} returns: the value of the token's custom
+ * property, or {@link CSSValues} for a token written as more than one.
+ *
+ * @public
+ */
+export type CSSValue = string | CSSValues;
+
+/**
  * Converts a token value to a CSS value.
+ *
+ * @remarks
+ * A string is the value of the token's custom property, and is the same as
+ * `{ "": value }`. A converter returns {@link CSSValues} to write a token as
+ * more than one property, such as a value for each state of a component, or
+ * a typography value as a property for each of its fields. An empty record
+ * writes none.
  *
  * @public
  */
 export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (
     value: V,
     token: Library.Token<T, {}>,
-) => string;
+) => CSSValue;
 
 /**
  * A union of the custom tokens in a library of shape `T`: tokens whose
@@ -85,18 +109,29 @@ export interface CSSPropertiesOptions {
 }
 
 /**
+ * The converters that {@link toProperties} takes, by type.
+ *
+ * @public
+ */
+export type PropertiesConverters = {
+    readonly [type: string]: ((value: any, token: any) => CSSValue) | false;
+};
+
+/**
  * Options accepted by {@link toProperties}.
  *
  * @public
  */
-export interface ToPropertiesOptions extends CSSPropertiesOptions {
+export interface ToPropertiesOptions<
+    C extends PropertiesConverters = PropertiesConverters,
+> extends CSSPropertiesOptions {
     /**
      * The converters given to {@link toCSS}. A token whose custom type is `false`
      * isn't written by `toCSS`, so it has no custom property and is left out.
+     * A token whose converter returns {@link CSSValues} has a property for
+     * each of its keys.
      */
-    converters?: {
-        readonly [type: string]: ((value: any, token: any) => string) | false;
-    };
+    converters?: C;
 }
 
 /**
@@ -161,6 +196,25 @@ const defaultName: NameFn = (token) =>
 type RuntimeConverters = Readonly<Record<string, CSSConverter<any> | false>>;
 
 /**
+ * The values of a token's properties. A value that isn't a record, such as a
+ * number, which a standard type without a converter has, is written as a
+ * string, as it was before a converter could return a record.
+ */
+const valuesOf = (value: unknown): CSSValues =>
+    isValues(value) ? value : { "": String(value) };
+
+// A converter's result is typed by `CSSConverter`, so an object is a record.
+const isValues = (value: unknown): value is CSSValues =>
+    typeof value === "object" && value !== null;
+
+/**
+ * The custom property of a token named `name` for a key of its
+ * {@link CSSValues}.
+ */
+const propertyName = (name: string, suffix: string): `--${string}` =>
+    suffix === "" ? `--${name}` : `--${name}-${suffix}`;
+
+/**
  * @public
  */
 export interface CSSPropertyValues {
@@ -169,18 +223,48 @@ export interface CSSPropertyValues {
 }
 
 /**
- * A collection of {@link CSSPropertyValues} (`var` and `property` per token) that mirrors the
- * structure of the source {@link (Library:namespace).Library}.
+ * The {@link CSSPropertyValues} of a token of shape `T`, given the
+ * converters `C`: one for its property, or one for each key of the
+ * {@link CSSValues} its converter returns, where `""` is the token's own.
+ *
+ * @remarks
+ * The keys are known when the return type of the converter is inferred.
+ * When it isn't, such as for a converter typed {@link CSSConverter}, the
+ * token has the property of its own in the type, and the others at runtime.
  *
  * @public
  */
-export type CSSPropertiesLibrary<T extends {}> = {
+export type CSSPropertiesOf<T, C = {}> = T extends {
+    $type: infer N extends keyof C;
+}
+    ? C[N] extends (...args: any[]) => infer V
+        ? V extends string
+            ? CSSPropertyValues
+            : string extends keyof V
+              ? CSSPropertyValues
+              : ("" extends keyof V ? CSSPropertyValues : {}) & {
+                    readonly [P in Exclude<keyof V, "">]: CSSPropertyValues;
+                }
+        : CSSPropertyValues
+    : CSSPropertyValues;
+
+/**
+ * A collection of {@link CSSPropertyValues} (`var` and `property` per token) that mirrors the
+ * structure of the source {@link (Library:namespace).Library}.
+ *
+ * @remarks
+ * `C` is the converters given to {@link toProperties}, which name the
+ * properties of a token written as more than one, see {@link CSSPropertiesOf}.
+ *
+ * @public
+ */
+export type CSSPropertiesLibrary<T extends {}, C = {}> = {
     [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape
-        ? CSSPropertyValues
+        ? CSSPropertiesOf<T[K], C>
         : K extends keyof DesignToken.Group
           ? T[K]
           : T[K] extends {}
-            ? CSSPropertiesLibrary<T[K]>
+            ? CSSPropertiesLibrary<T[K], C>
             : never;
 };
 
@@ -192,35 +276,72 @@ export type CSSPropertiesLibrary<T extends {}> = {
  * not write (a custom type whose converter is `false`). They are still in the
  * {@link CSSPropertiesLibrary} type, but missing at runtime.
  *
+ * A token whose type has a converter in `converters` has a property for each
+ * key of the {@link CSSValues} it returns, so this reads the token's value to
+ * call it. Its own property is `var` and `property`, as for any token, and
+ * the one for `hover` is at `hover`, so a converter's keys can't be `var` or
+ * `property`.
+ *
+ * @example
+ * ```ts
+ * const properties = toProperties(library, {
+ *     converters: {
+ *         states: (value: States) => ({
+ *             "": convert("color", value.rest),
+ *             hover: convert("color", value.hover),
+ *         }),
+ *     },
+ * });
+ * properties.fill.var; // "var(--fill)"
+ * properties.fill.hover.var; // "var(--fill-hover)"
+ * ```
+ *
  * @public
  */
-export function toProperties<T extends Library.Library<any>>(
+export function toProperties<
+    T extends Library.Library<any>,
+    C extends PropertiesConverters = {},
+>(
     library: T,
-    options: ToPropertiesOptions = {},
-): CSSPropertiesLibrary<T["tokens"]> {
+    options: ToPropertiesOptions<C> = {},
+): CSSPropertiesLibrary<T["tokens"], C> {
     const getName = options.name ?? defaultName;
-    const converters: Readonly<Record<string, unknown>> =
-        options.converters ?? {};
+    const converters: PropertiesConverters = options.converters ?? {};
     const recurse = (
         section: Library.TokenLibrary<any>,
-        properties: CSSPropertiesLibrary<any>,
+        properties: Record<string, unknown>,
     ) => {
         for (const key in section) {
             const sectionValue: any = section[key];
 
             if (isToken(sectionValue)) {
+                const converter = converters[sectionValue.$type];
                 // `toCSS` doesn't write a token whose type is `false`.
-                if (converters[sectionValue.$type] === false) {
+                if (converter === false) {
                     continue;
                 }
 
-                const property = `--${getName(sectionValue)}`;
-                const propertyValue = Object.freeze({
-                    var: `var(${property})`,
-                    property,
-                });
+                const tokenName = getName(sectionValue);
+                const values = valuesOf(
+                    converter?.(sectionValue.$value, sectionValue) ?? "",
+                );
+                const propertyValues: Record<string, CSSPropertyValues> = {};
+                for (const suffix of Object.keys(values)) {
+                    if (suffix === "var" || suffix === "property") {
+                        throw new Error(
+                            `The converter of '${sectionValue.$type}' returns a value for '${suffix}' for token '${sectionValue.name}', which is the name of a field of its properties.`,
+                        );
+                    }
+                    const name = propertyName(tokenName, suffix);
+                    propertyValues[suffix] = Object.freeze({
+                        var: `var(${name})`,
+                        property: name,
+                    });
+                }
+
+                const { "": own, ...others } = propertyValues;
                 Reflect.defineProperty(properties, key, {
-                    value: propertyValue,
+                    value: Object.freeze({ ...own, ...others }),
                     enumerable: true,
                 });
             } else {
@@ -234,7 +355,7 @@ export function toProperties<T extends Library.Library<any>>(
         }
     };
 
-    const properties: CSSPropertiesLibrary<T["tokens"]> = {} as any;
+    const properties: CSSPropertiesLibrary<T["tokens"], C> = {} as any;
     recurse(library.tokens, properties);
 
     return Object.freeze(properties);
@@ -272,7 +393,10 @@ const recurseToCss = (
                     `No CSS converter provided for custom type '${type}' of token '${name}'.`,
                 );
             }
-            result += `--${getName(tokenOrGroup)}:${value};`;
+            const tokenName = getName(tokenOrGroup);
+            for (const [suffix, declared] of Object.entries(valuesOf(value))) {
+                result += `${propertyName(tokenName, suffix)}:${declared};`;
+            }
         } else {
             result += recurseToCss(tokenOrGroup, customConverters, getName);
         }
