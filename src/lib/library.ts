@@ -39,6 +39,10 @@ export namespace Library {
          * @remarks
          * This has no tokens to add, so a value is checked against the type
          * of its token wherever the token is.
+         *
+         * A token of the extension is made when it is first read, and an
+         * extension that nothing refers to is collected, along with its
+         * subscribers.
          */
         extend(
             config: ExtendConfig<T, R>,
@@ -47,6 +51,11 @@ export namespace Library {
         /**
          * Creates a library with the values of tokens replaced, new tokens,
          * and recipes overridden.
+         *
+         * @remarks
+         * A token of the extension is made when it is first read, and an
+         * extension that nothing refers to is collected, along with its
+         * subscribers.
          */
         extend<K extends NoRoot<K> = {}>(
             config: ExtendConfig<T, R & NewTokens<K, T>> &
@@ -781,10 +790,11 @@ const defineGroupMetadata = (
 const defineToken = (
     library: RawLibrary,
     key: string,
-    token: Library.Token<any, any>,
+    get: () => Library.Token<any, any>,
 ): void => {
     Reflect.defineProperty(library, key, {
         get() {
+            const token = get();
             // Token access is tracked because a ref reads its token from
             // the library
             Watcher.track(token);
@@ -857,11 +867,15 @@ const recurseCreate = (
             recurseCreate(_name, group, config[key], scope, typeContext, queue);
             Object.freeze(group);
         } else if (isToken(config[key])) {
-            defineToken(
-                library,
+            const token = createToken(
                 key,
-                createToken(key, _name, config[key], scope, typeContext, queue),
+                _name,
+                config[key],
+                scope,
+                typeContext,
+                queue,
             );
+            defineToken(library, key, () => token);
         }
     }
 };
@@ -874,6 +888,7 @@ const recurseExtend = (
     scope: Scope,
     typeContext: string | null,
     queue: IQueue<Library.Token<DesignToken.Any, any>>,
+    inherited: InheritedToken[],
 ): void => {
     // An extension can restate a group's type, or give one to a group that
     // has none, but can't change it, as for a token.
@@ -905,26 +920,28 @@ const recurseExtend = (
 
     for (const key of keys) {
         const _name = name.length === 0 ? key : `${name}.${key}`;
-        const sourceHasKey = key in sourceTokens;
-        const sourceValue = sourceTokens[key];
+        const source = Reflect.getOwnPropertyDescriptor(sourceTokens, key);
         const configValue = config[key];
 
-        if (sourceHasKey ? isGroup(sourceValue) : isGroup(configValue)) {
+        // A group of the source is a data property and a token an accessor,
+        // so telling them apart doesn't make the token of an extension.
+        if (source ? "value" in source : isGroup(configValue)) {
             const group = {};
             Reflect.defineProperty(extendedTokens, key, {
                 value: group,
                 enumerable: true,
             });
 
-            if (sourceHasKey) {
+            if (source) {
                 recurseExtend(
                     _name,
-                    sourceValue as RawLibrary,
+                    source.value as RawLibrary,
                     group,
                     configValue || {},
                     scope,
                     typeContext,
                     queue,
+                    inherited,
                 );
             } else {
                 recurseCreate(
@@ -937,32 +954,138 @@ const recurseExtend = (
                 );
             }
             Object.freeze(group);
-        } else if (sourceHasKey ? isToken(sourceValue) : isToken(configValue)) {
-            const token = sourceHasKey
-                ? extendToken(
-                      sourceValue as Library.Token<any, any>,
-                      scope,
-                      queue,
-                      configValue,
-                  )
-                : createToken(
-                      key,
-                      _name,
-                      configValue,
-                      scope,
-                      typeContext,
-                      queue,
-                  );
-            defineToken(extendedTokens, key, token);
+        } else if (source) {
+            const token = new InheritedToken(
+                () => untracked(() => sourceTokens[key]),
+                scope,
+                queue,
+                configValue,
+            );
+            // A token the extension configures is made now, so its config
+            // is checked when the library is.
+            if (configValue !== undefined) {
+                token.get();
+            }
+            if (configValue === undefined || !("$value" in configValue)) {
+                inherited.push(token);
+            }
+            defineToken(extendedTokens, key, () => token.get());
+        } else if (isToken(configValue)) {
+            const token = createToken(
+                key,
+                _name,
+                configValue,
+                scope,
+                typeContext,
+                queue,
+            );
+            defineToken(extendedTokens, key, () => token);
         }
     }
 };
+
+/**
+ * Reads without the read being tracked by the token that is resolving.
+ */
+const untracked = <T>(read: () => T): T => {
+    const stopWatching = Watcher.use({ watch() {} });
+
+    try {
+        return read();
+    } finally {
+        stopWatching();
+    }
+};
+
+/**
+ * Unsubscribes the link of a collected {@link InheritedToken} from its
+ * source token.
+ */
+const links = new FinalizationRegistry<() => void>((unlink) => unlink());
+
+/**
+ * The token of an extension for a token of the library it extends. It is
+ * made when it is first read, so an extension costs what it reads (#113).
+ *
+ * Until it is set, it has the value of its source token and follows its
+ * changes, through a link on the source token that holds it weakly: the
+ * library it extends doesn't keep an extension alive that nothing else
+ * refers to. It follows once it is made, or once its extension has a
+ * subscriber, which is told of a change to a token it hasn't read.
+ */
+class InheritedToken {
+    private token: LibraryToken<any> | null = null;
+    private unlink: (() => void) | null = null;
+    private detached: boolean;
+
+    constructor(
+        private readonly source: () => LibraryToken<any>,
+        private readonly scope: Scope,
+        private readonly queue: IQueue<Library.Token<DesignToken.Any, any>>,
+        private readonly node: RawConfig | undefined,
+    ) {
+        // An override has a value of its own.
+        this.detached = node !== undefined && "$value" in node;
+    }
+
+    public get(): LibraryToken<any> {
+        if (this.token !== null) {
+            return this.token;
+        }
+
+        const token = extendToken(
+            this.source(),
+            this.scope,
+            this.queue,
+            this.node,
+            this,
+        );
+        this.token = token;
+        this.follow();
+
+        return token;
+    }
+
+    public follow(): void {
+        if (this.unlink !== null || this.detached) {
+            return;
+        }
+
+        // The link holds only a weak reference, so that the registry can
+        // collect this token, and nothing that refers to it.
+        const target = new WeakRef(this);
+        const notifier = getNotifier(this.source());
+        const link: ISubscriber<unknown> = {
+            onChange() {
+                target.deref()?.get().onChange();
+            },
+        };
+        const unlink = () => notifier.unsubscribe(link);
+
+        notifier.subscribe(link);
+        links.register(this, unlink, link);
+        this.unlink = () => {
+            unlink();
+            links.unregister(link);
+        };
+    }
+
+    /**
+     * Stops following the source token, when the token is set.
+     */
+    public detach(): void {
+        this.unlink?.();
+        this.unlink = null;
+        this.detached = true;
+    }
+}
 
 function extendToken(
     token: Library.Token<any, any>,
     scope: Scope,
     queue: IQueue<any>,
-    node?: Record<string, any>,
+    node: Record<string, any> | undefined,
+    inherited: InheritedToken,
 ) {
     if (node?.$type !== undefined && node.$type !== token.$type) {
         throw new Error(
@@ -995,21 +1118,12 @@ function extendToken(
     if (node !== undefined && "$value" in node) {
         extendingToken.raw = node.$value;
     } else {
-        // Subscribe to changes
-        // spy on set, unsubscribe when set
-        const subscriber: ISubscriber<Library.Token<any, any>> = {
-            onChange() {
-                extendingToken.onChange();
-            },
-        };
-        // token.$value;
-        getNotifier(token).subscribe(subscriber);
         // Not extendingToken.set: when the extended token is an extension
         // that hasn't been set, that is the extended token's own wrapper,
         // which sets the extended token.
         const set = LibraryToken.prototype.set;
         extendingToken.set = (value: any) => {
-            getNotifier(token).unsubscribe(subscriber);
+            inherited.detach();
             // Own the inherited value, so set() detaches even when the
             // new value is identical and doesn't notify.
             extendingToken.raw = extendingToken.raw;
@@ -1155,15 +1269,32 @@ const assertNoRoot = (config: RawConfig): void => {
 class LibraryImpl implements Library.Library<any> {
     public readonly tokens: RawLibrary;
 
+    /**
+     * The inherited tokens of an extension. Each follows its source token
+     * once it is read, and all of them once the library has a subscriber,
+     * after which this is null.
+     */
+    private inherited: readonly InheritedToken[] | null;
+
     constructor(
         private readonly scope: Scope,
         private readonly queue: IQueue<Library.Token<any, any>>,
+        inherited: readonly InheritedToken[] = [],
     ) {
         this.tokens = scope.tokens;
+        this.inherited = inherited;
         // Groups are frozen as they are built; the root is frozen here.
         Object.freeze(this.tokens);
     }
     public subscribe(subscriber: Library.Subscriber<any>) {
+        // A subscriber is told of a change to a token of the source that the
+        // extension hasn't read.
+        if (this.inherited !== null) {
+            for (const token of this.inherited) {
+                token.follow();
+            }
+            this.inherited = null;
+        }
         this.queue.subscribe(subscriber);
     }
     public unsubscribe(subscriber: Library.Subscriber<any>) {
@@ -1186,6 +1317,7 @@ class LibraryImpl implements Library.Library<any> {
             configurationVersion: 0,
             source: this.scope,
         };
+        const inherited: InheritedToken[] = [];
         recurseExtend(
             "",
             this.tokens,
@@ -1194,9 +1326,10 @@ class LibraryImpl implements Library.Library<any> {
             scope,
             null,
             queue,
+            inherited,
         );
 
-        return new LibraryImpl(scope, queue);
+        return new LibraryImpl(scope, queue, inherited);
     }
 
     public static create(config: RawConfig): LibraryImpl {
