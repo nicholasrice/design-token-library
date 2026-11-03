@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The published typings (`types` / `exports.types`) are `dist/lib/index.d.ts` again, as in 0.2.0. In 0.3.0 they were the API Extractor rollup `dist/lib/public.d.ts`, trimmed to what is tagged `@public`, which left out the `@internal` types that public types are written in terms of (`DesignToken.Shape`, `ValueByToken`, the `REF` key of a ref). Their uses didn't resolve, so `refs<T>()` of a group had no members, any object was a `Ref`, and `Library.create`, which the rollup hides, was missing.
 
+### Changed
+
+- `npm run build` ends with `typings:check`, which compiles `typings-check/consumer.ts`, written as a consumer of the package, against the published typings with `strict` and without `skipLibCheck`, so typings that don't resolve fail the build and the release.
+
 ## [0.3.0] - 2026-11-03
 
 ### Added
