@@ -7,7 +7,7 @@
     "main": "./dist/lib/index.js",
     "exports": {
         ".": {
-            "types": "./dist/lib/public.d.ts",
+            "types": "./dist/lib/index.d.ts",
             "default": "./dist/lib/index.js"
         }
     },
@@ -15,7 +15,7 @@
         "./dist/lib/**.*",
         "CHANGELOG.md"
     ],
-    "types": "./dist/lib/public.d.ts",
+    "types": "./dist/lib/index.d.ts",
     "scripts": {
         "build": "tsc -b && npm run api-report:check",
         "watch": "tsc -b -w",
