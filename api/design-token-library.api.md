@@ -28,7 +28,7 @@ export type ConvertersOf<C> = {
 };
 
 // @public
-export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (value: V, token: Library.Token<T, {}>) => string;
+export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (value: V, token: Library.Token<T, {}>) => CSSValue;
 
 // @public
 export type CSSConverterEntries<T> = {
@@ -46,9 +46,16 @@ export type CSSOptions<T> = CSSPropertiesOptions & ([CustomTokensOf<T>] extends 
 });
 
 // @public
-export type CSSPropertiesLibrary<T extends {}> = {
-    [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape ? CSSPropertyValues : K extends keyof DesignToken.Group ? T[K] : T[K] extends {} ? CSSPropertiesLibrary<T[K]> : never;
+export type CSSPropertiesLibrary<T extends {}, C = {}> = {
+    [K in keyof Readonly<T>]: T[K] extends DesignToken.Shape ? CSSPropertiesOf<T[K], C> : K extends keyof DesignToken.Group ? T[K] : T[K] extends {} ? CSSPropertiesLibrary<T[K], C> : never;
 };
+
+// @public
+export type CSSPropertiesOf<T, C = {}> = T extends {
+    $type: infer N extends keyof C;
+} ? C[N] extends (...args: any[]) => infer V ? V extends string ? CSSPropertyValues : string extends keyof V ? CSSPropertyValues : ("" extends keyof V ? CSSPropertyValues : {}) & {
+    readonly [P in Exclude<keyof V, "">]: CSSPropertyValues;
+} : CSSPropertyValues : CSSPropertyValues;
 
 // @public
 export interface CSSPropertiesOptions {
@@ -62,6 +69,14 @@ export interface CSSPropertyValues {
     // (undocumented)
     readonly var: `var(--${string})`;
 }
+
+// @public
+export type CSSValue = string | CSSValues;
+
+// @public
+export type CSSValues = {
+    readonly [suffix: string]: string;
+};
 
 // @public
 export type CustomTokensOf<T> = Exclude<Library.TokensOf<T>, {
@@ -584,6 +599,11 @@ export const override: <A extends unknown[], V>(recipe: Library.Recipe<A, V>, fn
 export const pathOf: (ref: Library.Ref<unknown, never>) => readonly string[];
 
 // @public
+export type PropertiesConverters = {
+    readonly [type: string]: ((value: any, token: any) => CSSValue) | false;
+};
+
+// @public
 export const px: (value: number) => DesignToken.Values.Dimension;
 
 // @public
@@ -615,13 +635,11 @@ export function toCSS<T extends {}, R extends {}>(library: Library.Library<T, R>
 export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never] ? [options?: CSSOptions<T>] : [options: CSSOptions<T>];
 
 // @public
-export function toProperties<T extends Library.Library<any>>(library: T, options?: ToPropertiesOptions): CSSPropertiesLibrary<T["tokens"]>;
+export function toProperties<T extends Library.Library<any>, C extends PropertiesConverters = {}>(library: T, options?: ToPropertiesOptions<C>): CSSPropertiesLibrary<T["tokens"], C>;
 
 // @public
-export interface ToPropertiesOptions extends CSSPropertiesOptions {
-    converters?: {
-        readonly [type: string]: ((value: any, token: any) => string) | false;
-    };
+export interface ToPropertiesOptions<C extends PropertiesConverters = PropertiesConverters> extends CSSPropertiesOptions {
+    converters?: C;
 }
 
 // (No @packageDocumentation comment for this package)
