@@ -3,6 +3,7 @@ export {
     CircularReferenceError,
     Library,
     configuredValueOf,
+    entriesOf,
     dependenciesOf,
 } from "./library.js";
 export { isComputed, override, recipes } from "./recipe.js";
