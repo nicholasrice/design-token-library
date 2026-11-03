@@ -1402,10 +1402,6 @@ class LibraryToken<T extends DesignToken.Any>
             for (const entry of walkEntries<any>(token.scope.tokens, [], {
                 whatToShow: "token",
             })) {
-                if (entry.kind !== "token") {
-                    continue;
-                }
-
                 const dependent = libraryTokenOf(entry.token);
 
                 for (const dependency of LibraryToken.dependencies(dependent)) {
@@ -1613,6 +1609,21 @@ function* walkEntries<R extends {}>(
             yield* walkEntries(child, childPath, options);
         }
     }
+function walkEntries<R extends {}>(
+    node: RawLibrary,
+    path: readonly string[],
+    options: Library.EntriesOptions<"token", R> & { whatToShow: "token" },
+): Generator<Library.TokenEntry<R>, void, undefined>;
+function walkEntries<R extends {}>(
+    node: RawLibrary,
+    path: readonly string[],
+    options: Library.EntriesOptions<"group", R> & { whatToShow: "group" },
+): Generator<Library.GroupEntry, void, undefined>;
+function walkEntries<R extends {}>(
+    node: RawLibrary,
+    path: readonly string[],
+    options: Library.EntriesOptions<Library.Show, R>,
+): Generator<Library.EntryOf<"all", R>, void, undefined>;
 }
 
 /**
