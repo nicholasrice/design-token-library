@@ -71,6 +71,9 @@ export type CustomTokensOf<T> = Exclude<Library.TokensOf<T>, {
 // @public
 export const dependenciesOf: <T extends DesignToken.Shape, R extends {}, G extends string = never>(token: Library.Token<T, R, G>) => ReadonlyArray<Library.TokenRecord<R>>;
 
+// @public
+export const dependentsOf: <T extends DesignToken.Shape, R extends {}, G extends string = never>(token: Library.Token<T, R, G>) => ReadonlyArray<Library.TokenRecord<R>>;
+
 // @public (undocumented)
 export namespace DesignToken {
     // @internal (undocumented)

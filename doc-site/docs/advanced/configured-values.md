@@ -62,3 +62,27 @@ dependenciesOf(library.tokens.colors.hover).map((token) => token.name);
 ```
 
 It lists only the tokens the value is made from, not theirs in turn. A value that a recipe computes from literal arguments only has no dependencies, though it's derived, so use `configuredValueOf()` to tell given tokens from derived ones.
+
+## `dependentsOf()`
+
+[`dependentsOf(token)`](/design-token-library/api-reference/design-token-library.dependentsof) is the reverse of [`dependenciesOf()`](/design-token-library/api-reference/design-token-library.dependenciesof): the tokens whose configured values refer to a token, directly, in the token's own library.
+
+A token learns what its value depends on when it is read, so an [extended](./extending) library that hasn't been read notifies only the token that was set. `dependentsOf()` reads no values, so a tool finds what a change may reach without reading the library. Follow the dependents for all of them:
+
+```ts
+import { dependentsOf } from "design-token-library";
+
+const affected = new Set<Library.Token<any, any>>();
+const visit = (token: Library.Token<any, any>) => {
+  for (const dependent of dependentsOf(token)) {
+    if (!affected.has(dependent)) {
+      affected.add(dependent);
+      visit(dependent);
+    }
+  }
+};
+
+visit(scope.tokens.color.context); // the tokens `set()` on the context may change
+```
+
+The first call finds the dependents of the whole library, and each call after is a lookup until a token is set to a different value. As for `dependenciesOf()`, a value that a recipe reads other than through its arguments, or that is kept as data the library doesn't resolve, is not seen.
