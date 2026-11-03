@@ -661,6 +661,18 @@ type RawLibrary = { [key: string]: any };
  */
 interface Scope {
     readonly tokens: RawLibrary;
+    /**
+     * Counts the changes to the configured value of any of the library's
+     * tokens, so what is derived from the values of the whole library is known
+     * to be out of date. Each library counts its own, so unrelated libraries
+     * don't invalidate each other; see {@link configurationVersionOf}.
+     */
+    configurationVersion: number;
+    /**
+     * The scope of the library this one extends: its tokens take their
+     * configured values from that library's until they are set.
+     */
+    readonly source?: Scope;
     readonly recipes: ReadonlyMap<
         Library.Recipe<any, unknown>,
         (...args: any[]) => unknown
@@ -689,10 +701,19 @@ export class CircularReferenceError extends Error {
 }
 
 /**
- * Counts the changes to any token's configured value, so what is derived
- * from the values of a whole library is known to be out of date.
+ * The changes to the configured values in a library's tokens: its own, and
+ * those of the libraries it extends, whose values it takes until its tokens
+ * are set.
  */
-let configurationVersion = 0;
+const configurationVersionOf = (scope: Scope): number => {
+    let version = 0;
+
+    for (let s: Scope | undefined = scope; s; s = s.source) {
+        version += s.configurationVersion;
+    }
+
+    return version;
+};
 
 /**
  * For a library's tokens, the tokens whose configured values refer to each,
@@ -1159,7 +1180,12 @@ class LibraryImpl implements Library.Library<any> {
         for (const { recipe, fn } of options.recipes ?? []) {
             recipes.set(recipe, fn);
         }
-        const scope: Scope = { tokens: {}, recipes };
+        const scope: Scope = {
+            tokens: {},
+            recipes,
+            configurationVersion: 0,
+            source: this.scope,
+        };
         recurseExtend(
             "",
             this.tokens,
@@ -1176,7 +1202,11 @@ class LibraryImpl implements Library.Library<any> {
     public static create(config: RawConfig): LibraryImpl {
         assertNoRoot(config);
         const queue = new Queue();
-        const scope: Scope = { tokens: {}, recipes: new Map() };
+        const scope: Scope = {
+            tokens: {},
+            recipes: new Map(),
+            configurationVersion: 0,
+        };
         recurseCreate("", scope.tokens, config, scope, null, queue);
 
         return new LibraryImpl(scope, queue);
@@ -1303,7 +1333,7 @@ class LibraryToken<T extends DesignToken.Any>
         }
 
         this.raw = value;
-        configurationVersion++;
+        this.scope.configurationVersion++;
         this.onChange();
     }
 
@@ -1391,9 +1421,10 @@ class LibraryToken<T extends DesignToken.Any>
     public static dependents(
         token: LibraryToken<any>,
     ): readonly LibraryToken<any>[] {
+        const version = configurationVersionOf(token.scope);
         let index = dependentsIndexes.get(token.scope);
 
-        if (index?.version !== configurationVersion) {
+        if (index?.version !== version) {
             const dependents = new Map<
                 LibraryToken<any>,
                 LibraryToken<any>[]
@@ -1415,7 +1446,7 @@ class LibraryToken<T extends DesignToken.Any>
                 }
             }
 
-            index = { version: configurationVersion, dependents };
+            index = { version, dependents };
             dependentsIndexes.set(token.scope, index);
         }
 
@@ -1578,6 +1609,21 @@ export function entriesOf<T extends {}, R extends {}>(
     return walkEntries(library.tokens, [], options);
 }
 
+function walkEntries<R extends {}>(
+    node: RawLibrary,
+    path: readonly string[],
+    options: Library.EntriesOptions<"token", R> & { whatToShow: "token" },
+): Generator<Library.TokenEntry<R>, void, undefined>;
+function walkEntries<R extends {}>(
+    node: RawLibrary,
+    path: readonly string[],
+    options: Library.EntriesOptions<"group", R> & { whatToShow: "group" },
+): Generator<Library.GroupEntry, void, undefined>;
+function walkEntries<R extends {}>(
+    node: RawLibrary,
+    path: readonly string[],
+    options: Library.EntriesOptions<Library.Show, R>,
+): Generator<Library.EntryOf<"all", R>, void, undefined>;
 function* walkEntries<R extends {}>(
     node: RawLibrary,
     path: readonly string[],
@@ -1609,21 +1655,6 @@ function* walkEntries<R extends {}>(
             yield* walkEntries(child, childPath, options);
         }
     }
-function walkEntries<R extends {}>(
-    node: RawLibrary,
-    path: readonly string[],
-    options: Library.EntriesOptions<"token", R> & { whatToShow: "token" },
-): Generator<Library.TokenEntry<R>, void, undefined>;
-function walkEntries<R extends {}>(
-    node: RawLibrary,
-    path: readonly string[],
-    options: Library.EntriesOptions<"group", R> & { whatToShow: "group" },
-): Generator<Library.GroupEntry, void, undefined>;
-function walkEntries<R extends {}>(
-    node: RawLibrary,
-    path: readonly string[],
-    options: Library.EntriesOptions<Library.Show, R>,
-): Generator<Library.EntryOf<"all", R>, void, undefined>;
 }
 
 /**

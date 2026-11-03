@@ -137,6 +137,28 @@ Dependents("follow a token set to a value with other refs", () => {
     ]);
 });
 
+Dependents("are of one library: a set in another doesn't change them", () => {
+    const first = theme();
+    const second = theme();
+
+    Assert.equal(names(dependentsOf(first.tokens.colors.primary)), [
+        "colors.alias",
+        "colors.hover",
+    ]);
+
+    second.tokens.colors.other.set($.colors.primary);
+
+    Assert.equal(names(dependentsOf(first.tokens.colors.primary)), [
+        "colors.alias",
+        "colors.hover",
+    ]);
+    Assert.equal(names(dependentsOf(second.tokens.colors.primary)), [
+        "colors.alias",
+        "colors.hover",
+        "colors.other",
+    ]);
+});
+
 Dependents("follow what an extension overrides", () => {
     const extended = theme().extend({
         colors: { hover: { $value: hex("#111111") } },
