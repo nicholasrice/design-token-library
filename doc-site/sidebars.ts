@@ -28,6 +28,7 @@ const sidebars: SidebarsConfig = {
         "advanced/extending",
         "advanced/subscriptions",
         "advanced/custom-types",
+        "advanced/configured-values",
       ],
     },
     {

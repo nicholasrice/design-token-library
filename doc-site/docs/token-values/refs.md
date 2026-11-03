@@ -27,4 +27,4 @@ const theme = refs<Colors>();
 alias: { $type: DesignToken.Type.Color, $value: theme.static },
 ```
 
-A ref is data (the path). The library distinguishes refs from other values with a symbol key, not by inspecting the value, so functions, class instances, and other objects remain ordinary values.
+A ref is data (the path). The library distinguishes refs from other values with a symbol key, not by inspecting the value, so functions, class instances, and other objects remain ordinary values. A token's `$value` has its refs resolved; to read them, see [Configured values](../advanced/configured-values).
