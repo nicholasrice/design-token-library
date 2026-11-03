@@ -39,6 +39,51 @@ Alias("a ref made by ref() and by refs() resolve the same", () => {
     Assert.equal(library.tokens.byRefs.$value, hex("#111111"));
 });
 
+Alias("a ref resolves to its token's value, not a copy of it", () => {
+    interface Theme {
+        a: DesignToken.Color;
+        b: DesignToken.Color;
+        border: DesignToken.Border;
+    }
+    const $ = refs<Theme>();
+    const library = Library.create<Theme>({
+        a: { $type: C, $value: hex("#111111") },
+        b: { $type: C, $value: $.a },
+        border: {
+            $type: DesignToken.Type.Border,
+            $value: { color: $.a, width: px(1), style: "solid" },
+        },
+    });
+
+    Assert.is(library.tokens.b.$value, library.tokens.a.$value);
+    Assert.is(library.tokens.border.$value.color, library.tokens.a.$value);
+});
+
+Alias(
+    "a recipe gets the value of a token that an argument refers to, not a copy of it",
+    () => {
+        interface Theme {
+            a: DesignToken.Color;
+            b: DesignToken.Color;
+        }
+        const $ = refs<Theme>();
+        const received: unknown[] = [];
+        const { same } = Package.recipes({
+            same: (color: DesignToken.Values.Readonly.Color) => {
+                received.push(color);
+                return color;
+            },
+        });
+        const library = Library.create<Theme>({
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: same($.a) },
+        });
+
+        library.tokens.b.$value;
+        Assert.is(received[0], library.tokens.a.$value);
+    },
+);
+
 Alias("a ref can refer to a token in a different group", () => {
     interface Theme {
         colors: { $type: DesignToken.Type.Color; primary: DesignToken.Color };
