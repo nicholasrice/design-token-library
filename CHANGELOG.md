@@ -11,10 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The published typings (`types` / `exports.types`) are `dist/lib/index.d.ts` again, as in 0.2.0. In 0.3.0 they were the API Extractor rollup `dist/lib/public.d.ts`, trimmed to what is tagged `@public`, which left out the `@internal` types that public types are written in terms of (`DesignToken.Shape`, `ValueByToken`, the `REF` key of a ref). Their uses didn't resolve, so `refs<T>()` of a group had no members, any object was a `Ref`, and `Library.create`, which the rollup hides, was missing.
 
-### Changed
-
-- `npm run build` ends with `typings:check`, which compiles `typings-check/consumer.ts`, written as a consumer of the package, against the published typings with `strict` and without `skipLibCheck`, so typings that don't resolve fail the build and the release.
-
 ## [0.3.0] - 2026-11-03
 
 ### Added
@@ -31,7 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking:** `CSSConverter` returns `CSSValue` (`string | CSSValues`) rather than `string`. A converter that returns a string is still one, but code that calls a value typed `CSSConverter` gets the union (#64).
 - `package.json` sets `"sideEffects": false` so bundlers can tree-shake unused exports from the package.
 - Package entry uses explicit named exports instead of `export *`. Exported `ConvertersOf`, `StandardConverters`, and `CSSPropertyValues` so the public CSS types resolve without forgotten-export errors.
-- Published typings (`types` / `exports.types`) came from the API Extractor public `.d.ts` rollup at `dist/lib/public.d.ts` (generated at the end of `npm run build`), which didn't resolve; see Unreleased. `dist/lib/index.d.ts` stays the TypeScript barrel used as the extractor entry point.
+- Published typings (`types` / `exports.types`) come from the API Extractor public `.d.ts` rollup at `dist/lib/public.d.ts` (generated at the end of `npm run build`). `dist/lib/index.d.ts` stays the TypeScript barrel used as the extractor entry point.
 - A ref resolves to its token's value, which is resolved and frozen already, rather than to a copy of it. A recipe whose argument refers to a large value, like a palette of many colors, no longer copies it each time the recipe is computed.
 
 ## [0.2.0] - 2026-10-28

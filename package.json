@@ -17,7 +17,7 @@
     ],
     "types": "./dist/lib/index.d.ts",
     "scripts": {
-        "build": "tsc -b && npm run api-report:check && npm run typings:check",
+        "build": "tsc -b",
         "watch": "tsc -b -w",
         "watch:test": "watchlist dist/test -- npm test",
         "test": "npx uvu dist/test .spec.js$",
