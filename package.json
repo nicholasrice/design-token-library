@@ -7,7 +7,7 @@
     "main": "./dist/lib/index.js",
     "exports": {
         ".": {
-            "types": "./dist/lib/public.d.ts",
+            "types": "./dist/lib/index.d.ts",
             "default": "./dist/lib/index.js"
         }
     },
