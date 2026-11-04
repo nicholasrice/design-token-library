@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- The published typings (`types` / `exports.types`) are `dist/lib/index.d.ts` again, as in 0.2.0. In 0.3.0 they were the API Extractor rollup `dist/lib/public.d.ts`, trimmed to what is tagged `@public`, which left out the `@internal` types that public types are written in terms of (`DesignToken.Shape`, `ValueByToken`, the `REF` key of a ref). Their uses didn't resolve, so `refs<T>()` of a group had no members, any object was a `Ref`, and `Library.create`, which the rollup hides, was missing.
+
 ## [0.3.0] - 2026-11-03
 
 ### Added
