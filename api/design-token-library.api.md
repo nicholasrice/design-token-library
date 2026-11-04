@@ -39,7 +39,9 @@ export type CSSConverterEntries<T> = {
 export type CSSConverters<T> = ConvertersOf<CustomTokensOf<T>>;
 
 // @public
-export type CSSOptions<T> = CSSPropertiesOptions & ([CustomTokensOf<T>] extends [never] ? {
+export type CSSOptions<T> = CSSPropertiesOptions & {
+    filter?(token: Library.Token<any, any>): boolean;
+} & ([CustomTokensOf<T>] extends [never] ? {
     converters?: StandardConverters;
 } : {
     converters: CSSConverterEntries<T> & StandardConverters;

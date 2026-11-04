@@ -838,6 +838,48 @@ overrideSuite("it is used next to the converters of custom types", () => {
     );
 });
 
+toCssSuite("filter writes only the tokens it accepts", () => {
+    const library = Library.create<{
+        a: DesignToken.Number;
+        group: { b: DesignToken.Number; c: DesignToken.Number };
+    }>({
+        a: { $type: DesignToken.Type.Number, $value: 1 },
+        group: {
+            b: { $type: DesignToken.Type.Number, $value: 2 },
+            c: { $type: DesignToken.Type.Number, $value: 3 },
+        },
+    });
+
+    Assert.is(
+        toCSS(library, { filter: (token) => token.name !== "group.b" }),
+        "--a:1;--group-c:3;",
+    );
+});
+toCssSuite("filter leaves out a token without reading it", () => {
+    const library = Library.create<{
+        a: DesignToken.Number;
+        custom: DesignToken.Custom<"custom", string>;
+    }>({
+        a: { $type: DesignToken.Type.Number, $value: 1 },
+        custom: { $type: "custom", $value: "x" },
+    });
+    let converted = false;
+
+    Assert.is(
+        toCSS(library, {
+            converters: {
+                custom: () => {
+                    converted = true;
+                    return "x";
+                },
+            },
+            filter: (token) => token.$type !== "custom",
+        }),
+        "--a:1;",
+    );
+    Assert.not(converted);
+});
+
 toCssSuite.run();
 toPropertiesSuite.run();
 convertSuite.run();
