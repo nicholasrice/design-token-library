@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- `types` and `exports["."].types` point at `dist/lib/index.d.ts`, not the API Extractor rollup `dist/lib/public.d.ts`. The rollup trimmed `@internal` declarations that public signatures refer to, such as `DesignToken.Shape`, so those references didn't resolve in consumers' typings (0.3.0).
+
 ## [0.3.0] - 2026-11-03
 
 ### Added
