@@ -53,18 +53,11 @@ export type CustomTokensOf<T> = Exclude<
  *
  * @public
  */
-export type CSSConverters<T> = ConvertersOf<CustomTokensOf<T>>;
-
-/**
- * @public
- */
-export type ConvertersOf<C> = {
-    [N in C extends { $type: infer N extends string } ? N : never]: C extends {
-        $type: N;
-    }
-        ? C extends DesignToken.Shape
-            ? CSSConverter<DesignToken.ReadonlyValueByToken<C>, C>
-            : never
+export type CSSConverters<T> = {
+    [C in CustomTokensOf<T> as C extends { $type: infer N extends string }
+        ? N
+        : never]: C extends DesignToken.Shape
+        ? CSSConverter<DesignToken.ReadonlyValueByToken<C>, C>
         : never;
 };
 
@@ -92,11 +85,12 @@ export type CSSConverterEntries<T> = {
 };
 
 /**
- * Options that control how custom properties are named.
+ * Options that control how custom properties are named, which {@link toCSS}
+ * and {@link toProperties} share.
  *
  * @public
  */
-export interface CSSPropertiesOptions {
+export interface CSSNameOptions {
     /**
      * Derives a token's custom property name, without the leading `--`.
      *
@@ -109,11 +103,14 @@ export interface CSSPropertiesOptions {
 }
 
 /**
- * The converters that {@link toProperties} takes, by type.
+ * Converters by token type, as the functions of this module read them at
+ * run time: a converter, or `false` for a type that isn't written.
+ * {@link ToCSSOptions} checks them against the library; this is the shape
+ * that {@link toProperties} takes, to read the keys of what they return.
  *
  * @public
  */
-export type PropertiesConverters = {
+export type CSSConverterMap = {
     readonly [type: string]: ((value: any, token: any) => CSSValue) | false;
 };
 
@@ -123,8 +120,8 @@ export type PropertiesConverters = {
  * @public
  */
 export interface ToPropertiesOptions<
-    C extends PropertiesConverters = PropertiesConverters,
-> extends CSSPropertiesOptions {
+    C extends CSSConverterMap = CSSConverterMap,
+> extends CSSNameOptions {
     /**
      * The converters given to {@link toCSS}. A token whose custom type is `false`
      * isn't written by `toCSS`, so it has no custom property and is left out.
@@ -146,7 +143,7 @@ export interface ToPropertiesOptions<
  *
  * @public
  */
-export type CSSOptions<T> = CSSPropertiesOptions & {
+export type ToCSSOptions<T> = CSSNameOptions & {
     /**
      * Whether a token is written. A token it returns `false` for isn't
      * converted, so its value isn't read, and its type needs no converter.
@@ -161,14 +158,14 @@ export type CSSOptions<T> = CSSPropertiesOptions & {
         : { converters: CSSConverterEntries<T> & StandardConverters });
 
 /**
- * The trailing arguments of {@link toCSS}: {@link CSSOptions} are
+ * The trailing arguments of {@link toCSS}: {@link ToCSSOptions} are
  * required when the library contains custom token types.
  *
  * @public
  */
 export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never]
-    ? [options?: CSSOptions<T>]
-    : [options: CSSOptions<T>];
+    ? [options?: ToCSSOptions<T>]
+    : [options: ToCSSOptions<T>];
 
 /**
  * Convert a library to CSS custom property declarations.
@@ -188,7 +185,7 @@ export function toCSS<T extends {}, R extends {}>(
     const converters: unknown = options?.converters ?? {};
     return recurseToCss(
         library.tokens,
-        converters as RuntimeConverters,
+        converters as CSSConverterMap,
         options?.name ?? defaultName,
         options?.filter,
     );
@@ -202,8 +199,6 @@ type NameFn = (token: Library.Token<any, any>) => string;
  */
 const defaultName: NameFn = (token) =>
     token.name.replace(/\.\$root$/, "").replaceAll(".", "-");
-
-type RuntimeConverters = Readonly<Record<string, CSSConverter<any> | false>>;
 
 /**
  * The values of a token's properties. A value that isn't a record, such as a
@@ -226,13 +221,13 @@ const propertyName = (name: string, suffix: string): `--${string}` =>
 /**
  * @public
  */
-export interface CSSPropertyValues {
+export interface CSSCustomProperty {
     readonly var: `var(--${string})`;
     readonly property: `--${string}`;
 }
 
 /**
- * The {@link CSSPropertyValues} of a token of shape `T`, given the
+ * The {@link CSSCustomProperty} of a token of shape `T`, given the
  * converters `C`: one for its property, or one for each key of the
  * {@link CSSValues} its converter returns, where `""` is the token's own.
  *
@@ -248,17 +243,17 @@ export type CSSPropertiesOf<T, C = {}> = T extends {
 }
     ? C[N] extends (...args: any[]) => infer V
         ? V extends string
-            ? CSSPropertyValues
+            ? CSSCustomProperty
             : string extends keyof V
-              ? CSSPropertyValues
-              : ("" extends keyof V ? CSSPropertyValues : {}) & {
-                    readonly [P in Exclude<keyof V, "">]: CSSPropertyValues;
+              ? CSSCustomProperty
+              : ("" extends keyof V ? CSSCustomProperty : {}) & {
+                    readonly [P in Exclude<keyof V, "">]: CSSCustomProperty;
                 }
-        : CSSPropertyValues
-    : CSSPropertyValues;
+        : CSSCustomProperty
+    : CSSCustomProperty;
 
 /**
- * A collection of {@link CSSPropertyValues} (`var` and `property` per token) that mirrors the
+ * A collection of {@link CSSCustomProperty} (`var` and `property` per token) that mirrors the
  * structure of the source {@link (Library:namespace).Library}.
  *
  * @remarks
@@ -309,13 +304,13 @@ export type CSSPropertiesLibrary<T extends {}, C = {}> = {
  */
 export function toProperties<
     T extends Library.Library<any>,
-    C extends PropertiesConverters = {},
+    C extends CSSConverterMap = {},
 >(
     library: T,
     options: ToPropertiesOptions<C> = {},
 ): CSSPropertiesLibrary<T["tokens"], C> {
     const getName = options.name ?? defaultName;
-    const converters: PropertiesConverters = options.converters ?? {};
+    const converters: CSSConverterMap = options.converters ?? {};
     const recurse = (
         section: Library.TokenLibrary<any>,
         properties: Record<string, unknown>,
@@ -334,7 +329,7 @@ export function toProperties<
                 const values = valuesOf(
                     converter?.(sectionValue.$value, sectionValue) ?? "",
                 );
-                const propertyValues: Record<string, CSSPropertyValues> = {};
+                const propertyValues: Record<string, CSSCustomProperty> = {};
                 for (const suffix of Object.keys(values)) {
                     if (suffix === "var" || suffix === "property") {
                         throw new Error(
@@ -376,7 +371,7 @@ const standardTypes: ReadonlySet<string> = new Set(
 
 const recurseToCss = (
     librarySection: { readonly [key: string]: any },
-    customConverters: RuntimeConverters,
+    customConverters: CSSConverterMap,
     getName: NameFn,
     filter: ((token: Library.Token<any, any>) => boolean) | undefined,
 ): string => {

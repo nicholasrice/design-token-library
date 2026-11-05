@@ -50,6 +50,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Breaking:** the CSS types are named for what they are. `CSSOptions<T>` is `ToCSSOptions<T>`, `CSSPropertiesOptions` (the `name` option both functions share) is `CSSNameOptions`, `PropertiesConverters` (converters by type, as `toProperties()` takes them) is `CSSConverterMap`, and `CSSPropertyValues` (the `var` and `property` of a token) is `CSSCustomProperty`, so it isn't taken for `CSSValues`, which a converter returns. `ConvertersOf` is removed, and `CSSConverters<T>` is made without it.
 - An extension makes its tokens when they are first read, or up front for those its config gives, rather than one for every token of the library when `extend()` is called (#113). The library an extension extends holds it weakly, so an extension that nothing refers to is collected, with its subscribers. With 600 tokens, `extend({})` takes about a fifth of the time, and 200 dropped extensions keep 0.1 MB rather than 93 MB. Walking an extension with `entriesOf()`, writing its CSS or `dependentsOf()` still makes all of its tokens.
 - **Breaking:** `CSSConverter` returns `CSSValue` (`string | CSSValues`) rather than `string`. A converter that returns a string is still one, but code that calls a value typed `CSSConverter` gets the union (#64).
 - `package.json` sets `"sideEffects": false` so bundlers can tree-shake unused exports from the package.
