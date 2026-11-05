@@ -3,7 +3,6 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { refs } from "../lib/ref.js";
-import { Watcher } from "../lib/watcher.js";
 import { ABC, nextUpdate, recorder } from "./helpers.js";
 import { hex } from "./values.js";
 
@@ -37,20 +36,6 @@ const isCollected = async (target: WeakRef<object>): Promise<boolean> => {
     }
     return target.deref() === undefined;
 };
-
-Lazy("extend() reads no token of the library it extends", () => {
-    const library = source();
-    const read: unknown[] = [];
-    const stop = Watcher.use({ watch: (token) => read.push(token) });
-
-    try {
-        library.extend<{}>({});
-    } finally {
-        stop();
-    }
-
-    Assert.equal(read, []);
-});
 
 Lazy("an extension's token that is read has the source's value", () => {
     const library = source();

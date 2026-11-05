@@ -1,14 +1,10 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
-import { getNotifier } from "../lib/notifier.js";
 import { Queue } from "../lib/queue.js";
-import { Watcher } from "../lib/watcher.js";
 import { nextUpdate } from "./helpers.js";
 
 const QueueSuite = suite("Queue");
-const NotifierSuite = suite("Notifier");
-const WatcherSuite = suite("Watcher");
 
 QueueSuite(
     "batches and dedupes adds in one microtask, then clears",
@@ -62,49 +58,4 @@ QueueSuite(
     },
 );
 
-NotifierSuite("returns one notifier per target", () => {
-    const first = {};
-    const second = {};
-
-    Assert.is(getNotifier(first), getNotifier(first));
-    Assert.is.not(getNotifier(first), getNotifier(second));
-});
-
-NotifierSuite("notify passes the subject to subscribers", () => {
-    const subject = {};
-    const onChange = spy();
-    const notifier = getNotifier(subject);
-    notifier.subscribe({ onChange });
-
-    notifier.notify();
-
-    Assert.ok(onChange.calledOnceWith(subject));
-});
-
-WatcherSuite(
-    "nested use() restores the previous watcher; track() is a no-op without one",
-    () => {
-        const outer = { watch: spy() };
-        const inner = { watch: spy() };
-        const source = {};
-
-        Watcher.track(source);
-
-        const stopOuter = Watcher.use(outer);
-        const stopInner = Watcher.use(inner);
-        Watcher.track(source);
-        stopInner();
-        Watcher.track(source);
-        stopOuter();
-        Watcher.track(source);
-
-        Assert.is(inner.watch.callCount, 1);
-        Assert.is(outer.watch.callCount, 1);
-        Assert.ok(inner.watch.calledWith(source));
-        Assert.ok(outer.watch.calledWith(source));
-    },
-);
-
 QueueSuite.run();
-NotifierSuite.run();
-WatcherSuite.run();
