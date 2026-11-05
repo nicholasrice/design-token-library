@@ -146,8 +146,17 @@ export interface ToPropertiesOptions<
  *
  * @public
  */
-export type CSSOptions<T> = CSSPropertiesOptions &
-    ([CustomTokensOf<T>] extends [never]
+export type CSSOptions<T> = CSSPropertiesOptions & {
+    /**
+     * Whether a token is written. A token it returns `false` for isn't
+     * converted, so its value isn't read, and its type needs no converter.
+     *
+     * @remarks
+     * A tool that knows which tokens changed, such as with
+     * `dependentsOf()`, writes only those.
+     */
+    filter?(token: Library.Token<any, any>): boolean;
+} & ([CustomTokensOf<T>] extends [never]
         ? { converters?: StandardConverters }
         : { converters: CSSConverterEntries<T> & StandardConverters });
 
@@ -181,6 +190,7 @@ export function toCSS<T extends {}, R extends {}>(
         library.tokens,
         converters as RuntimeConverters,
         options?.name ?? defaultName,
+        options?.filter,
     );
 }
 
@@ -369,12 +379,16 @@ const recurseToCss = (
     librarySection: { readonly [key: string]: any },
     customConverters: RuntimeConverters,
     getName: NameFn,
+    filter: ((token: Library.Token<any, any>) => boolean) | undefined,
 ): string => {
     let result = "";
     for (const key in librarySection) {
         const tokenOrGroup = librarySection[key];
 
         if (isToken(tokenOrGroup)) {
+            if (filter?.(tokenOrGroup) === false) {
+                continue;
+            }
             const { $type: type, name } = tokenOrGroup;
             let value = tokenOrGroup.$value;
 
@@ -398,7 +412,12 @@ const recurseToCss = (
                 result += `${propertyName(tokenName, suffix)}:${declared};`;
             }
         } else {
-            result += recurseToCss(tokenOrGroup, customConverters, getName);
+            result += recurseToCss(
+                tokenOrGroup,
+                customConverters,
+                getName,
+                filter,
+            );
         }
     }
 
