@@ -1013,6 +1013,8 @@ const links = new FinalizationRegistry<() => void>((unlink) => unlink());
  * refers to. It follows once it is made, or once its extension has a
  * subscriber, which is told of a change to a token it hasn't read.
  */
+const inheritedTokens = new WeakMap<LibraryToken<any>, InheritedToken>();
+
 class InheritedToken {
     private token: LibraryToken<any> | null = null;
     private unlink: (() => void) | null = null;
@@ -1041,6 +1043,7 @@ class InheritedToken {
             this,
         );
         this.token = token;
+        inheritedTokens.set(libraryTokenOf(token), this);
         this.follow();
 
         return token;
@@ -1068,6 +1071,14 @@ class InheritedToken {
             unlink();
             links.unregister(link);
         };
+    }
+
+    /**
+     * Whether the token has a value of its own: its extension gives one, or
+     * it is set.
+     */
+    public get hasValueOfItsOwn(): boolean {
+        return this.detached;
     }
 
     /**
@@ -1547,6 +1558,13 @@ class LibraryToken<T extends DesignToken.Any>
     }
 
     /**
+     * What the token's library resolves its values in.
+     */
+    public static scopeOf(token: LibraryToken<any>): Scope {
+        return token.scope;
+    }
+
+    /**
      * The tokens of the token's library whose configured values refer to it.
      * The index is made from the library's tokens once, and again after a
      * token is set to a different value.
@@ -1845,3 +1863,89 @@ export const dependentsOf = <
     Object.freeze([
         ...LibraryToken.dependents(libraryTokenOf(token)),
     ]) as ReadonlyArray<Library.TokenRecord<R>>;
+
+/**
+ * The tokens of an extension that differ from the library it extends: the
+ * tokens it gives a value, that are set in it or are new in it, and the
+ * tokens that depend on them, directly or through other tokens, in the order
+ * of the library.
+ *
+ * @remarks
+ * The other tokens have the values of the tokens they extend, which they
+ * follow, so a tool that writes the extension, as CSS inside the one it
+ * extends does, writes only these. A recipe that the extension replaces
+ * changes the tokens that call it, so they are in it too, with their
+ * dependents.
+ *
+ * It reads the configured values and not the values, so it resolves no
+ * token. It lists a token that depends on a token the extension sets even if
+ * its value turns out the same.
+ *
+ * For a library that doesn't extend another, every token is its own.
+ *
+ * @example
+ * ```ts
+ * const dark = library.extend({ color: { context: { $value: black } } });
+ * changesOf(dark).map((token) => token.name);
+ * // ["color.context", "color.fill", ...]: the token and what depends on it
+ * ```
+ *
+ * @public
+ */
+export const changesOf = <T extends {}, R extends {}>(
+    library: Library.Library<T, R>,
+): ReadonlyArray<Library.TokenRecord<R>> => {
+    const tokens = [
+        ...walkEntries<any>(library.tokens, [], { whatToShow: "token" }),
+    ].map((entry) => libraryTokenOf(entry.token));
+    const scope = tokens[0] && LibraryToken.scopeOf(tokens[0]);
+
+    // The recipes the extension replaces.
+    const replaced = new Set<Library.Recipe<any, unknown>>();
+    for (const [recipe, fn] of scope?.recipes ?? []) {
+        if (scope?.source && scope.source.recipes.get(recipe) !== fn) {
+            replaced.add(recipe);
+        }
+    }
+    const calls = (value: unknown, seen = new Set<object>()): boolean => {
+        if (!isObject(value) || seen.has(value)) {
+            return false;
+        }
+        seen.add(value);
+        if (isComputed(value)) {
+            return (
+                replaced.has(value[COMPUTED].recipe) ||
+                value[COMPUTED].args.some((arg) => calls(arg, seen))
+            );
+        }
+        return (
+            isPlain(value) &&
+            Reflect.ownKeys(value).some((key) =>
+                calls(Reflect.get(value, key), seen),
+            )
+        );
+    };
+
+    const changes = new Set<LibraryToken<any>>();
+    const visit = (token: LibraryToken<any>): void => {
+        if (!changes.has(token)) {
+            changes.add(token);
+            LibraryToken.dependents(token).forEach(visit);
+        }
+    };
+    for (const token of tokens) {
+        const inherited = inheritedTokens.get(token);
+        // A token that isn't made from a token of the source is new.
+        if (
+            inherited === undefined ||
+            inherited.hasValueOfItsOwn ||
+            (replaced.size > 0 && calls(LibraryToken.configuredValue(token)))
+        ) {
+            visit(token);
+        }
+    }
+
+    return Object.freeze(
+        tokens.filter((token) => changes.has(token)),
+    ) as ReadonlyArray<Library.TokenRecord<R>>;
+};

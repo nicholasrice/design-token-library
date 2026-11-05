@@ -64,6 +64,19 @@ const highContrast = library.extend({}, {
 
 Details of `override()` are in [Recipes — Overriding a recipe](../token-values/recipes#overriding-a-recipe).
 
+## What an extension changes
+
+[`changesOf()`](/design-token-library/api-reference/design-token-library.changesof) lists the tokens of an extension that differ from the library it extends: the tokens it gives a value, whether in its config or with `set()`, the tokens that are new in it, the tokens that call a recipe it replaces, and the tokens that depend on any of those, through other tokens too. The others follow the library they extend.
+
+```ts
+const dark = library.extend({ color: { context: { $value: black } } });
+
+changesOf(dark).map((token) => token.name);
+// ["color.context", "color.fill", ...]
+```
+
+It reads the configured values and not the values, so it resolves no token. A token that depends on a changed token is listed even if its value turns out the same. A tool that writes an extension inside what it extends, such as CSS inside the CSS of the library it extends, writes only these: see `changesOnly` in [CSS output](../export/css-output).
+
 ## Read-only surface
 
 The extended library's `tokens` tree is frozen. Token metadata and `$value` on the token objects are read-only; use `.set()` to change values.
