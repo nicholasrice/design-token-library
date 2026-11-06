@@ -9,6 +9,10 @@
     "rootDir": "./src",
     "sourceMap": true
   },
-  "references": [{ "path": "./src/lib" }, { "path": "./src/test" }],
+  "references": [
+    { "path": "./src/lib" },
+    { "path": "./src/test" },
+    { "path": "./src/bench" }
+  ],
   "files": []
 }
