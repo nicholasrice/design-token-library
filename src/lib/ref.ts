@@ -28,8 +28,15 @@ export const REF: unique symbol = Symbol.for("design-token-library.ref");
  */
 export const ref = <V, T extends {} = {}>(
     path: NoInfer<Library.TokenPath<T, V>>,
-): Library.Ref<V, T> =>
-    Object.freeze({ [REF]: Object.freeze(path.split(".")) });
+): Library.Ref<V, T> => refTo(path.split("."));
+
+/**
+ * Makes the ref to the token at a path, as data. Its type is where it's used.
+ *
+ * @internal
+ */
+export const refTo = (path: readonly string[]): Library.Ref<any, any> =>
+    Object.freeze({ [REF]: Object.freeze([...path]) });
 
 /**
  * Makes a {@link (Library:namespace).Ref} to each token of a library of shape
@@ -57,7 +64,7 @@ export const refs = <T extends {}>(): Library.Refs<T> =>
     refAt([]) as unknown as Library.Refs<T>;
 
 const refAt = (path: readonly string[]): object => {
-    const ref = Object.freeze({ [REF]: Object.freeze(path) });
+    const ref = refTo(path);
     // So that a path is always the same ref.
     const children = new Map<string, object>();
 
