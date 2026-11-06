@@ -34,13 +34,13 @@ Add tokens or empty groups with the same config shapes as `Library.create`. New 
 
 Sibling extensions of one source do not affect each other. Changing the source still updates extended libraries that inherit a token—until that token is updated on the extended library.
 
-Calling `.set()` on an inherited token **detaches** it from the source: later `set()` on the source no longer updates the extended copy, and the extended library stops receiving change notifications for that token from the source. Subscribers on the extended library are separate from the source.
+Calling `.set()` on an inherited token **detaches** it from the source: later `set()` on the source no longer updates the extended copy, and the extended library stops receiving change notifications for that token from the source. Subscribers on the extended library are separate from the source. A subscriber of the extended library is told of a `set()` on the source of a token it inherits, and of the tokens it has read whose values depend on it, but not of a token whose value comes from the extension's own tokens.
 
 Chained `extend()` calls stack: changes on the original source propagate through intermediate libraries to the last one, including overrides applied in the middle of the chain.
 
 ## Cost and lifetime
 
-An extension is cheap to make: its tokens are made when they are first read, except those its config gives, which are checked when `extend()` is called. Walking it with `entriesOf()`, writing its CSS or calling `dependentsOf()` on one of its tokens makes all of them.
+An extension is cheap to make: its tokens are made when they are first read, except those its config gives, which are checked when `extend()` is called. Walking it with `entriesOf()` or writing its CSS makes all of them; `dependentsOf()` makes only the tokens it lists. Which tokens refer to which is found once for the library it extends, and shared: the extension adds only its own tokens'.
 
 The library an extension extends refers to it only weakly, so an extension that nothing else refers to is collected, and its subscribers are no longer called. A design system can make an extension for each part of a page and drop it when the part goes. To keep getting notifications, keep the extension, not only its subscriber.
 

@@ -482,8 +482,8 @@ Extend(
     },
 );
 
-Extend.skip(
-    "reading an extended token does not corrupt the source token's dependency tracking (fails: #19)",
+Extend(
+    "reading an extended token does not corrupt the source token's dependency tracking (#19)",
     async () => {
         const $ = refs<ABC>();
         const source = Library.create<ABC>({
@@ -603,6 +603,49 @@ Extend(
         Assert.is(withNew.tokens.sizes.small.$value, 2);
         Assert.is(withNew.tokens.extra.$value, 3);
         Assert.is(library.tokens.sizes.small.$value, 1);
+    },
+);
+
+Extend(
+    "a source change to a token the extension has a value for doesn't notify it",
+    async () => {
+        const $ = refs<ABC>();
+        const source = Library.create<ABC>({
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: $.a },
+            c: { $type: C, $value: $.b },
+        });
+        source.tokens.c.$value;
+        const extended = source.extend<{}>({ a: { $value: hex("#222222") } });
+        extended.tokens.c.$value;
+        const subscriber = recorder();
+        extended.subscribe(subscriber);
+
+        source.tokens.a.set(hex("#333333"));
+        await nextUpdate();
+
+        Assert.equal(subscriber.batches, []);
+        Assert.equal(extended.tokens.c.$value, hex("#222222"));
+    },
+);
+
+Extend(
+    "what an extension is told of doesn't depend on what its source has read",
+    async () => {
+        const read = aliasedPair();
+        read.tokens.b.$value;
+        const unread = aliasedPair();
+        const batches = [];
+
+        for (const source of [read, unread]) {
+            const subscriber = recorder();
+            source.extend<{}>({}).subscribe(subscriber);
+            source.tokens.a.set(hex("#222222"));
+            await nextUpdate();
+            batches.push(subscriber.batches);
+        }
+
+        Assert.equal(batches, [[["a"]], [["a"]]]);
     },
 );
 
