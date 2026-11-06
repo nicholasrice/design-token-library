@@ -23,6 +23,29 @@ After you change the public API (`src/lib/` exports or `@public` types), run `np
 
 CI on `main` and pull requests runs `npm ci`, `npm run build`, `npm run typings:check`, and `npm run test:coverage`. Pushes to `main` also deploy the doc site to GitHub Pages.
 
+## Benchmarks
+
+`src/bench/` times the library's core operations on four libraries: layered tokens of 3,100 and 8,200 (`F1`, `F2`), one token read by 2,000 (`F3`), and a chain of 250 refs (`F4`). For each, the scenarios time `create`, first and cached reads, `set()` on a token that nothing depends on and on one that many do, `dependentsOf()`, `toCSS()`, `subscribe()`, and the same in extensions: `extend()` (`E0` with nothing, `E1` with a value, `E2` with a recipe overridden, `E3` a chain of 3 or 5, `E4` 100 of one library), `subscribe()`, a `set()` on a token an extension inherits and on one it gives a value, a `set()` on a library that 100 extensions follow, and the tokens an extension changes, found as a tool finds them today. They also measure the heap per token and per extension, and check that an extension that nothing refers to is collected. A scenario's counts, such as how many tokens a subscriber was told of, are reported with its times, because a change of architecture changes them too.
+
+The benchmark isn't run in CI, whose timings are too noisy, but `npm run build` compiles it, so it can't fall out of date with the library.
+
+```bash
+npm run build
+npm run bench                                   # this build
+npm run bench -- --filter F1/ --filter set.     # the scenarios whose id has either
+npm run bench -- --json branch.json             # save the samples
+npm run bench:compare -- main.json branch.json  # compare two saved runs
+```
+
+To compare two builds, build `main` in a worktree and give both, each as `label=path`:
+
+```bash
+git worktree add ../main main && (cd ../main && npm ci && npm run build)
+npm run bench -- --lib main=../main/dist/lib/index.js --lib branch=dist/lib/index.js
+```
+
+Each of `--processes` (5) runs every build in turn, in its own `node --expose-gc`, so that a drift of the machine falls on both. In each, a scenario runs `--warmup` (3) times, then `--samples` (10) times, with a collection before each; a slow scenario runs at most 5. One that happens once, such as a first read, has its own library for each sample, and one too fast to time once runs for at least a millisecond in each. The samples of all processes are pooled into a median, a 95th percentile and the median absolute deviation (MAD). A comparison calls a change only when the medians differ by more than 3 times the combined MAD and by more than 5%; otherwise it's `same`. A full run takes about 10 minutes; `--filter` narrows it.
+
 ## Pull requests
 
 1. Branch from `main`.
