@@ -880,6 +880,24 @@ toCssSuite("filter leaves out a token without reading it", () => {
     Assert.not(converted);
 });
 
+toCssSuite("changesOnly writes the tokens an extension changes", () => {
+    const library = Library.create<{
+        a: DesignToken.Number;
+        b: DesignToken.Number;
+        c: { $type: DesignToken.Type.Number; $value: number };
+    }>({
+        a: { $type: DesignToken.Type.Number, $value: 1 },
+        b: { $type: DesignToken.Type.Number, $value: 2 },
+        c: { $type: DesignToken.Type.Number, $value: 3 },
+    });
+    const extension = library.extend({});
+    extension.tokens.b.set(5);
+
+    Assert.is(toCSS(extension, { changesOnly: true }), "--b:5;");
+    Assert.is(toCSS(extension, { changesOnly: true, filter: () => false }), "");
+    Assert.is(toCSS(library, { changesOnly: true }), "--a:1;--b:2;--c:3;");
+});
+
 toCssSuite.run();
 toPropertiesSuite.run();
 convertSuite.run();

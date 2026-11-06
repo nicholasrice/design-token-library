@@ -1,5 +1,5 @@
 import { DesignToken } from "./design-token.js";
-import { Library } from "./library.js";
+import { Library, changesOf } from "./library.js";
 import { isToken } from "./utilities.js";
 
 /**
@@ -156,6 +156,16 @@ export type CSSOptions<T> = CSSPropertiesOptions & {
      * `dependentsOf()`, writes only those.
      */
     filter?(token: Library.Token<any, any>): boolean;
+    /**
+     * Writes only the tokens of an extension that differ from the library it
+     * extends, as {@link changesOf} lists them, for CSS that is used inside
+     * the CSS of the library it extends, which inherits the others. It is
+     * `filter` with those tokens, and with a `filter` both apply.
+     *
+     * @remarks
+     * A library that doesn't extend another has all of its tokens changed.
+     */
+    changesOnly?: boolean;
 } & ([CustomTokensOf<T>] extends [never]
         ? { converters?: StandardConverters }
         : { converters: CSSConverterEntries<T> & StandardConverters });
@@ -186,11 +196,18 @@ export function toCSS<T extends {}, R extends {}>(
 ): string {
     // Converters are checked by `ToCSSArgs`; at runtime they're keyed by type.
     const converters: unknown = options?.converters ?? {};
+    const changes = options?.changesOnly
+        ? new Set<Library.Token<any, any>>(changesOf(library))
+        : undefined;
+    const filter = options?.filter;
     return recurseToCss(
         library.tokens,
         converters as RuntimeConverters,
         options?.name ?? defaultName,
-        options?.filter,
+        changes || filter
+            ? (token) =>
+                  (changes?.has(token) ?? true) && (filter?.(token) ?? true)
+            : undefined,
     );
 }
 

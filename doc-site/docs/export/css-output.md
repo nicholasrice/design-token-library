@@ -42,6 +42,10 @@ A string is the same as `{ "": value }`, and an empty record writes nothing for 
 
 `toProperties()` calls the converters it is given to know the keys, so it reads the values of those tokens, and only those. The keys are in its type when the return type of the converter is inferred, as above. A converter typed `CSSConverter` returns any record, so the token has only its own property in the type, and the others at runtime. A key can't be `var` or `property`, the fields of the token's own property. A key can also name the same property as another token's: `fill` with a key `hover` and a token `fill.hover` are both `--fill-hover`.
 
+## Some of the tokens
+
+`filter(token)` leaves out the tokens it returns `false` for. They aren't converted, so their values aren't read, and their custom types need no converter. `changesOnly: true` writes only the tokens that [`changesOf()`](../advanced/extending#what-an-extension-changes) lists for an extension, for CSS that is used inside the CSS of the library it extends, which inherits the rest. With both, a token is written when both accept it. `toProperties()` takes neither, since a token's property is the same whether or not it is written.
+
 ## API reference
 
 - [`toCSS()`](/design-token-library/api-reference/design-token-library.tocss)

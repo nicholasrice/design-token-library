@@ -5,6 +5,9 @@
 ```ts
 
 // @public
+export const changesOf: <T extends {}, R extends {}>(library: Library.Library<T, R>) => ReadonlyArray<Library.TokenRecord<R>>;
+
+// @public
 export class CircularReferenceError extends Error {
     constructor(chain: string[]);
     readonly chain: string[];
@@ -41,6 +44,7 @@ export type CSSConverters<T> = ConvertersOf<CustomTokensOf<T>>;
 // @public
 export type CSSOptions<T> = CSSPropertiesOptions & {
     filter?(token: Library.Token<any, any>): boolean;
+    changesOnly?: boolean;
 } & ([CustomTokensOf<T>] extends [never] ? {
     converters?: StandardConverters;
 } : {
