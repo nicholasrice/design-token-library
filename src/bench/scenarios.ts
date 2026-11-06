@@ -316,6 +316,12 @@ export const scenariosOf = (
             setup: create,
             run: toCSS,
         }),
+        timed({
+            id: id("subscribe"),
+            kind: "once",
+            setup: create,
+            run: (library) => library.subscribe(recorder()),
+        }),
     );
 
     const extension: Scenario[] = [
@@ -400,6 +406,40 @@ export const scenariosOf = (
             run: (library) => library.subscribe(recorder()),
         }),
     ];
+
+    // Setting a token of an extension, with a subscriber: the leaf, which it
+    // inherits until the set, and the root, which E1 gives a value.
+    for (const target of ["leaf", "root"] as const) {
+        for (const read of [false, true]) {
+            const setup = () => {
+                const library = extendE1(create());
+                if (read) {
+                    readAll(tokensOf(library));
+                }
+                const subscriber = recorder();
+                library.subscribe(subscriber);
+                return { token: at(library, fixture[target]), subscriber };
+            };
+
+            extension.push(
+                timed({
+                    id: id(
+                        `E1/set.${target}.${read ? "read" : "unread"}.flush`,
+                    ),
+                    kind: "once",
+                    setup,
+                    run: async ({ token }) => {
+                        token.set(color);
+                        await nextUpdate();
+                    },
+                    counts: async (state) => {
+                        await nextUpdate();
+                        return { batch: state.subscriber.tokens };
+                    },
+                }),
+            );
+        }
+    }
 
     // A set on a source with 100 extensions that inherit the token: with no
     // subscriber, with one each, and with one each that has read every token
