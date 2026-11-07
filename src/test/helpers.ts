@@ -1,3 +1,4 @@
+import type { Callback, Test } from "uvu";
 import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
@@ -71,17 +72,43 @@ export function captureUncaughtErrors() {
 }
 
 /**
- * A subscriber that records the token names of each change batch.
+ * A subscriber that records the token names of each change batch. An entry is
+ * a token, or a change with its token (#130).
  */
 export function recorder() {
     const batches: string[][] = [];
     return {
         batches,
-        onChange(records: ReadonlyArray<{ name: string }>) {
-            batches.push(records.map((record) => record.name));
+        onChange(
+            records: ReadonlyArray<
+                { name: string } | { token: { name: string } }
+            >,
+        ) {
+            batches.push(
+                records.map((record) =>
+                    "token" in record ? record.token.name : record.name,
+                ),
+            );
         },
     };
 }
+
+/** The #130 PRs whose tests run. Each implementation PR adds its letter. */
+export const shipped: ReadonlySet<"A" | "B" | "C"> = new Set([]);
+
+/** Registers a #130 test, skipped until its PR is shipped. */
+export const specTest = (
+    suite: Test,
+    pr: "A" | "B" | "C",
+    name: string,
+    fn: Callback,
+): void => {
+    if (shipped.has(pr)) {
+        suite(name, fn);
+    } else {
+        suite.skip(name, fn);
+    }
+};
 
 /**
  * Type-level assertion helpers. `Expect<T>` fails to compile unless `T` is `true`.
