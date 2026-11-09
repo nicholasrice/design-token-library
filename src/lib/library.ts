@@ -1454,10 +1454,7 @@ function extendToken(
 
     const extendingToken = Object.create(token);
     extendingToken.scope = scope;
-    extendingToken.cached = empty;
-    extendingToken.previous = empty;
-    extendingToken.resolving = false;
-    extendingToken.found = null;
+    extendingToken.state = new TokenState();
 
     // An extension can restate the token's metadata along with its value.
     if (node?.$description !== undefined) {
@@ -1710,6 +1707,41 @@ class LibraryImpl implements Library.Library<any> {
 }
 
 /**
+ * The state of a token of a library.
+ */
+class TokenState<V> {
+    public cached: V | typeof empty = empty;
+    /**
+     * The value that was dropped, kept by a library with a subscriber until
+     * the token resolves again: a value equal to it is replaced by it, so
+     * it's the same object.
+     */
+    public previous: V | typeof empty = empty;
+    public resolving = false;
+    /**
+     * The tokens that refs in the results of recipes were to, the last time
+     * the value was resolved.
+     */
+    public found: ReadonlySet<string> | null = null;
+    /**
+     * Each token whose value the value was resolved from, followed by that
+     * value, the last time it was resolved.
+     */
+    public inputs: readonly unknown[] = noInputs;
+    /**
+     * The cached value, unless a token it depends on may have changed since
+     * it was resolved: then it's checked against its inputs when it's read.
+     * It's the only field the getter reads for a cached value.
+     */
+    public current: V | typeof empty = empty;
+    /**
+     * The value it had when a subscribed library queued it, which the batch
+     * compares with the one it has then.
+     */
+    public before: unknown = unqueued;
+}
+
+/**
  * An individual token value in a library
  */
 class LibraryToken<T extends DesignToken.Any>
@@ -1718,35 +1750,13 @@ class LibraryToken<T extends DesignToken.Any>
     private raw:
         | Library.ConfigTokenValue<T, any>
         | DesignToken.ReadonlyValueByToken<T>;
-    private cached: DesignToken.ReadonlyValueByToken<T> | typeof empty = empty;
     /**
-     * The value that was dropped, kept by a library with a subscriber until
-     * the token resolves again: a value equal to it is replaced by it, so
-     * it's the same object.
+     * What changes as the token resolves, in an object of one shape. A token
+     * of an extension has a shape of its own, since its prototype is its
+     * source's token, so its own fields are slow to read and to add.
      */
-    private previous: DesignToken.ReadonlyValueByToken<T> | typeof empty =
-        empty;
-    private resolving = false;
-    /**
-     * The tokens that refs in the results of recipes were to, the last time
-     * the value was resolved.
-     */
-    private found: ReadonlySet<string> | null = null;
-    /**
-     * Each token whose value the value was resolved from, followed by that
-     * value, the last time it was resolved.
-     */
-    private inputs: readonly unknown[] = noInputs;
-    /**
-     * Whether a token it depends on may have changed since it was resolved.
-     * Its value is checked against its inputs when it's read.
-     */
-    private stale = false;
-    /**
-     * The value it had when a subscribed library queued it, which the batch
-     * compares with the one it has then.
-     */
-    private before: unknown = unqueued;
+    private readonly state: TokenState<DesignToken.ReadonlyValueByToken<T>> =
+        new TokenState();
     private readonly _extensions: Record<string, any>;
 
     constructor(
@@ -1790,12 +1800,26 @@ class LibraryToken<T extends DesignToken.Any>
             );
         }
 
+        // A token whose value is its ancestor's holds none.
+        const { current } = this.state;
+        return current !== empty ? current : this.value();
+    }
+
+    /**
+     * Whether the value is its ancestor's: the token is a subscribed
+     * extension's and isn't its own.
+     */
+    private isAncestors(): boolean {
+        const { origin, queue } = this.scope;
+        return origin !== null && queue.subscribed && !origin.has(this.name);
+    }
+
+    /**
+     * The value, resolved if it isn't cached or may have changed.
+     */
+    private value(): DesignToken.ReadonlyValueByToken<T> {
         const { scope } = this;
-        if (
-            scope.origin !== null &&
-            scope.queue.subscribed &&
-            !scope.origin.has(this.name)
-        ) {
+        if (this.isAncestors()) {
             const value = LibraryToken.ancestorValue(this);
             if (value !== empty) {
                 // The ancestor token has the same type.
@@ -1803,18 +1827,14 @@ class LibraryToken<T extends DesignToken.Any>
             }
         }
 
-        if (this.cached !== empty) {
-            if (!this.stale) {
-                return this.cached;
-            }
-            this.stale = false;
+        if (this.state.cached !== empty) {
             if (this.inputsAreCurrent()) {
-                return this.cached;
+                return (this.state.current = this.state.cached);
             }
             this.uncache();
         }
 
-        if (this.resolving) {
+        if (this.state.resolving) {
             const chain = resolving
                 .slice(resolving.indexOf(this))
                 .map((token) => token.name);
@@ -1822,7 +1842,7 @@ class LibraryToken<T extends DesignToken.Any>
             throw new CircularReferenceError([...chain, this.name]);
         }
 
-        this.resolving = true;
+        this.state.resolving = true;
         resolving.push(this);
 
         try {
@@ -1847,11 +1867,12 @@ class LibraryToken<T extends DesignToken.Any>
                 found.refs ?? none,
             );
             this.setFound(found.results);
-            this.inputs = found.inputs.length > 0 ? found.inputs : noInputs;
+            this.state.inputs =
+                found.inputs.length > 0 ? found.inputs : noInputs;
 
-            const { previous } = this;
+            const { previous } = this.state;
             if (previous !== empty) {
-                this.previous = empty;
+                this.state.previous = empty;
                 if (
                     scope.queue.subscribed &&
                     equalityOf(scope, this._type)(previous, value)
@@ -1860,12 +1881,13 @@ class LibraryToken<T extends DesignToken.Any>
                 }
             }
 
-            this.cached = value;
+            this.state.cached = value;
+            this.state.current = value;
             this.scope.cached++;
 
             return value;
         } finally {
-            this.resolving = false;
+            this.state.resolving = false;
             resolving.pop();
         }
     }
@@ -1905,24 +1927,40 @@ class LibraryToken<T extends DesignToken.Any>
      * Drops the resolved value, and says whether there was one.
      */
     private uncache(): boolean {
-        if (this.cached === empty) {
+        if (this.state.cached === empty) {
             return false;
         }
 
         if (this.scope.queue.subscribed) {
-            this.previous = this.cached;
+            this.state.previous = this.state.cached;
         }
-        this.cached = empty;
-        this.stale = false;
+        this.state.cached = empty;
+        this.state.current = empty;
         this.scope.cached--;
         return true;
+    }
+
+    /**
+     * Drops the value of each token of a subscribed extension that is its
+     * ancestor's, which it reads from its ancestor from then on.
+     */
+    public static dropAncestors(scope: Scope): void {
+        const origin = scope.origin!;
+        for (const [name, token] of scope.made) {
+            if (!origin.has(name) && token.state.cached !== empty) {
+                token.state.cached = empty;
+                token.state.current = empty;
+                token.state.previous = empty;
+                scope.cached--;
+            }
+        }
     }
 
     /**
      * Whether each token the value was resolved from has the value it had.
      */
     private inputsAreCurrent(): boolean {
-        const { inputs } = this;
+        const { inputs } = this.state;
         for (let i = 0; i < inputs.length; i += 2) {
             try {
                 if (
@@ -1945,10 +1983,13 @@ class LibraryToken<T extends DesignToken.Any>
      * now to compare with.
      */
     private queue(): void {
-        if (this.before === unqueued) {
+        if (this.state.before === unqueued) {
             // A token that was dropped and not resolved since had the value
             // it keeps to compare with.
-            this.before = this.cached !== empty ? this.cached : this.previous;
+            this.state.before =
+                this.state.cached !== empty
+                    ? this.state.cached
+                    : this.state.previous;
         }
         this.scope.queue.add(this);
     }
@@ -1963,7 +2004,7 @@ class LibraryToken<T extends DesignToken.Any>
         const source: LibraryToken<any> = Object.getPrototypeOf(token);
         const value = source.$value;
         const origin = token.scope.origin!;
-        for (const name of source.found ?? none) {
+        for (const name of source.state.found ?? none) {
             if (origin.has(name)) {
                 addOrigin(token.scope, token.name);
                 return empty;
@@ -1982,12 +2023,12 @@ class LibraryToken<T extends DesignToken.Any>
             return;
         }
         const source = madeToken(scope.source, name);
-        if (source === undefined || source.cached === empty || source.stale) {
+        if (source === undefined || source.state.current === empty) {
             return;
         }
         const token = tokenNamed(scope, name);
-        if (token.cached === empty) {
-            token.previous = source.cached;
+        if (token.state.cached === empty) {
+            token.state.previous = source.state.cached;
         }
     }
 
@@ -2001,12 +2042,12 @@ class LibraryToken<T extends DesignToken.Any>
     ): LibraryToken<any>[] {
         const reported: LibraryToken<any>[] = [];
         for (const token of tokens) {
-            const { before } = token;
+            const { before } = token.state;
             if (before === unqueued) {
                 reported.push(token);
                 continue;
             }
-            token.before = unqueued;
+            token.state.before = unqueued;
             if (!token.scope.queue.subscribed) {
                 continue;
             }
@@ -2041,7 +2082,7 @@ class LibraryToken<T extends DesignToken.Any>
      */
     public static dropPrevious(scope: Scope): void {
         const drop = (token: LibraryToken<any>) => {
-            token.previous = empty;
+            token.state.previous = empty;
         };
         if (scope.source) {
             // The tokens an extension hasn't made have no value.
@@ -2054,12 +2095,12 @@ class LibraryToken<T extends DesignToken.Any>
     }
 
     private setFound(names: Set<string> | null): void {
-        if (this.found === null && names === null) {
+        if (this.state.found === null && names === null) {
             return;
         }
 
         const { found } = this.scope;
-        for (const name of this.found ?? []) {
+        for (const name of this.state.found ?? []) {
             found.get(name)?.delete(this.name);
         }
         for (const name of names ?? []) {
@@ -2070,7 +2111,7 @@ class LibraryToken<T extends DesignToken.Any>
             }
             dependents.add(this.name);
         }
-        this.found = names;
+        this.state.found = names;
     }
 
     /**
@@ -2155,9 +2196,7 @@ class LibraryToken<T extends DesignToken.Any>
             if (isOwn(dependent)) {
                 const token = tokenNamed(scope, dependent);
                 token.queue();
-                if (token.cached !== empty) {
-                    token.stale = true;
-                }
+                token.state.current = empty;
             } else {
                 madeToken(scope, dependent)?.uncache();
             }
@@ -2306,6 +2345,8 @@ function addOrigin(scope: Scope, name: string, inherit = true): void {
     if (origin.has(name)) {
         return;
     }
+    // Completed when an extension first has a token of its own.
+    completeGraphOf(scope);
     const add = (name: string): void => {
         origin.add(name);
         pending.push(name);
@@ -2372,7 +2413,6 @@ function resolveOwn(scope: Scope): void {
 
     if (scope.origin === null) {
         scope.origin = new Set();
-        completeGraphOf(scope);
         const seeds = [...scope.own];
         if (scope.overridden.size > 0) {
             forEachToken(scope.tokens, (name) => {
@@ -2392,6 +2432,7 @@ function resolveOwn(scope: Scope): void {
         }
     }
 
+    LibraryToken.dropAncestors(scope);
     for (const name of scope.origin) {
         LibraryToken.tryResolve(tokenNamed(scope, name));
     }
