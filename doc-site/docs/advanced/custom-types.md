@@ -20,7 +20,7 @@ interface MyLibrary {
 }
 ```
 
-Custom tokens support static values, aliases, deep aliases into properties, computed values, group type inheritance, `set()`, and [`extend()`](./extending):
+Every custom type is registered with the library, with an `isEqual` that tells whether two of its values are equal. Custom tokens support static values, aliases, deep aliases into properties, computed values, group type inheritance, `set()`, and [`extend()`](./extending):
 
 ```ts
 const library = Library.create<MyLibrary>({
@@ -46,12 +46,29 @@ const library = Library.create<MyLibrary>({
     },
     raised: { $value: ref("elevations.flat") },
   },
+}, {
+  types: {
+    elevation: { isEqual: (a, b) => a.level === b.level },
+  },
 });
 
 library.tokens.elevations.raised.$type; // "elevation", from the group
 ```
 
-`Name` cannot be a DTCG type name such as `"color"` (compile-time check). `Value` may be any shape, including objects with methods the library never calls. Values with functions rely on a [custom converter](./custom-types#css-converters) for CSS output because `toString()` is not used.
+`Name` cannot be a DTCG type name such as `"color"` (compile-time check).
+
+## Registering a type
+
+`create()` throws for a token whose custom type isn't in `types`, and the config doesn't compile without it. `isEqual` gets the type's values, typed by the tokens that have it. A library with a subscriber calls it when a token of the type resolves again: when it returns `true`, the token keeps the value it had, so it is the same object (see [Value semantics](../token-values/value-semantics#equal-values)). The DTCG types have their own equality and can't be registered.
+
+An extension inherits the types of the library it extends, and registers only the custom types its new tokens add. It can't register an inherited type again, at any depth, since the libraries that extend it rely on the same equality. Two extensions of one library can each register the same new type:
+
+```ts
+const themed = library.extend(
+  { stacking: { $type: "z-index", $value: 10 } },
+  { types: { "z-index": { isEqual: (a, b) => a === b } } },
+);
+``` `Value` may be any shape, including objects with methods the library never calls. Values with functions rely on a [custom converter](./custom-types#css-converters) for CSS output because `toString()` is not used.
 
 ## CSS converters
 

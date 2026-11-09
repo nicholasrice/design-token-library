@@ -27,13 +27,15 @@ import {
     RatioToken,
     customConfig,
 } from "./custom-types.fixtures.js";
-import { Equal, Expect, IsKnown } from "./helpers.js";
+import { Equal, Expect, IsKnown, byIdentity } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Types = suite("Custom token types: type-level API");
 
 const C = DesignToken.Type.Color;
-const library = Library.create(customConfig());
+const library = Library.create(customConfig(), {
+    types: byIdentity("elevation", "label", "ratio", "flag", "steps", "nested"),
+});
 type Tokens = typeof library.tokens;
 
 /* Value and type resolution */
@@ -205,7 +207,9 @@ function configValueNegatives() {
     };
 
     // set() rejects wrong values
-    const lib = Library.create(valid);
+    const lib = Library.create(valid, {
+        types: byIdentity("elevation", "ratio"),
+    });
     // @ts-expect-error missing properties
     lib.tokens.e.set({ level: 1 });
     // @ts-expect-error a ratio is a number
@@ -395,39 +399,42 @@ interface Extension {
     z: DesignToken.Custom<"z-index", number>;
 }
 const $ = refs<CustomTheme>();
-const extended = library.extend<Extension>({
-    elevation: {
-        // static, ref and deep ref overrides
-        low: {
-            $value: {
-                level: 0,
-                shadowColor: hex("#000000"),
-                offsets: [px(0), px(0)],
-            },
-        },
-        high: { $value: $.elevation.low },
-        raised: {
-            top: {
+const extended = library.extend<Extension>(
+    {
+        elevation: {
+            // static, ref and deep ref overrides
+            low: {
                 $value: {
-                    level: $.ratio,
+                    level: 0,
                     shadowColor: hex("#000000"),
                     offsets: [px(0), px(0)],
                 },
             },
-        },
-        // inherits the source group's type
-        floating: {
-            $value: {
-                level: 3,
-                shadowColor: $.colors.muted,
-                offsets: [px(0), px(1)],
+            high: { $value: $.elevation.low },
+            raised: {
+                top: {
+                    $value: {
+                        level: $.ratio,
+                        shadowColor: hex("#000000"),
+                        offsets: [px(0), px(0)],
+                    },
+                },
+            },
+            // inherits the source group's type
+            floating: {
+                $value: {
+                    level: 3,
+                    shadowColor: $.colors.muted,
+                    offsets: [px(0), px(1)],
+                },
             },
         },
+        // New groups and tokens
+        spacing: { $type: "ratio", tight: { $value: 0.5 } },
+        z: { $type: "z-index", $value: 10 },
     },
-    // New groups and tokens
-    spacing: { $type: "ratio", tight: { $value: 0.5 } },
-    z: { $type: "z-index", $value: 10 },
-});
+    { types: byIdentity("z-index") },
+);
 type ExtendedTokens = typeof extended.tokens;
 type Extended = [
     Expect<
@@ -642,8 +649,88 @@ function cssCases() {
     return top;
 }
 
+/* Registering custom types */
+type Registration = [
+    Expect<
+        Equal<
+            Library.CustomTypeNamesOf<CustomTheme>,
+            "elevation" | "ratio" | "label" | "flag" | "steps" | "nested"
+        >
+    >,
+    // A group's type counts, and a DTCG type doesn't
+    Expect<
+        Equal<
+            Library.CustomTypeNamesOf<{
+                g: { $type: "palette"; t: { $value: number } };
+                c: DesignToken.Color;
+            }>,
+            "palette"
+        >
+    >,
+    // isEqual gets the values of the type's tokens, inherited types included
+    Expect<
+        Equal<
+            Library.ValueOfType<CustomTheme, "elevation">,
+            DesignToken.DeepReadonly<Elevation>
+        >
+    >,
+    Expect<Equal<Library.ValueOfType<CustomTheme, "ratio">, number>>,
+];
+
+function registrationCases() {
+    // @ts-expect-error a custom type must be registered
+    Library.create(customConfig());
+    Library.create(
+        customConfig(),
+        // @ts-expect-error 'flag' isn't registered
+        { types: byIdentity("elevation", "label", "ratio", "steps", "nested") },
+    );
+    Library.create(customConfig(), {
+        types: {
+            ...byIdentity("elevation", "label", "steps", "nested", "flag"),
+            ratio: { isEqual: (a, b) => a.toFixed(2) === b.toFixed(2) },
+        },
+    });
+    // An inline config's custom types are found as well
+    // @ts-expect-error 'palette' isn't registered
+    Library.create({ t: { $type: "palette", $value: { base: 1 } } });
+    const palette = Library.create(
+        { t: { $type: "palette", $value: { base: 1 } } },
+        { types: { palette: { isEqual: (a, b) => a.base === b.base } } },
+    );
+    // A library without custom types needs no options
+    const standard = Library.create({
+        c: { $type: C, $value: hex("#111111") },
+    });
+    Library.create(
+        { c: { $type: C, $value: hex("#111111") } },
+        // @ts-expect-error a DTCG type can't be registered
+        { types: { color: { isEqual: () => true } } },
+    );
+
+    // An extension registers the custom types of its new tokens only
+    // @ts-expect-error 'swatch' isn't registered
+    palette.extend({ s: { $type: "swatch", $value: 1 } });
+    palette.extend(
+        { s: { $type: "swatch", $value: 1 } },
+        { types: { swatch: { isEqual: (a, b) => a === b } } },
+    );
+    palette.extend({ q: { $type: "palette", $value: { base: 2 } } });
+    palette.extend(
+        {},
+        // @ts-expect-error an inherited type can't be registered again
+        { types: { palette: { isEqual: () => true } } },
+    );
+    standard.extend(
+        {},
+        // @ts-expect-error a DTCG type can't be registered
+        { types: { color: { isEqual: () => true } } },
+    );
+}
+
 Types("type-level assertions compile", () => {
     Assert.ok([
+        registrationCases,
         standardAliases,
         configValueNegatives,
         declarationNegatives,

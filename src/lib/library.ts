@@ -1,6 +1,7 @@
 import { COMPUTED, RECIPE, isComputed } from "./recipe.js";
 import { REF, isRef } from "./ref.js";
 import { DesignToken } from "./design-token.js";
+import { Equality, isStandardType, standardEquality } from "./equality.js";
 import { Graph } from "./graph.js";
 import { IQueue, Queue } from "./queue.js";
 import { empty, isToken } from "./utilities.js";
@@ -45,7 +46,7 @@ export namespace Library {
          */
         extend(
             config: ExtendConfig<T, R>,
-            options?: ExtendOptions,
+            ...options: ExtendArgs<{}, T>
         ): Library<T, R>;
         /**
          * Creates a library with the values of tokens replaced, new tokens,
@@ -61,7 +62,7 @@ export namespace Library {
                 Config<K, R & NewTokens<K, T>, never, T> &
                 NoInfer<ConfigValueCheck<K, R & NewTokens<K, T>>> &
                 (ConfigTypeHint | {}),
-            options?: ExtendOptions,
+            ...options: ExtendArgs<NewTokens<K, T>, T>
         ): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
     }
 
@@ -376,6 +377,43 @@ export namespace Library {
     }
 
     /**
+     * What a library knows of a custom type: how to tell whether two of its
+     * values are equal.
+     *
+     * @public
+     */
+    export interface TypeOptions<V = unknown> {
+        /**
+         * Tells whether a value a token of the type resolved to is equal to
+         * the one it had. When it is, the token keeps the value it had, so it
+         * is the same object. It's called only by a library with a
+         * subscriber, and not when a token resolves its first value.
+         */
+        isEqual(previous: V, next: V): boolean;
+    }
+
+    /**
+     * The custom types a library registers, by name. A DTCG type has its own
+     * equality, so it can't be registered.
+     *
+     * @public
+     */
+    export type Types = { readonly [name: string]: TypeOptions<any> };
+
+    /**
+     * Options of `create()`.
+     *
+     * @public
+     */
+    export interface CreateOptions {
+        /**
+         * The custom types of the library's tokens. Every custom type a token
+         * has must be registered.
+         */
+        readonly types?: Types;
+    }
+
+    /**
      * Options of `extend()`.
      *
      * @public
@@ -387,7 +425,110 @@ export namespace Library {
          * doesn't restate.
          */
         readonly recipes?: readonly RecipeOverride[];
+        /**
+         * The custom types that the extension's new tokens have and the
+         * library it extends doesn't register. A type the library registers
+         * is inherited, and can't be registered again.
+         */
+        readonly types?: Types;
     }
+
+    /**
+     * The custom type names in a library of shape `T`: the `$type` of each
+     * of its tokens and groups that isn't a DTCG type.
+     *
+     * @public
+     */
+    export type CustomTypeNamesOf<T> = 0 extends 1 & T
+        ? never
+        : T extends readonly unknown[] | Function
+          ? never
+          : T extends object
+            ? {
+                  [K in keyof T]-?: K extends "$type"
+                      ? T[K] extends string
+                          ? string extends T[K]
+                              ? never
+                              : Exclude<
+                                    T[K],
+                                    | DesignToken.Type
+                                    | DesignToken.ReservedTypeName
+                                >
+                          : never
+                      : K extends `$${string}`
+                        ? never
+                        : CustomTypeNamesOf<T[K]>;
+              }[keyof T]
+            : never;
+
+    /**
+     * The values of the tokens of type `N` in a library of shape `T`, as a
+     * token gives them. `G` is the type inherited from ancestor groups.
+     *
+     * @public
+     */
+    export type ValueOfType<T, N extends string, G extends string = never> = {
+        [K in keyof T]-?: K extends `$${string}`
+            ? never
+            : T[K] extends DesignToken.Shape
+              ? DesignToken.TypeByToken<T[K], G> extends N
+                  ? DesignToken.ReadonlyValueByToken<T[K]>
+                  : never
+              : T[K] extends object
+                ? ValueOfType<T[K], N, GroupType<T[K], G>>
+                : never;
+    }[keyof T];
+
+    /**
+     * The `types` a library of shape `T` registers: each of the custom
+     * types `N` that `I`, the types it inherits, leave out.
+     *
+     * @public
+     */
+    export type TypesOf<T, N extends string, I extends string = never> = {
+        readonly [P in Exclude<N, I>]: TypeOptions<ValueOfType<T, P>>;
+    } & {
+        readonly [P in DesignToken.ReservedTypeName | I]?: never;
+    } & Types;
+
+    /**
+     * The options of `create()` for a library of shape `T`: required, with
+     * its custom types, when it has any.
+     *
+     * @public
+     */
+    export type CreateArgs<T> = [CustomTypeNamesOf<T>] extends [never]
+        ? [options?: CreateOptions & { readonly types?: TypesOf<T, never> }]
+        : [
+              options: CreateOptions & {
+                  readonly types: TypesOf<T, CustomTypeNamesOf<T>>;
+              },
+          ];
+
+    /**
+     * The options of `extend()` for new tokens of shape `K` in a library of
+     * shape `T`: required, with the custom types `T` doesn't have, when they
+     * have any.
+     *
+     * @public
+     */
+    export type ExtendArgs<K, T> = [
+        Exclude<CustomTypeNamesOf<K>, CustomTypeNamesOf<T>>,
+    ] extends [never]
+        ? [
+              options?: ExtendOptions & {
+                  readonly types?: TypesOf<K, never, CustomTypeNamesOf<T>>;
+              },
+          ]
+        : [
+              options: ExtendOptions & {
+                  readonly types: TypesOf<
+                      K,
+                      CustomTypeNamesOf<K>,
+                      CustomTypeNamesOf<T>
+                  >;
+              },
+          ];
 
     /**
      * A {@link (Library:namespace).Ref} to each token of a library of shape
@@ -647,9 +788,13 @@ export namespace Library {
         config: Library.Config<T, T> &
             NoInfer<ConfigValueCheck<T, T>> &
             (ConfigTypeHint | {}),
+        ...options: NoInfer<CreateArgs<T>>
     ): Library.Library<T> => {
         // The runtime library is untyped; its shape is guaranteed by `config`.
-        return LibraryImpl.create(config) as unknown as Library.Library<T>;
+        return LibraryImpl.create(
+            config,
+            options[0],
+        ) as unknown as Library.Library<T>;
     };
 }
 
@@ -679,6 +824,11 @@ interface Scope {
         Library.Recipe<any, unknown>,
         (...args: any[]) => unknown
     >;
+    /**
+     * The equality of each custom type the library registers, or inherits
+     * from the library it extends.
+     */
+    readonly types: ReadonlyMap<string, Equality>;
     readonly queue: IQueue<Library.Token<DesignToken.Any, any>>;
     /**
      * The tokens of an extension that are made, by name: those that are read,
@@ -728,12 +878,17 @@ const extensionsOf = new FinalizationRegistry<{
     extension: WeakRef<Scope>;
 }>(({ source, extension }) => source.extensions.delete(extension));
 
-const scopeOf = (recipes: Scope["recipes"], source?: Scope): Scope => {
+const scopeOf = (
+    recipes: Scope["recipes"],
+    types: Scope["types"],
+    source?: Scope,
+): Scope => {
     const own = new Set<string>();
     const scope: Scope = {
         tokens: {},
         source,
         recipes,
+        types,
         queue: new Queue(),
         made: new Map(),
         own,
@@ -797,6 +952,42 @@ const refsOf = (value: unknown): Set<string> => {
 };
 
 const none: ReadonlySet<string> = new Set();
+
+/**
+ * The custom types of a library: those it inherits, and those it registers,
+ * which can be neither a DTCG type nor one it inherits.
+ */
+const typesOf = (
+    types: Library.Types = {},
+    inherited: Scope["types"] = new Map(),
+): Scope["types"] => {
+    const registered = new Map(inherited);
+    for (const [name, options] of Object.entries(types)) {
+        if (isStandardType(name)) {
+            throw new Error(
+                `"${name}" is a DTCG type, which has its own equality, so it can't be registered in 'types'.`,
+            );
+        }
+        if (inherited.has(name)) {
+            throw new Error(
+                `The custom type "${name}" is registered by a library this one extends, so it can't be registered again.`,
+            );
+        }
+        if (typeof options?.isEqual !== "function") {
+            throw new Error(
+                `The custom type "${name}" has no isEqual function.`,
+            );
+        }
+        registered.set(name, (a, b) => options.isEqual(a, b));
+    }
+    return registered;
+};
+
+/**
+ * The equality of a type in a library.
+ */
+const equalityOf = (scope: Scope, type: string): Equality =>
+    isStandardType(type) ? standardEquality[type] : scope.types.get(type)!;
 
 /**
  * The dependents of a token found last, with the version of its library's
@@ -1036,6 +1227,11 @@ const createToken = (
             `No '$type' found for token '${key}'. Types cannot be inferred, please add a $type to the token or to a group ancestor.`,
         );
     }
+    if (!isStandardType(resolvedType) && !scope.types.has(resolvedType)) {
+        throw new Error(
+            `"${name}" has the custom type "${resolvedType}", which isn't registered. Register it, with its isEqual, in the 'types' option of create() or extend().`,
+        );
+    }
 
     const token = new LibraryToken(
         name,
@@ -1230,6 +1426,7 @@ function extendToken(
     const extendingToken = Object.create(token);
     extendingToken.scope = scope;
     extendingToken.cached = empty;
+    extendingToken.previous = empty;
     extendingToken.resolving = false;
     extendingToken.found = null;
 
@@ -1447,15 +1644,19 @@ class LibraryImpl implements Library.Library<any> {
         for (const { recipe, fn } of options.recipes ?? []) {
             recipes.set(recipe, fn);
         }
-        const scope = scopeOf(recipes, this.scope);
+        const types = typesOf(options.types, this.scope.types);
+        const scope = scopeOf(recipes, types, this.scope);
         recurseExtend("", this.tokens, scope.tokens, config, scope, null);
 
         return new LibraryImpl(scope);
     }
 
-    public static create(config: RawConfig): LibraryImpl {
+    public static create(
+        config: RawConfig,
+        options: Library.CreateOptions = {},
+    ): LibraryImpl {
         assertNoRoot(config);
-        const scope = scopeOf(new Map());
+        const scope = scopeOf(new Map(), typesOf(options.types));
         recurseCreate("", scope.tokens, config, scope, null);
 
         return new LibraryImpl(scope);
@@ -1472,6 +1673,13 @@ class LibraryToken<T extends DesignToken.Any>
         | Library.ConfigTokenValue<T, any>
         | DesignToken.ReadonlyValueByToken<T>;
     private cached: DesignToken.ReadonlyValueByToken<T> | typeof empty = empty;
+    /**
+     * The value that was dropped, kept by a library with a subscriber until
+     * the token resolves again: a value equal to it is replaced by it, so
+     * it's the same object.
+     */
+    private previous: DesignToken.ReadonlyValueByToken<T> | typeof empty =
+        empty;
     private resolving = false;
     /**
      * The tokens that refs in the results of recipes were to, the last time
@@ -1542,7 +1750,7 @@ class LibraryToken<T extends DesignToken.Any>
                 results: null as Set<string> | null,
             };
             // The config's types guarantee what the raw value resolves to.
-            const value = resolve(
+            let value = resolve(
                 this.raw,
                 this.name,
                 this.scope,
@@ -1557,6 +1765,15 @@ class LibraryToken<T extends DesignToken.Any>
                 found.refs ?? none,
             );
             this.setFound(found.results);
+
+            const { previous } = this;
+            if (previous !== empty) {
+                this.previous = empty;
+                if (equalityOf(this.scope, this._type)(previous, value)) {
+                    value = previous;
+                }
+            }
+
             this.cached = value;
             this.scope.cached++;
 
@@ -1606,6 +1823,9 @@ class LibraryToken<T extends DesignToken.Any>
             return false;
         }
 
+        if (this.scope.queue.subscribed) {
+            this.previous = this.cached;
+        }
         this.cached = empty;
         this.scope.cached--;
         return true;

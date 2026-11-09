@@ -42,7 +42,23 @@ void $.group.missing;
 // @ts-expect-error a token takes the value of its type
 extended.tokens.size.set("one");
 
+// A custom type registers its equality, which gets the values of the type's tokens.
+type Swatch = DesignToken.Custom<"swatch", { readonly base: number }>;
+const swatchType: Library.TypeOptions<Library.ValueOfType<{ s: Swatch }, "swatch">> = {
+    isEqual: (previous, next) => previous.base === next.base,
+};
+const options: Library.CreateOptions = { types: { swatch: swatchType } };
+const swatches = Library.create<{ s: Swatch }>(
+    { s: { $type: "swatch", $value: { base: 1 } } },
+    { types: { swatch: swatchType } },
+);
+const names: Library.CustomTypeNamesOf<{ s: Swatch }> = "swatch";
+// @ts-expect-error a custom type has to be registered
+Library.create<{ s: Swatch }>({ s: { $type: "swatch", $value: { base: 1 } } });
+// @ts-expect-error a DTCG type can't be registered
+const reserved: Library.ExtendOptions & Library.ExtendArgs<{}, Tokens>[0] = { types: { color: swatchType } };
+
 for (const entry of entriesOf(library)) {
     void entry.path;
 }
-void [byPath, value, notARef, toCSS(library)];
+void [byPath, value, notARef, toCSS(library), options, swatches, names, reserved];

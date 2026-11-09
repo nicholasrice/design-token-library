@@ -4,7 +4,7 @@ import { refs } from "../lib/ref.js";
 import { convert, toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
-import { A, AB, aliasedPair } from "./helpers.js";
+import { A, AB, aliasedPair, byIdentity } from "./helpers.js";
 import { hex, ms, px } from "./values.js";
 
 const toCssSuite = suite("toCss");
@@ -721,12 +721,15 @@ convertSuite(
         }
         const library = Library.create<{
             e: DesignToken.Custom<"elevation", Elevation>;
-        }>({
-            e: {
-                $type: "elevation",
-                $value: { offset: px(4), color: hex("#000000") },
+        }>(
+            {
+                e: {
+                    $type: "elevation",
+                    $value: { offset: px(4), color: hex("#000000") },
+                },
             },
-        });
+            { types: byIdentity("elevation") },
+        );
 
         Assert.is(
             toCSS(library, {
@@ -822,10 +825,13 @@ overrideSuite("it is used next to the converters of custom types", () => {
     const library = Library.create<{
         c: DesignToken.Color;
         r: DesignToken.Custom<"ratio", number>;
-    }>({
-        c: { $type: DesignToken.Type.Color, $value: hex("#336699") },
-        r: { $type: "ratio", $value: 2 },
-    });
+    }>(
+        {
+            c: { $type: DesignToken.Type.Color, $value: hex("#336699") },
+            r: { $type: "ratio", $value: 2 },
+        },
+        { types: byIdentity("ratio") },
+    );
 
     Assert.is(
         toCSS(library, {
@@ -859,10 +865,13 @@ toCssSuite("filter leaves out a token without reading it", () => {
     const library = Library.create<{
         a: DesignToken.Number;
         custom: DesignToken.Custom<"custom", string>;
-    }>({
-        a: { $type: DesignToken.Type.Number, $value: 1 },
-        custom: { $type: "custom", $value: "x" },
-    });
+    }>(
+        {
+            a: { $type: DesignToken.Type.Number, $value: 1 },
+            custom: { $type: "custom", $value: "x" },
+        },
+        { types: byIdentity("custom") },
+    );
     let converted = false;
 
     Assert.is(

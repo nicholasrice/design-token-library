@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- A library with a subscriber keeps a token's value when the token resolves again to an equal value, so an unchanged value is the same object. Each DTCG type has its own equality: a dimension or duration by number and unit, a color by color space, components and alpha (not `hex`), composite types part by part, and arrays in order. An optional part, such as `alpha` or `inset`, is compared as written. A library without a subscriber keeps no previous values.
+- `types` option of `Library.create()` and `extend()`, which registers each custom type with an `isEqual(previous, next)`. Its arguments are typed by the values of the type's tokens. `Library.TypeOptions`, `Library.Types`, `Library.CreateOptions`, `Library.CustomTypeNamesOf`, `Library.ValueOfType`, `Library.TypesOf`, `Library.CreateArgs` and `Library.ExtendArgs` are exported.
+
 ### Changed
 
+- **Breaking:** Every custom type must be registered in `types`. `create()` and `extend()` throw for a token whose custom type isn't registered, and a config whose shape has a custom type doesn't compile without the registration. Registering a DTCG type, or a custom type that a library being extended registers, throws and doesn't compile. An extension inherits the types of the library it extends.
 - A library finds which tokens depend on which from their configured values, rather than by watching what each token reads as it resolves. Each token's edges are added when it is resolved, so a `set()` invalidates the tokens that were read without walking the library, and `dependentsOf()` completes the graph once and keeps it up to date as tokens are set. An extension shares the graph of the library it extends and adds only its own tokens', so `dependentsOf()` on one of its tokens makes only the tokens it lists, not every token. A change to a token of a source reaches its extensions through their libraries, once each, rather than through a link on each of their tokens, so `subscribe()` on an extension no longer costs a link per token, and an extension that is read holds about half the memory.
 - What a subscriber of an extension is told of follows the extension's own tokens. A `set()` on a source's token that the extension has a value of its own for no longer tells it of the extension's tokens that depend on it, whose values don't change, and which of its tokens it is told of no longer depends on which tokens of the source have been read.
 - `dependentsOf()` no longer throws when another token of the library has a ref to a token it doesn't have. Reading that token's `$value` still does.

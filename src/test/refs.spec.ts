@@ -5,7 +5,7 @@ import * as Package from "../lib/index.js";
 import { Library } from "../lib/library.js";
 import { REF, isRef, pathOf, ref, refs } from "../lib/ref.js";
 import { Elevation } from "./custom-types.fixtures.js";
-import { Equal, Expect, nextUpdate, recorder } from "./helpers.js";
+import { Equal, Expect, nextUpdate, recorder, byIdentity } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Refs = suite("refs()");
@@ -57,7 +57,8 @@ const themeConfig = (): Library.Config<Theme> => ({
     },
 });
 
-const theme = () => Library.create(themeConfig());
+const theme = () =>
+    Library.create(themeConfig(), { types: byIdentity("elevation") });
 
 Refs("refs() is exported by the package", () => {
     Assert.is(Reflect.get(Package, "refs"), refs);
@@ -279,23 +280,26 @@ Ref("ref() makes the same data as refs(), frozen", () => {
 });
 
 Ref("a ref() resolves wherever a ref from refs() does", () => {
-    const library = Library.create<Theme>({
-        ...themeConfig(),
-        colors: {
-            $type: C,
-            $root: { $value: hex("#111111") },
-            primary: { $value: ref("colors.$root") },
-            link: { $value: ref("colors.primary") },
-        },
-        border: {
-            $type: DesignToken.Type.Border,
-            $value: {
-                color: ref("colors.link"),
-                width: ref("size"),
-                style: "solid",
+    const library = Library.create<Theme>(
+        {
+            ...themeConfig(),
+            colors: {
+                $type: C,
+                $root: { $value: hex("#111111") },
+                primary: { $value: ref("colors.$root") },
+                link: { $value: ref("colors.primary") },
+            },
+            border: {
+                $type: DesignToken.Type.Border,
+                $value: {
+                    color: ref("colors.link"),
+                    width: ref("size"),
+                    style: "solid",
+                },
             },
         },
-    });
+        { types: byIdentity("elevation") },
+    );
 
     Assert.equal(library.tokens.colors.link.$value, hex("#111111"));
     Assert.equal(library.tokens.border.$value.color, hex("#111111"));
@@ -314,7 +318,9 @@ type NumberPaths = Expect<
 
 // Never called: these are type errors.
 const refPathChecks = () => {
-    const library = Library.create(themeConfig());
+    const library = Library.create(themeConfig(), {
+        types: byIdentity("elevation"),
+    });
     // @ts-expect-error the library has no token at that path
     library.tokens.colors.link.set(ref("colors.primry"));
     // @ts-expect-error a dimension isn't a color
