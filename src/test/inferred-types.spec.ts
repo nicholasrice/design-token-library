@@ -7,7 +7,7 @@ import * as Assert from "uvu/assert";
 import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
-import { Equal, Expect } from "./helpers.js";
+import { Equal, Expect, byIdentity } from "./helpers.js";
 import { hex, ms, px } from "./values.js";
 
 const Inferred = suite("Type-level API: inferred configs");
@@ -182,9 +182,15 @@ type VariableTypes = [
 
 // Custom types keep the value they declare, with literals kept, and
 // aren't checked.
-const custom = Library.create({
-    elevation: { $type: "elevation", $value: { level: 1, label: "raised" } },
-});
+const custom = Library.create(
+    {
+        elevation: {
+            $type: "elevation",
+            $value: { level: 1, label: "raised" },
+        },
+    },
+    { types: byIdentity("elevation") },
+);
 type CustomTypes = [
     Expect<
         Equal<

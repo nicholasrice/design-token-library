@@ -15,6 +15,17 @@ export function nextUpdate(): Promise<void> {
 }
 
 /**
+ * Registers custom types whose values are equal only when they are the same
+ * object, for tests of something other than equality.
+ */
+export const byIdentity = <N extends string>(
+    ...names: N[]
+): { readonly [P in N]: Library.TypeOptions<any> } =>
+    Object.fromEntries(names.map((name) => [name, { isEqual: Object.is }])) as {
+        readonly [P in N]: Library.TypeOptions<any>;
+    };
+
+/**
  * Library shapes shared across specs.
  */
 export interface A {
@@ -94,7 +105,7 @@ export function recorder() {
 }
 
 /** The implementation PRs whose tests run. Each PR adds its letter. */
-export const shipped: ReadonlySet<"A" | "B" | "C"> = new Set([]);
+export const shipped: ReadonlySet<"A" | "B" | "C"> = new Set(["A"]);
 
 /** Registers a test, skipped until its PR is shipped. */
 export const specTest = (

@@ -6,7 +6,7 @@ import * as Package from "../lib/index.js";
 import { Library, configuredValueOf, dependenciesOf } from "../lib/library.js";
 import { isComputed, recipes } from "../lib/recipe.js";
 import { isRef, pathOf, ref, refs } from "../lib/ref.js";
-import { Equal, Expect } from "./helpers.js";
+import { Equal, Expect, byIdentity } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Computed = suite("isComputed()");
@@ -54,30 +54,40 @@ interface Theme {
 const $ = refs<Theme>();
 
 const theme = () =>
-    Library.create<Theme>({
-        colors: {
-            $type: C,
-            primary: { $value: hex("#336699") },
-            alias: { $value: $.colors.primary },
-            hover: { $value: Recipes.darken($.colors.primary, 0.2) },
-            mixed: {
-                $value: Recipes.mix([
-                    $.colors.alias,
-                    Recipes.darken($.colors.hover, 0.1),
-                    $.colors.alias,
-                ]),
+    Library.create<Theme>(
+        {
+            colors: {
+                $type: C,
+                primary: { $value: hex("#336699") },
+                alias: { $value: $.colors.primary },
+                hover: { $value: Recipes.darken($.colors.primary, 0.2) },
+                mixed: {
+                    $value: Recipes.mix([
+                        $.colors.alias,
+                        Recipes.darken($.colors.hover, 0.1),
+                        $.colors.alias,
+                    ]),
+                },
+                gray: { $value: Recipes.gray(0.8) },
             },
-            gray: { $value: Recipes.gray(0.8) },
+            border: {
+                $type: DesignToken.Type.Border,
+                $value: {
+                    color: $.colors.primary,
+                    width: px(1),
+                    style: "solid",
+                },
+            },
+            control: {
+                $type: "treatment",
+                $value: {
+                    background: $.colors.hover,
+                    foreground: hex("#ffffff"),
+                },
+            },
         },
-        border: {
-            $type: DesignToken.Type.Border,
-            $value: { color: $.colors.primary, width: px(1), style: "solid" },
-        },
-        control: {
-            $type: "treatment",
-            $value: { background: $.colors.hover, foreground: hex("#ffffff") },
-        },
-    });
+        { types: byIdentity("treatment") },
+    );
 
 /**
  * The rule of Adaptive UI's designer: a token is given when its configured
@@ -353,9 +363,12 @@ Dependencies(
         }
         const library = Library.create<{
             held: DesignToken.Custom<"holder", Holder>;
-        }>({
-            held: { $type: "holder", $value: new Holder($.colors.primary) },
-        });
+        }>(
+            {
+                held: { $type: "holder", $value: new Holder($.colors.primary) },
+            },
+            { types: byIdentity("holder") },
+        );
 
         Assert.equal(dependenciesOf(library.tokens.held), []);
     },
