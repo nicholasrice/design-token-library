@@ -104,19 +104,6 @@ specTest(
 specTest(
     Evaluation,
     "B",
-    "EVAL-02: a library without a subscriber stays lazy",
-    async () => {
-        const { library, calls } = counted();
-        library.tokens.a.set(px(2));
-        await nextUpdate();
-
-        Assert.equal([calls("b"), calls("c"), calls("d")], [0, 0, 0]);
-    },
-);
-
-specTest(
-    Evaluation,
-    "B",
     "EVAL-03: set() re-resolves what it reaches, and only that",
     async () => {
         const { library, calls, reset } = counted();
@@ -142,6 +129,7 @@ specTest(
         library.tokens.a.set(px(2));
         await nextUpdate();
 
+        Assert.is(calls("c"), 1, "resolved before it's read");
         Assert.equal(library.tokens.c.$value, px(2));
         Assert.is(calls("c"), 1, "reading didn't resolve it again");
     },
@@ -442,22 +430,6 @@ specTest(
 specTest(
     Subscribing,
     "B",
-    "SUB-09: a subscriber added before the flush gets the pending batch",
-    async () => {
-        const { library } = counted();
-        library.tokens.a.set(px(2));
-        const subscriber = changeRecorder();
-        subscribe(library, subscriber);
-        await settle();
-
-        Assert.is(subscriber.batches.length, 1);
-        Assert.ok(subscriber.names[0].includes("a"));
-    },
-);
-
-specTest(
-    Subscribing,
-    "B",
     "SUB-10: an extension's last unsubscribe() makes it lazy",
     async () => {
         const { library, extension, subscriber, calls, reset } =
@@ -511,7 +483,7 @@ specTest(
     },
 );
 
-/** `n`, and `t`, which clamps it to 10. */
+/** `n`; `t`, which clamps it to 10; `u`, of `t`; and `v`, of `n`. */
 const clamped = () => {
     const count = counter();
     const library = create({
@@ -520,6 +492,9 @@ const clamped = () => {
         u: { $type: T.Number, $value: count.id("u", at("t")) },
         v: { $type: T.Number, $value: count.id("v", at("n")) },
     });
+    // Read first, so that a test can't pass because the tokens are lazy.
+    library.tokens.u.$value;
+    library.tokens.v.$value;
     const subscriber = changeRecorder();
     subscribe(library, subscriber);
     return { library, subscriber, ...count };

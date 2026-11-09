@@ -408,8 +408,10 @@ specTest(
             n: { $type: T.Number, $value: 20 },
             t: { $type: T.Number, $value: Clamp.num(at("n")) },
         });
+        const extension = extend(library, {});
+        extension.tokens.t.$value;
         const subscriber = changeRecorder();
-        subscribe(extend(library, {}), subscriber, { inherited: true });
+        subscribe(extension, subscriber, { inherited: true });
 
         library.tokens.n.set(30);
         await nextUpdate();
@@ -456,6 +458,68 @@ specTest(
 
         Assert.equal(own.batches, []);
         Assert.equal(inherited.names, [["a", "b", "c", "d"]]);
+    },
+);
+
+specTest(
+    Changes,
+    "C",
+    "CHG-10: an own token is reported when its inherited dependency changes",
+    async () => {
+        const library = parent();
+        const extension = extend(library, { x: { $value: px(9) } });
+        const subscriber = changeRecorder();
+        subscribe(extension, subscriber);
+
+        library.tokens.y.set(px(6));
+        await nextUpdate();
+
+        Assert.equal(subscriber.names, [["e"]]);
+        const change = entryOf(subscriber.batches[0], "e");
+        Assert.is(change.origin, "own");
+        Assert.is(change.valueChanged, true);
+    },
+);
+
+specTest(
+    Changes,
+    "C",
+    "CHG-11: a token equal to its parent's value is still own, and reported",
+    async () => {
+        const library = parent();
+        const extension = extend(library, { a: { $value: px(1) } });
+        const subscriber = changeRecorder();
+        subscribe(extension, subscriber);
+
+        Assert.ok(ownNames(extension).includes("b"));
+        Assert.equal(extension.tokens.b.$value, library.tokens.b.$value);
+
+        extension.tokens.a.set(px(30));
+        await nextUpdate();
+
+        Assert.is(entryOf(subscriber.batches[0], "b").valueChanged, true);
+    },
+);
+
+specTest(
+    Changes,
+    "C",
+    "CHG-12: an own token re-resolved to an equal value isn't reported",
+    async () => {
+        const library = create({
+            n: { $type: T.Number, $value: 20 },
+            t: { $type: T.Number, $value: Clamp.num(at("n")) },
+        });
+        const extension = extend(library, { n: { $value: 20 } });
+        extension.tokens.t.$value;
+        const subscriber = changeRecorder();
+        subscribe(extension, subscriber);
+
+        extension.tokens.n.set(30);
+        await nextUpdate();
+
+        Assert.ok(ownNames(extension).includes("t"));
+        Assert.equal(subscriber.names, [["n"]]);
     },
 );
 
