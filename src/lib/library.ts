@@ -2171,6 +2171,10 @@ class LibraryToken<T extends DesignToken.Any>
         token?: LibraryToken<any>,
     ): void {
         const { origin } = scope;
+        if (origin !== null && origin.size === 0) {
+            // Its values are all its ancestor's, and it holds none of them.
+            return;
+        }
         const isOwn = (name: string) => origin === null || origin.has(name);
 
         const changed =
