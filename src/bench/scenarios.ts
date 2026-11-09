@@ -147,6 +147,21 @@ export const scenariosOf = (
     };
     const extendE1 = (source: AnyLibrary) => source.extend(E1 as any);
     const extendE2 = (source: AnyLibrary) => source.extend({}, E2);
+    /**
+     * The paths of the tokens a set of the token at `path` reaches, itself
+     * included.
+     */
+    const reachedFrom = (library: AnyLibrary, path: string): string[] => {
+        const reached = new Set<string>();
+        const visit = (token: AnyToken) => {
+            if (!reached.has(token.name)) {
+                reached.add(token.name);
+                dependentsOf(token).forEach(visit);
+            }
+        };
+        visit(at(library, path));
+        return [...reached];
+    };
     const extendChain = (source: AnyLibrary, length: number) => {
         let library = source;
         for (let i = 0; i < length; i++) {
@@ -279,6 +294,38 @@ export const scenariosOf = (
                 }),
             );
         }
+    }
+
+    // A set in a library that has read every token, followed by reading every
+    // token the set reaches: what a library with no eager evaluation costs a
+    // consumer that wants current values.
+    for (const target of ["leaf", "root"] as const) {
+        const setup = () => {
+            const library = create();
+            readAll(tokensOf(library));
+            const subscriber = recorder();
+            library.subscribe(subscriber);
+            const reached = reachedFrom(library, fixture[target]).map((path) =>
+                at(library, path),
+            );
+            return { token: at(library, fixture[target]), reached, subscriber };
+        };
+        base.push(
+            timed({
+                id: id(`set.${target}.read.reread`),
+                kind: "once",
+                setup,
+                run: async ({ token, reached }) => {
+                    token.set(color);
+                    await nextUpdate();
+                    readAll(reached);
+                },
+                counts: async (state) => {
+                    await nextUpdate();
+                    return { batch: state.subscriber.tokens };
+                },
+            }),
+        );
     }
 
     base.push(
@@ -440,6 +487,103 @@ export const scenariosOf = (
             );
         }
     }
+
+    // The same in an extension, and a set of the source's leaf, which the
+    // extension inherits, while the extension is subscribed and the source
+    // isn't.
+    for (const target of ["leaf", "root"] as const) {
+        const setup = () => {
+            const library = extendE1(create());
+            readAll(tokensOf(library));
+            const subscriber = recorder();
+            library.subscribe(subscriber);
+            const reached = reachedFrom(library, fixture[target]).map((path) =>
+                at(library, path),
+            );
+            return { token: at(library, fixture[target]), reached, subscriber };
+        };
+        extension.push(
+            timed({
+                id: id(`E1/set.${target}.read.reread`),
+                kind: "once",
+                setup,
+                run: async ({ token, reached }) => {
+                    token.set(color);
+                    await nextUpdate();
+                    readAll(reached);
+                },
+                counts: async (state) => {
+                    await nextUpdate();
+                    return { batch: state.subscriber.tokens };
+                },
+            }),
+        );
+    }
+    extension.push(
+        timed({
+            id: id("E1/set.source.leaf.flush"),
+            kind: "once",
+            setup: () => {
+                const source = create();
+                const library = extendE1(source);
+                const subscriber = recorder();
+                library.subscribe(subscriber);
+                return { token: at(source, fixture.leaf), library, subscriber };
+            },
+            run: async ({ token }) => {
+                token.set(color);
+                await nextUpdate();
+            },
+            counts: async (state) => {
+                await nextUpdate();
+                return { batch: state.subscriber.tokens };
+            },
+        }),
+    );
+
+    // 100 extensions of one library that each give the root a value and are
+    // subscribed, as the scopes of an app are: subscribing them, and a set of
+    // the source's leaf.
+    const subscribedE1x100 = (source: AnyLibrary) => {
+        const subscribers = [];
+        const extensions = [];
+        for (let i = 0; i < 100; i++) {
+            const library = extendE1(source);
+            const subscriber = recorder();
+            library.subscribe(subscriber);
+            extensions.push(library);
+            subscribers.push(subscriber);
+        }
+        return { subscribers, extensions };
+    };
+    extension.push(
+        timed({
+            id: id("E1x100/subscribe"),
+            kind: "once",
+            maxSamples: 5,
+            setup: create,
+            run: subscribedE1x100,
+        }),
+        timed({
+            id: id("E1x100/set.source.leaf.flush"),
+            kind: "once",
+            maxSamples: 5,
+            setup: () => {
+                const source = create();
+                return { source, ...subscribedE1x100(source) };
+            },
+            run: async ({ source }) => {
+                at(source, fixture.leaf).set(color);
+                await nextUpdate();
+            },
+            counts: ({ subscribers }) => ({
+                notified: subscribers.reduce(
+                    (total, subscriber) => total + subscriber.tokens,
+                    0,
+                ),
+            }),
+        }),
+    );
 
     // A set on a source with 100 extensions that inherit the token: with no
     // subscriber, with one each, and with one each that has read every token
