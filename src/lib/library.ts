@@ -2298,7 +2298,8 @@ function foundDependentsOf(
 
 /**
  * Makes a token of a subscribed extension its own, and each token that
- * depends on it.
+ * depends on it. With `inherit`, each is compared next with the value it had
+ * as its ancestor's.
  */
 function addOrigin(scope: Scope, name: string, inherit = true): void {
     const origin = scope.origin!;
