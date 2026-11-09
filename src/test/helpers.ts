@@ -73,7 +73,7 @@ export function captureUncaughtErrors() {
 
 /**
  * A subscriber that records the token names of each change batch. An entry is
- * a token, or a change with its token (#130).
+ * a token, or a change with its token.
  */
 export function recorder() {
     const batches: string[][] = [];
@@ -93,10 +93,10 @@ export function recorder() {
     };
 }
 
-/** The #130 PRs whose tests run. Each implementation PR adds its letter. */
+/** The implementation PRs whose tests run. Each PR adds its letter. */
 export const shipped: ReadonlySet<"A" | "B" | "C"> = new Set([]);
 
-/** Registers a #130 test, skipped until its PR is shipped. */
+/** Registers a test, skipped until its PR is shipped. */
 export const specTest = (
     suite: Test,
     pr: "A" | "B" | "C",

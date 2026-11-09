@@ -5,11 +5,11 @@ import { ref } from "../lib/ref.js";
 import { px } from "./values.js";
 
 /**
- * Recipes for the #130 specs. Each is pure, and the counting ones count their
+ * Recipes for the equality, evaluation and origin specs. Each is pure, and the counting ones count their
  * calls, so that "resolved" and "not resolved" are counted, never inferred.
  */
 
-/** A ref to any path, for the untyped libraries of the #130 specs. */
+/** A ref to any path, for untyped libraries. */
 export const at = (path: string): any => ref<any, any>(path);
 
 /**

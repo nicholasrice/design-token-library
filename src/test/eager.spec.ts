@@ -2,7 +2,7 @@ import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { recipes } from "../lib/recipe.js";
-import { Clamp, at, chain, counter } from "./fixtures-130.js";
+import { Clamp, at, chain, counter } from "./recipes.fixtures.js";
 import { nextUpdate, settle, specTest } from "./helpers.js";
 import {
     changeRecorder,
@@ -14,12 +14,12 @@ import {
 import { hex, px } from "./values.js";
 
 /**
- * #130, PR B: a subscribed library resolves eagerly, re-resolves what a set()
+ * A subscribed library resolves eagerly, re-resolves what a set()
  * reaches, and reports only the tokens whose values changed.
  */
-const Evaluation = suite("#130 eager evaluation");
-const Subscribing = suite("#130 subscribing");
-const Reporting = suite("#130 reporting changed values");
+const Evaluation = suite("eager evaluation");
+const Subscribing = suite("subscribing");
+const Reporting = suite("reporting changed values");
 const T = DesignToken.Type;
 
 type Dimension = DesignToken.Values.Readonly.Dimension;

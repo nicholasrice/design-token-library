@@ -3,17 +3,17 @@ import * as Assert from "uvu/assert";
 import { spy } from "sinon";
 import { DesignToken } from "../lib/design-token.js";
 import { recipes } from "../lib/recipe.js";
-import { at, counter } from "./fixtures-130.js";
+import { at, counter } from "./recipes.fixtures.js";
 import { nextUpdate, recorder, specTest } from "./helpers.js";
 import { create, extend, subscribe } from "./spec-api.js";
 import { hex, ms, px, rem, s } from "./values.js";
 
 /**
- * #130, PR A: equality by token type, and an equal value keeping its previous
+ * Equality by token type, and an equal value keeping its previous
  * object. Only a subscribed library keeps previous values, so each library is
  * subscribed.
  */
-const Equality = suite("#130 equality and stable identity");
+const Equality = suite("equality and stable identity");
 const T = DesignToken.Type;
 
 /** A subscribed library with one token `t`. */
