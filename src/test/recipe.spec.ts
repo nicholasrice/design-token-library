@@ -182,8 +182,16 @@ Recipe(
             library.tokens.colors.darker.$value,
             scaleColor(hex("#ffffff"), 0.25),
         );
+        // The tokens that depend on them are included, read or not
         Assert.equal(subscriber.batches, [
-            ["colors.base", "colors.dark", "colors.darker", "factor"],
+            [
+                "colors.base",
+                "colors.dark",
+                "colors.darker",
+                "border",
+                "elevation",
+                "factor",
+            ],
         ]);
     },
 );
@@ -332,9 +340,8 @@ Recipe("a computed value depends on each of its arguments", async () => {
         b: DesignToken.Color;
         c: DesignToken.Color;
     }
-    const { pick } = recipes({
-        pick: (flag: number, a: Color, b: Color) => (flag ? a : b),
-    });
+    const pickFn = spy((flag: number, a: Color, b: Color) => (flag ? a : b));
+    const { pick } = recipes({ pick: pickFn });
     const library = Library.create<Pick>({
         flag: { $type: DesignToken.Type.Number, $value: 1 },
         a: { $type: C, $value: hex("#111111") },
@@ -346,11 +353,13 @@ Recipe("a computed value depends on each of its arguments", async () => {
     const subscriber = recorder();
     library.subscribe(subscriber);
 
-    // The function doesn't use `b`, but a recipe's arguments are resolved first
+    // The function doesn't use `b`, but a recipe's arguments are resolved
+    // first, so `c` is resolved again, to an equal value
     library.tokens.b.set(hex("#333333"));
     await nextUpdate();
 
-    Assert.equal(subscriber.batches, [["b", "c"]]);
+    Assert.equal(subscriber.batches, [["b"]]);
+    Assert.is(pickFn.callCount, 2);
     Assert.equal(library.tokens.c.$value, hex("#111111"));
 });
 

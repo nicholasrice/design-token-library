@@ -201,7 +201,7 @@ Extend(
 );
 
 Extend(
-    "source changes notify the extending library even if the token was never read",
+    "a source change to a token the extension inherits isn't reported to it",
     async () => {
         const source = single();
         const extended = source.extend<{}>({});
@@ -211,7 +211,7 @@ Extend(
         source.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
-        Assert.equal(subscriber.batches, [["a"]]);
+        Assert.equal(subscriber.batches, []);
     },
 );
 
@@ -645,7 +645,7 @@ Extend(
             batches.push(subscriber.batches);
         }
 
-        Assert.equal(batches, [[["a"]], [["a"]]]);
+        Assert.equal(batches, [[], []]);
     },
 );
 

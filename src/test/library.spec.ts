@@ -607,7 +607,7 @@ Extend(
     },
 );
 Extend(
-    "An extending library should notify for tokens not configured by the extending library",
+    "An extending library should not notify for tokens it inherits",
     async () => {
         const config: Library.Config<ABTheme> = {
             a: {
@@ -628,25 +628,11 @@ Extend(
 
         extending.subscribe(subscriber);
 
-        extending.tokens.b.$value; // b needs to be accessed to set up watchers
+        extending.tokens.b.$value;
         source.tokens.a.set(hex("#111111"));
         await nextUpdate();
-        Assert.ok(onChange.calledOnce);
-        Assert.is(
-            onChange.firstCall.args[0].length,
-            2,
-            "Called with both a and b tokens",
-        );
-        Assert.is(
-            onChange.firstCall.args[0][0],
-            extending.tokens.a,
-            "a notified",
-        );
-        Assert.is(
-            onChange.firstCall.args[0][1],
-            extending.tokens.b,
-            "b notified",
-        );
+        Assert.ok(onChange.notCalled);
+        Assert.is(extending.tokens.b.$value, source.tokens.b.$value);
     },
 );
 Extend(

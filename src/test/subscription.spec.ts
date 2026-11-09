@@ -93,25 +93,22 @@ Subscription(
     },
 );
 
-Subscription(
-    "an alias token that was never read is not included (lazy tracking)",
-    async () => {
-        const library = Library.create<AB>({
-            a: { $type: C, $value: hex("#111111") },
-            b: {
-                $type: C,
-                $value: ab.a,
-            },
-        });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+Subscription("an alias token that was never read is included", async () => {
+    const library = Library.create<AB>({
+        a: { $type: C, $value: hex("#111111") },
+        b: {
+            $type: C,
+            $value: ab.a,
+        },
+    });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.a.set(hex("#222222"));
-        await nextUpdate();
+    library.tokens.a.set(hex("#222222"));
+    await nextUpdate();
 
-        Assert.equal(subscriber.batches, [["a"]]);
-    },
-);
+    Assert.equal(subscriber.batches, [["a", "b"]]);
+});
 
 Subscription(
     "a deep alias dependent is included when its dependency changes",
@@ -387,27 +384,30 @@ SameValue("setting the same object reference does not notify", async () => {
     Assert.equal(subscriber.batches, []);
 });
 
-SameValue("setting a structurally equal but new object notifies", async () => {
-    const library = Library.create<BorderTheme>({
-        a: {
-            $type: DesignToken.Type.Border,
-            $value: { color: hex("#111111"), width: px(1), style: "solid" },
-        },
-    });
-    const subscriber = recorder();
-    library.subscribe(subscriber);
+SameValue(
+    "setting a structurally equal but new object doesn't notify",
+    async () => {
+        const library = Library.create<BorderTheme>({
+            a: {
+                $type: DesignToken.Type.Border,
+                $value: { color: hex("#111111"), width: px(1), style: "solid" },
+            },
+        });
+        const subscriber = recorder();
+        library.subscribe(subscriber);
 
-    library.tokens.a.set({
-        color: hex("#111111"),
-        width: px(1),
-        style: "solid",
-    });
-    await nextUpdate();
+        library.tokens.a.set({
+            color: hex("#111111"),
+            width: px(1),
+            style: "solid",
+        });
+        await nextUpdate();
 
-    Assert.equal(subscriber.batches, [["a"]]);
-});
+        Assert.equal(subscriber.batches, []);
+    },
+);
 
-SameValue("setting an equal but new ref notifies", async () => {
+SameValue("setting an equal but new ref doesn't notify", async () => {
     const library = Library.create<AB>({
         a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: ref("a") },
@@ -418,7 +418,7 @@ SameValue("setting an equal but new ref notifies", async () => {
     library.tokens.b.set(ref("a"));
     await nextUpdate();
 
-    Assert.equal(subscriber.batches, [["b"]]);
+    Assert.equal(subscriber.batches, []);
 });
 
 SameValue("a no-op set does not invalidate the cache", () => {
@@ -721,7 +721,8 @@ Subscription(
         await nextUpdate();
 
         Assert.equal(fromLibrary.batches, [["b"]]);
-        Assert.equal(fromExtended.batches, [["b", "c"]]);
+        // A subscribed extension isn't told of the tokens it inherits.
+        Assert.equal(fromExtended.batches, [["c"]]);
         Assert.equal(library.tokens.c.$value, hex("#111111"));
         Assert.equal(extended.tokens.c.$value, hex("#333333"));
     },
