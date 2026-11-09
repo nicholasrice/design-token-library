@@ -2,7 +2,7 @@ import * as Package from "../lib/index.js";
 import { Library } from "../lib/library.js";
 
 /**
- * The API that #130 adds, before it exists. Tests reach it only through this
+ * The API the equality, evaluation and origin specs need, before it exists. Tests reach it only through this
  * module, typed loosely, and each implementation PR tightens what it ships.
  */
 

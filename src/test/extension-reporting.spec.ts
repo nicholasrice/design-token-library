@@ -2,7 +2,7 @@ import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { override } from "../lib/recipe.js";
-import { Clamp, Pick, Shade, at } from "./fixtures-130.js";
+import { Clamp, Pick, Shade, at } from "./recipes.fixtures.js";
 import { nextUpdate, specTest } from "./helpers.js";
 import {
     changeRecorder,
@@ -16,11 +16,11 @@ import {
 import { px } from "./values.js";
 
 /**
- * #130's Cases table, one test each: a token of an extension, its origin,
- * whether it's written (in `ownTokensOf()`), and whether it's reported by
- * default.
+ * Which of an extension's tokens it writes and reports: for each kind of token,
+ * its origin, whether it's written (in `ownTokensOf()`), and whether it's
+ * reported by default.
  */
-const Cases = suite("#130 cases");
+const Cases = suite("extension reporting");
 const T = DesignToken.Type;
 
 /** The parent of the table's examples. */

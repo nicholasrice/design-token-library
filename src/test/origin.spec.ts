@@ -3,7 +3,7 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { toCSS } from "../lib/css-reflector.js";
 import { override } from "../lib/recipe.js";
-import { Clamp, Pick, Shade, at } from "./fixtures-130.js";
+import { Clamp, Pick, Shade, at } from "./recipes.fixtures.js";
 import { nextUpdate, specTest } from "./helpers.js";
 import {
     changeRecorder,
@@ -17,11 +17,11 @@ import {
 import { hex, px } from "./values.js";
 
 /**
- * #130, PR C: the origin of an extension's tokens, `Change` entries, the
+ * The origin of an extension's tokens, `Change` entries, the
  * `inherited` option, and the first-render query.
  */
-const Origin = suite("#130 origin");
-const Changes = suite("#130 change entries");
+const Origin = suite("origin");
+const Changes = suite("change entries");
 const T = DesignToken.Type;
 
 /**
