@@ -34,7 +34,7 @@ Add tokens or empty groups with the same config shapes as `Library.create`. New 
 
 Sibling extensions of one source do not affect each other. Changing the source still updates extended libraries that inherit a token—until that token is updated on the extended library.
 
-Calling `.set()` on an inherited token **detaches** it from the source: later `set()` on the source no longer updates the extended copy, and the extended library stops receiving change notifications for that token from the source. Subscribers on the extended library are separate from the source. A subscriber of the extended library is told of a `set()` on the source of a token it inherits, and of the tokens it has read whose values depend on it, but not of a token whose value comes from the extension's own tokens.
+Calling `.set()` on an inherited token **detaches** it from the source: later `set()` on the source no longer updates the extended copy, and the extended library stops receiving change notifications for that token from the source. Subscribers on the extended library are separate from the source. A subscriber of the extended library is told of the extension's own tokens whose values change: those it gives a value, those that call a recipe it overrides, and those that depend on them. A token it inherits unchanged is its source's, and a `set()` on the source of it isn't in its batches (see [Subscriptions](./subscriptions#what-a-subscriber-is-told-of)).
 
 Chained `extend()` calls stack: changes on the original source propagate through intermediate libraries to the last one, including overrides applied in the middle of the chain.
 
