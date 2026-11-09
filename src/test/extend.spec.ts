@@ -649,4 +649,23 @@ Extend(
     },
 );
 
+Extend(
+    "an extension isn't told of a token its source is told of in the same batch",
+    async () => {
+        const source = aliasedPair();
+        const sourceSubscriber = recorder();
+        source.subscribe(sourceSubscriber);
+        const extended = source.extend<{}>({ a: { $value: hex("#333333") } });
+        const subscriber = recorder();
+        extended.subscribe(subscriber);
+
+        source.tokens.a.set(hex("#222222"));
+        extended.tokens.a.set(hex("#333333"));
+        await nextUpdate();
+
+        Assert.equal(sourceSubscriber.batches, [["a", "b"]]);
+        Assert.equal(subscriber.batches, []);
+    },
+);
+
 Extend.run();
