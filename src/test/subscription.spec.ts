@@ -487,7 +487,7 @@ SameValue(
 );
 
 SameValue(
-    "setting the inherited value on an extended token does not notify",
+    "setting the inherited value on an extended token reports only its origin",
     async () => {
         const value = hex("#111111");
         const toA = ab.a;
@@ -497,14 +497,30 @@ SameValue(
         });
         const extended = source.extend<{}>({});
         extended.tokens.b.$value;
-        const subscriber = recorder();
-        extended.subscribe(subscriber);
+        const batches: Library.Change<AB>[][] = [];
+        extended.subscribe({
+            onChange: (changes) => batches.push([...changes]),
+        });
 
         extended.tokens.a.set(value);
         extended.tokens.b.set(toA);
         await nextUpdate();
 
-        Assert.equal(subscriber.batches, []);
+        Assert.equal(
+            batches.map((batch) =>
+                batch.map(({ token, valueChanged, originChanged }) => [
+                    token.name,
+                    valueChanged,
+                    originChanged,
+                ]),
+            ),
+            [
+                [
+                    ["a", false, true],
+                    ["b", false, true],
+                ],
+            ],
+        );
     },
 );
 

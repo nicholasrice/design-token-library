@@ -377,7 +377,7 @@ Subscription(
         const args = onChange.firstCall.args;
         Assert.is(args.length, 1);
         Assert.ok(Array.isArray(args[0]));
-        Assert.is(args[0][0], library.tokens.token);
+        Assert.is(args[0][0].token, library.tokens.token);
     },
 );
 
@@ -405,8 +405,8 @@ Subscription(
         const args = onChange.firstCall.args;
         Assert.is(args.length, 1);
         Assert.ok(Array.isArray(args[0]));
-        Assert.is(args[0][0], library.tokens.a);
-        Assert.is(args[0][1], library.tokens.b);
+        Assert.is(args[0][0].token, library.tokens.a);
+        Assert.is(args[0][1].token, library.tokens.b);
     },
 );
 
@@ -430,13 +430,13 @@ Subscription(
 
         // Assert
         Assert.is(onChange.calledOnce, true);
-        Assert.is(onChange.firstCall.args[0][0], library.tokens.a);
+        Assert.is(onChange.firstCall.args[0][0].token, library.tokens.a);
 
         // Act
         library.tokens.b.set(hex("#FFFFFF"));
         await nextUpdate();
         Assert.is(onChange.callCount, 2);
-        Assert.is(onChange.secondCall.args[0][0], library.tokens.b);
+        Assert.is(onChange.secondCall.args[0][0].token, library.tokens.b);
     },
 );
 

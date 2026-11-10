@@ -40,6 +40,13 @@ export class Graph {
     }
 
     /**
+     * The tokens that `dependent` refers to, if the graph has its edges.
+     */
+    public dependenciesOf(dependent: string): ReadonlySet<string> | undefined {
+        return this.dependencies.get(dependent);
+    }
+
+    /**
      * Adds the edges of `dependent` to each of `dependencies`, unless the
      * graph has its edges.
      */

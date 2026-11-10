@@ -1,6 +1,7 @@
 import { ISubscribable, Subscribable } from "./notifier.js";
 
-export interface IQueue<T extends {}> extends ISubscribable<ReadonlyArray<T>> {
+export interface IQueue<T extends {}, U = T>
+    extends ISubscribable<ReadonlyArray<U>> {
     add(target: T): void;
     /**
      * Whether the queue has a subscriber.
@@ -8,21 +9,21 @@ export interface IQueue<T extends {}> extends ISubscribable<ReadonlyArray<T>> {
     readonly subscribed: boolean;
 }
 
-export class Queue<T extends {}>
-    extends Subscribable<ReadonlyArray<T>>
-    implements IQueue<T>
+export class Queue<T extends {}, U = T>
+    extends Subscribable<ReadonlyArray<U>>
+    implements IQueue<T, U>
 {
     private targets: Set<T> = new Set();
     private needsQueue: boolean = true;
 
     /**
-     * @param prepare - Gives the targets to deliver, from those added since
+     * @param prepare - Gives what to deliver, from the targets added since
      * the last batch. An empty batch isn't delivered.
      */
     constructor(
-        private readonly prepare: (targets: ReadonlySet<T>) => readonly T[] = (
+        private readonly prepare: (targets: ReadonlySet<T>) => readonly U[] = (
             targets,
-        ) => Array.from(targets),
+        ) => Array.from(targets) as unknown[] as U[],
     ) {
         super();
     }
