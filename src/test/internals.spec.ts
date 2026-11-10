@@ -105,10 +105,12 @@ GraphSuite(
         graph.add("b", new Set(["a"]));
         graph.add("b", new Set(["x"]));
         Assert.ok(graph.has("b"));
+        Assert.equal([...graph.dependenciesOf("b")!], ["a"]);
         Assert.equal(dependentsOf(graph, "x"), []);
 
         Assert.ok(graph.remove("b"));
         Assert.not.ok(graph.has("b"));
+        Assert.is(graph.dependenciesOf("b"), undefined);
         Assert.equal(dependentsOf(graph, "a"), []);
         Assert.not.ok(graph.remove("b"));
     },
