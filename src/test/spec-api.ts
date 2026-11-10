@@ -1,5 +1,4 @@
-import * as Package from "../lib/index.js";
-import { Library } from "../lib/library.js";
+import { Library, ownTokensOf as ownTokensOfLibrary } from "../lib/library.js";
 
 /**
  * The API the equality, evaluation and origin specs need, before it exists.
@@ -18,24 +17,20 @@ export const extend = (
     options?: Library.ExtendOptions,
 ): any => library.extend(config, options);
 
-/** `library.subscribe(subscriber, { inherited })`: C. */
+/** `library.subscribe(subscriber, { inherited })`. */
 export const subscribe = (
-    library: any,
-    subscriber: { onChange(batch: ReadonlyArray<any>): void },
-    options?: { readonly inherited?: boolean },
+    library: Library.Library<any>,
+    subscriber: Library.Subscriber<any>,
+    options?: Library.SubscribeOptions,
 ): void => library.subscribe(subscriber, options);
 
-/** A `Change` of a batch: C. */
-export interface Change {
-    readonly token: any;
-    readonly valueChanged: boolean;
-    readonly origin: "ancestor" | "own";
-    readonly originChanged: boolean;
-}
+/** A `Change` of a batch. */
+export type Change = Library.Change<any>;
 
-/** The entries of a batch as `Change`s: C. */
-export const entriesOfBatch = (batch: ReadonlyArray<any>): readonly Change[] =>
-    batch;
+/** The entries of a batch as `Change`s. */
+export const entriesOfBatch = (
+    batch: ReadonlyArray<Change>,
+): readonly Change[] => batch;
 
 /** The token of an entry of a batch, a token before C and a `Change` after. */
 export const tokenOfEntry = (entry: any): any =>
@@ -45,23 +40,24 @@ export const tokenOfEntry = (entry: any): any =>
 export const namesOfBatch = (batch: ReadonlyArray<any>): string[] =>
     batch.map((entry) => tokenOfEntry(entry).name).sort();
 
-/** The first-render query, `ownTokensOf(library)`: C. */
-export const ownTokensOf = (library: any): ReadonlyArray<any> =>
-    Reflect.get(Package, "ownTokensOf")(library);
+/** The first-render query, `ownTokensOf(library)`. */
+export const ownTokensOf = (
+    library: Library.Library<any>,
+): ReadonlyArray<Library.TokenRecord<any>> => ownTokensOfLibrary(library);
 
 /**
  * A subscriber that keeps each batch as it was given, for its entries'
  * fields, and its sorted token names.
  */
 export const changeRecorder = () => {
-    const batches: ReadonlyArray<any>[] = [];
+    const batches: ReadonlyArray<Change>[] = [];
     return {
         batches,
         /** The sorted token names of each batch. */
         get names(): string[][] {
             return batches.map(namesOfBatch);
         },
-        onChange(batch: ReadonlyArray<any>) {
+        onChange(batch: ReadonlyArray<Change>) {
             batches.push(batch);
         },
     };

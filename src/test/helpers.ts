@@ -105,7 +105,7 @@ export function recorder() {
 }
 
 /** The implementation PRs whose tests run. Each PR adds its letter. */
-export const shipped: ReadonlySet<"A" | "B" | "C"> = new Set(["A", "B"]);
+export const shipped: ReadonlySet<"A" | "B" | "C"> = new Set(["A", "B", "C"]);
 
 /** Registers a test, skipped until its PR is shipped. */
 export const specTest = (
