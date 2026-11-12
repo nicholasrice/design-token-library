@@ -274,6 +274,51 @@ Changes("dependents of a custom token recompute and notify", async () => {
     ]);
 });
 
+Changes(
+    "an isEqual that throws reaches the reader once, and the token takes its new value",
+    async () => {
+        const failure = new Error("isEqual failed");
+        let fail = true;
+        const library: any = Library.create(
+            {
+                n: { $type: DesignToken.Type.Number, $value: 1 },
+                box: { $type: "box", $value: { n: ref<any>("n" as never) } },
+            } as any,
+            {
+                types: {
+                    box: {
+                        isEqual: () => {
+                            if (fail) {
+                                throw failure;
+                            }
+                            return true;
+                        },
+                    },
+                },
+            } as any,
+        );
+        library.subscribe(recorder());
+        const first = library.tokens.box.$value;
+
+        library.tokens.n.set(2);
+        await nextUpdate();
+        Assert.throws(
+            () => library.tokens.box.$value,
+            (error: unknown) => error === failure,
+        );
+
+        const next = library.tokens.box.$value;
+        Assert.equal(next, { n: 2 });
+        Assert.is.not(next, first);
+
+        // The comparison runs again on the next change.
+        fail = false;
+        library.tokens.n.set(3);
+        await nextUpdate();
+        Assert.is(library.tokens.box.$value, next);
+    },
+);
+
 Changes("a custom token deep-aliasing a standard token updates", async () => {
     const library = custom();
     library.tokens.elevation.low.$value;
