@@ -4,7 +4,7 @@ import { DesignToken } from "./design-token.js";
 import { Equality, isStandardType, standardEquality } from "./equality.js";
 import { Graph } from "./graph.js";
 import { IQueue, Queue } from "./queue.js";
-import { empty, isToken } from "./utilities.js";
+import { empty, isObject, isToken } from "./utilities.js";
 
 /**
  * The key of the phantom type of a ref: what it resolves to, in a library of
@@ -1149,10 +1149,6 @@ const guarded = <R>(token: string, within: string, read: () => R): R => {
     } finally {
         reading = previous;
     }
-};
-
-const isObject = <T>(value: T): value is T & {} => {
-    return typeof value === "object" && value !== null;
 };
 
 const isGroup = (

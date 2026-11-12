@@ -1,6 +1,6 @@
 import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
-import { isToken } from "./utilities.js";
+import { isObject, isToken } from "./utilities.js";
 
 /**
  * The values of the custom properties of a token, by what is added to the
@@ -214,8 +214,7 @@ const valuesOf = (value: unknown): CSSValues =>
     isValues(value) ? value : { "": String(value) };
 
 // A converter's result is typed by `CSSConverter`, so an object is a record.
-const isValues = (value: unknown): value is CSSValues =>
-    typeof value === "object" && value !== null;
+const isValues = (value: unknown): value is CSSValues => isObject(value);
 
 /**
  * The custom property of a token named `name` for a key of its

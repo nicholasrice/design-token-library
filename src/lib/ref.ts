@@ -1,4 +1,5 @@
 import type { Library } from "./library.js";
+import { isObject } from "./utilities.js";
 
 /**
  * The key of a ref's path. A registered symbol, so that a ref made by another
@@ -99,9 +100,7 @@ const refAt = (path: readonly string[]): object => {
  * @public
  */
 export const isRef = (value: unknown): value is Library.Ref<unknown, never> => {
-    return (
-        typeof value === "object" && value !== null && Object.hasOwn(value, REF)
-    );
+    return isObject(value) && Object.hasOwn(value, REF);
 };
 
 /**
