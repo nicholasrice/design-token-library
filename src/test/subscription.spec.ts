@@ -25,6 +25,7 @@ const SameValue = suite("Library subscriptions: unchanged values");
 const Discovered = suite(
     "Library subscriptions: what a recipe's result makes an extension's own",
 );
+const Origins = suite("Library subscriptions: by origin");
 const Unsubscribed = suite("Library subscriptions: after the last unsubscribe");
 const C = DesignToken.Type.Color;
 
@@ -997,7 +998,73 @@ Discovered(
     },
 );
 
+/** A source of `a` and `b`, and an extension that gives `a` a value. */
+const originsOf = () => {
+    const library = untyped({
+        a: { $type: N, $value: 1 },
+        b: { $type: N, $value: 2 },
+        c: { $type: N, $value: refTo("b") },
+    });
+    return { library, extension: library.extend({ a: { $value: 5 } }) };
+};
+
+Origins("each origin is told of the changes from it", async () => {
+    const { library, extension } = originsOf();
+    const own = recorder();
+    const ancestor = recorder();
+    const all = recorder();
+    extension.subscribe(own);
+    extension.subscribe(ancestor, { origin: "ancestor" });
+    extension.subscribe(all, { origin: "all" });
+
+    library.tokens.b.set(3);
+    await nextUpdate();
+    extension.tokens.a.set(6);
+    await nextUpdate();
+
+    Assert.equal(own.batches, [["a"]]);
+    Assert.equal(ancestor.batches, [["b", "c"]]);
+    Assert.equal(all.batches, [["b", "c"], ["a"]]);
+});
+
+Origins(
+    "a subscriber told of an ancestor's tokens is told of nothing once it unsubscribes",
+    async () => {
+        const { library, extension } = originsOf();
+        const own = recorder();
+        const ancestor = recorder();
+        extension.subscribe(own);
+        extension.subscribe(ancestor, { origin: "ancestor" });
+        extension.unsubscribe(ancestor);
+
+        library.tokens.b.set(3);
+        await nextUpdate();
+
+        Assert.equal(own.batches, []);
+        Assert.equal(ancestor.batches, []);
+        Assert.is(extension.tokens.c.$value, 3);
+    },
+);
+
+Origins("a library made by create() has only its own tokens", async () => {
+    const { library } = originsOf();
+    const own = recorder();
+    const ancestor = recorder();
+    const all = recorder();
+    library.subscribe(own);
+    library.subscribe(ancestor, { origin: "ancestor" });
+    library.subscribe(all, { origin: "all" });
+
+    library.tokens.b.set(3);
+    await nextUpdate();
+
+    Assert.equal(own.batches, [["b", "c"]]);
+    Assert.equal(ancestor.batches, []);
+    Assert.equal(all.batches, [["b", "c"]]);
+});
+
 Subscription.run();
 SameValue.run();
 Unsubscribed.run();
+Origins.run();
 Discovered.run();

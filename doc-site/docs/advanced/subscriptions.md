@@ -68,10 +68,10 @@ extension.subscribe({ onChange(changes) { /* ... */ } });
 extension.tokens.a.set(library.tokens.a.$value);
 ```
 
-A subscriber that holds only the extension and needs all of its values subscribes with `inherited: true`, and is also told of the tokens that are its ancestor's when their values change, with `origin: "ancestor"`. The extension then resolves those tokens too.
+A subscriber chooses which tokens it is told of with `origin`: `"own"` (the default), `"ancestor"`, or `"all"`, matching each change's `origin`. A subscriber that holds only the extension and needs all of its values subscribes with `origin: "all"`. With `"ancestor"` or `"all"`, the extension resolves its ancestor's tokens too.
 
 ```ts
-extension.subscribe(subscriber, { inherited: true });
+extension.subscribe(subscriber, { origin: "all" });
 ```
 
 `ownTokensOf()` lists an extension's own tokens, for a first render that writes only them, such as with [`toCSS`](../export/css-output)'s `filter`. It lists every token of a library made by `create()`. To find the tokens that a ref in a recipe's result makes its own, it resolves its ancestors' tokens that call recipes.
