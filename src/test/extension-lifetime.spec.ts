@@ -1,7 +1,9 @@
 import { suite } from "uvu";
+import { spy } from "sinon";
 import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
+import { recipes } from "../lib/recipe.js";
 import { refs } from "../lib/ref.js";
 import { ABC, nextUpdate, recorder } from "./helpers.js";
 import { hex } from "./values.js";
@@ -110,6 +112,21 @@ Lazy("an extension of an extension follows through the middle", () => {
     Assert.equal(last.tokens.b.$value, hex("#555555"));
 });
 
+Lazy("extend() reads no token of the library it extends", () => {
+    const made = spy((color: DesignToken.Values.Readonly.Color) => color);
+    const { same } = recipes({ same: made });
+    const library = Library.create<ABC>({
+        a: { $type: C, $value: same(hex("#111111")) },
+        b: { $type: C, $value: same($.a) },
+        c: { $type: C, $value: same(hex("#333333")) },
+    });
+
+    const extended = library.extend<{}>({ c: { $value: $.b } });
+
+    Assert.is(made.callCount, 0);
+    Assert.equal(extended.tokens.c.$value, hex("#111111"));
+});
+
 Lifetime("an extension that was never read", async () => {
     const library = source();
     const extended = new WeakRef(library.extend<{}>({}).tokens);
@@ -171,6 +188,25 @@ Lifetime("an extension that is referred to is kept", async () => {
     library.tokens.a.set(hex("#222222"));
     Assert.equal(extended.tokens.b.$value, hex("#222222"));
 });
+
+Lifetime(
+    "an extension that is kept after its source is dropped resolves and follows sets",
+    async () => {
+        const make = () => {
+            const library = source();
+            return {
+                extended: library.extend<{}>({}),
+                dropped: new WeakRef(library),
+            };
+        };
+        const { extended, dropped } = make();
+
+        Assert.ok(await isCollected(dropped));
+        Assert.equal(extended.tokens.b.$value, hex("#111111"));
+        extended.tokens.a.set(hex("#222222"));
+        Assert.equal(extended.tokens.b.$value, hex("#222222"));
+    },
+);
 
 Lazy.run();
 Lifetime.run();
