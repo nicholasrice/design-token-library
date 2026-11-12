@@ -77,8 +77,12 @@ extended.subscribe(
     },
     subscribeOptions,
 );
-const own: ReadonlyArray<Library.TokenRecord<Tokens>> = ownTokensOf(extended);
+// The list's type is the one ownTokensOf() returns: read-only, of the extension's tokens.
+const own = ownTokensOf(extended);
 // @ts-expect-error the list is read-only
 own.push(extended.tokens.size);
+const ownToken: Library.TokenRecord<Tokens> | undefined = own[0];
+// @ts-expect-error an entry is a token of the extension's shape
+const otherToken: Library.TokenRecord<{ x: DesignToken.Color }> | undefined = own[0];
 
-void [notAnOrigin, byPath, value, notARef, toCSS(library), options, swatches, names, reserved];
+void [ownToken, otherToken, notAnOrigin, byPath, value, notARef, toCSS(library), options, swatches, names, reserved];
