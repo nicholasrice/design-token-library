@@ -8,5 +8,13 @@ export const empty = Symbol();
  * @internal
  */
 export const isToken = <T>(value: T): value is T & { $value: any } => {
-    return typeof value === "object" && value !== null && "$value" in value;
+    return isObject(value) && "$value" in value;
 };
+
+/**
+ * Tests whether a value is an object, and not null.
+ *
+ * @internal
+ */
+export const isObject = <T>(value: T): value is T & object =>
+    typeof value === "object" && value !== null;

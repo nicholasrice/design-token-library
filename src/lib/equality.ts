@@ -1,4 +1,5 @@
 import { DesignToken } from "./design-token.js";
+import { isObject } from "./utilities.js";
 
 /**
  * Tells whether two values of a type are equal.
@@ -6,9 +7,6 @@ import { DesignToken } from "./design-token.js";
 export type Equality = (a: unknown, b: unknown) => boolean;
 
 const T = DesignToken.Type;
-
-const isObject = (value: unknown): value is Record<PropertyKey, unknown> =>
-    typeof value === "object" && value !== null;
 
 /**
  * Compares two objects member by member, each with its own equality. An
@@ -29,7 +27,7 @@ const members =
             return false;
         }
         for (const key in required) {
-            if (!required[key](a[key], b[key])) {
+            if (!required[key](Reflect.get(a, key), Reflect.get(b, key))) {
                 return false;
             }
         }
@@ -38,7 +36,10 @@ const members =
             if (inA !== Object.hasOwn(b, key)) {
                 return false;
             }
-            if (inA && !optional[key](a[key], b[key])) {
+            if (
+                inA &&
+                !optional[key](Reflect.get(a, key), Reflect.get(b, key))
+            ) {
                 return false;
             }
         }
