@@ -18,7 +18,7 @@ import { hex, px } from "./values.js";
 
 /**
  * The origin of an extension's tokens, `Change` entries, the
- * `inherited` option, and the first-render query.
+ * `origin` option, and the first-render query.
  */
 const Origin = suite("origin");
 const Changes = suite("change entries");
@@ -365,13 +365,13 @@ const assertInheritedABCD = (batch: ReadonlyArray<any>) => {
 specTest(
     Changes,
     "C",
-    "CHG-05: inherited: true reports ancestor tokens whose values changed",
+    "CHG-05: origin 'all' reports ancestor tokens whose values changed",
     async () => {
         const library = parent();
         const extension = extend(library, {});
         extension.tokens.d.$value;
         const subscriber = changeRecorder();
-        subscribe(extension, subscriber, { inherited: true });
+        subscribe(extension, subscriber, { origin: "all" });
 
         library.tokens.a.set(px(5));
         await nextUpdate();
@@ -384,12 +384,12 @@ specTest(
 specTest(
     Changes,
     "C",
-    "CHG-06: inherited: true reports ancestor tokens that weren't read",
+    "CHG-06: origin 'all' reports ancestor tokens that weren't read",
     async () => {
         const library = parent();
         const extension = extend(library, {});
         const subscriber = changeRecorder();
-        subscribe(extension, subscriber, { inherited: true });
+        subscribe(extension, subscriber, { origin: "all" });
 
         library.tokens.a.set(px(5));
         await nextUpdate();
@@ -402,7 +402,7 @@ specTest(
 specTest(
     Changes,
     "C",
-    "CHG-07: inherited: true doesn't report an equal re-resolve",
+    "CHG-07: origin 'all' doesn't report an equal re-resolve",
     async () => {
         const library = create({
             n: { $type: T.Number, $value: 20 },
@@ -411,7 +411,7 @@ specTest(
         const extension = extend(library, {});
         extension.tokens.t.$value;
         const subscriber = changeRecorder();
-        subscribe(extension, subscriber, { inherited: true });
+        subscribe(extension, subscriber, { origin: "all" });
 
         library.tokens.n.set(30);
         await nextUpdate();
@@ -423,14 +423,14 @@ specTest(
 specTest(
     Changes,
     "C",
-    "CHG-08: inherited: true reports each token once",
+    "CHG-08: origin 'all' reports each token once",
     async () => {
         const library = parent();
         const extension = extend(library, {});
         // `b` makes `a` of the extension as it resolves.
         extension.tokens.b.$value;
         const subscriber = changeRecorder();
-        subscribe(extension, subscriber, { inherited: true });
+        subscribe(extension, subscriber, { origin: "all" });
 
         library.tokens.a.set(px(5));
         await nextUpdate();
@@ -444,20 +444,20 @@ specTest(
 specTest(
     Changes,
     "C",
-    "CHG-09: default and inherited subscribers of one extension",
+    "CHG-09: default and origin 'all' subscribers of one extension",
     async () => {
         const library = parent();
         const extension = extend(library, {});
         const own = changeRecorder();
-        const inherited = changeRecorder();
+        const all = changeRecorder();
         subscribe(extension, own);
-        subscribe(extension, inherited, { inherited: true });
+        subscribe(extension, all, { origin: "all" });
 
         library.tokens.a.set(px(5));
         await nextUpdate();
 
         Assert.equal(own.batches, []);
-        Assert.equal(inherited.names, [["a", "b", "c", "d"]]);
+        Assert.equal(all.names, [["a", "b", "c", "d"]]);
     },
 );
 

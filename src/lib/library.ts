@@ -38,8 +38,8 @@ export namespace Library {
          * A library with a subscriber resolves its tokens, and a `set()`
          * resolves again the tokens it reaches. An extension resolves its
          * own tokens, and its subscriber is told of them; with
-         * `inherited: true`, it resolves its ancestor's tokens too, and is
-         * told of those whose values change.
+         * `origin: "ancestor"` or `"all"`, it resolves its ancestor's tokens
+         * too, and the subscriber is told of those whose values change.
          */
         subscribe(
             subscriber: Library.Subscriber<R>,
@@ -204,11 +204,12 @@ export namespace Library {
      */
     export interface SubscribeOptions {
         /**
-         * Whether a subscriber of an extension is also told of the tokens
-         * whose values are its ancestor's, when their values change. By
-         * default, it's told only of its own.
+         * Which tokens a subscriber is told of, by where their values come
+         * from, as {@link (Library:namespace).Change.origin} says: the
+         * library's own (the default), its ancestor's, or all. A library
+         * made by `create()` has only its own.
          */
-        readonly inherited?: boolean;
+        readonly origin?: "own" | "ancestor" | "all";
     }
 
     /**
@@ -894,12 +895,15 @@ interface Scope {
      * a default subscriber of an extension, a filter that leaves out the
      * tokens that are its ancestor's.
      */
-    readonly subscribers: Map<Library.Subscriber<any>, Library.Subscriber<any>>;
+    readonly subscribers: Map<
+        Library.Subscriber<any>,
+        { delivered: Library.Subscriber<any>; ancestral: boolean }
+    >;
     /**
      * How many subscribers of an extension are told of the tokens that are
      * its ancestor's. With any, it resolves them and queues them.
      */
-    inherited: number;
+    ancestral: number;
     /**
      * The tokens of an extension that are made, by name: those that are read,
      * set, given a value by its config, or new in it. A library made by
@@ -986,7 +990,7 @@ const scopeOf = (
         types,
         queue: new Queue(LibraryToken.reported),
         subscribers: new Map(),
-        inherited: 0,
+        ancestral: 0,
         callers: new Set(),
         discovered: false,
         made: new Map(),
@@ -1746,35 +1750,36 @@ class LibraryImpl implements Library.Library<any> {
     ) {
         const { scope } = this;
         this.unsubscribe(subscriber);
-        const inherited = scope.source !== undefined && !!options.inherited;
-        const delivered = inherited
-            ? subscriber
-            : scope.source === undefined
-              ? subscriber
-              : ownChangesTo(subscriber);
+        const { origin = "own" } = options;
+        // A library made by `create()` has only its own tokens.
+        const ancestral = scope.source !== undefined && origin !== "own";
+        const delivered =
+            origin === "all" || (origin === "own" && scope.source === undefined)
+                ? subscriber
+                : changesFrom(origin, subscriber);
         const subscribed = scope.queue.subscribed;
-        scope.subscribers.set(subscriber, delivered);
+        scope.subscribers.set(subscriber, { delivered, ancestral });
         scope.queue.subscribe(delivered);
-        if (inherited) {
-            scope.inherited++;
+        if (ancestral) {
+            scope.ancestral++;
         }
         if (!subscribed) {
             resolveOwn(scope);
         }
-        if (inherited && scope.inherited === 1) {
+        if (ancestral && scope.ancestral === 1) {
             resolveAncestors(scope);
         }
     }
     public unsubscribe(subscriber: Library.Subscriber<any>) {
         const { scope } = this;
-        const delivered = scope.subscribers.get(subscriber);
-        if (delivered === undefined) {
+        const subscribed = scope.subscribers.get(subscriber);
+        if (subscribed === undefined) {
             return;
         }
         scope.subscribers.delete(subscriber);
-        scope.queue.unsubscribe(delivered);
-        if (delivered === subscriber && scope.source !== undefined) {
-            scope.inherited--;
+        scope.queue.unsubscribe(subscribed.delivered);
+        if (subscribed.ancestral) {
+            scope.ancestral--;
         }
         if (!scope.queue.subscribed) {
             LibraryToken.dropPrevious(scope);
@@ -1964,7 +1969,7 @@ class LibraryToken<T extends DesignToken.Any>
                 LibraryToken.ancestorValue<DesignToken.ReadonlyValueByToken<T>>(
                     this,
                 );
-            if (scope.inherited > 0) {
+            if (scope.ancestral > 0) {
                 this.state.seen = value;
             }
             return value;
@@ -2140,7 +2145,7 @@ class LibraryToken<T extends DesignToken.Any>
             // value its subscribers were last told of.
             // Only a subscriber told of its ancestor's tokens queues those.
             state.before =
-                state.scope.inherited > 0 && this.isAncestors()
+                state.scope.ancestral > 0 && this.isAncestors()
                     ? state.seen
                     : state.cached !== empty
                       ? state.cached
@@ -2289,7 +2294,7 @@ class LibraryToken<T extends DesignToken.Any>
                 after = empty;
             }
             // Only a subscriber told of its ancestor's tokens queues those.
-            const ancestors = scope.inherited > 0 && token.isAncestors();
+            const ancestors = scope.ancestral > 0 && token.isAncestors();
             const valueChanged =
                 !Object.is(before, after) &&
                 !(
@@ -2450,15 +2455,15 @@ class LibraryToken<T extends DesignToken.Any>
         if (origin !== null) {
             LibraryToken.rediscover(scope, name);
         }
-        const inherited = scope.inherited > 0;
-        if (!inherited && origin !== null && origin.size === 0) {
+        const ancestral = scope.ancestral > 0;
+        if (!ancestral && origin !== null && origin.size === 0) {
             // Its values are all its ancestor's, and it holds none of them.
             return;
         }
         const isOwn = (name: string) => origin === null || origin.has(name);
         // The tokens queued: its own, and with a subscriber told of its
         // ancestor's, those too.
-        const isQueued = (name: string) => inherited || isOwn(name);
+        const isQueued = (name: string) => ancestral || isOwn(name);
 
         const changed =
             token ??
@@ -2484,7 +2489,7 @@ class LibraryToken<T extends DesignToken.Any>
                 const token = tokenNamed(scope, dependent);
                 token.queue();
                 token.state.current = empty;
-            } else if (inherited) {
+            } else if (ancestral) {
                 tokenNamed(scope, dependent).queue();
             } else {
                 madeToken(scope, dependent)?.uncache();
@@ -2827,14 +2832,15 @@ const changeOf = (
  * A subscriber of an extension's batches that's told only of the changes to
  * its own tokens.
  */
-const ownChangesTo = (
+const changesFrom = (
+    origin: "own" | "ancestor",
     subscriber: Library.Subscriber<any>,
 ): Library.Subscriber<any> => ({
     onChange(changes) {
-        const own = changes.filter((change) => change.origin === "own");
-        if (own.length > 0) {
+        const told = changes.filter((change) => change.origin === origin);
+        if (told.length > 0) {
             subscriber.onChange(
-                own.length === changes.length ? changes : Object.freeze(own),
+                told.length === changes.length ? changes : Object.freeze(told),
             );
         }
     },
