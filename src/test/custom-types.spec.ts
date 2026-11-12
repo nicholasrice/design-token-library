@@ -64,6 +64,19 @@ Create("a static custom value is exposed with its metadata", () => {
     Assert.equal(library.tokens.r.$extensions, { e: "e" });
 });
 
+Create("a custom type registered without an isEqual function throws", () => {
+    for (const options of [{}, { isEqual: true }, null]) {
+        Assert.throws(
+            () =>
+                Library.create(
+                    { r: { $type: "ratio", $value: 1.5 } } as any,
+                    { types: { ratio: options } } as any,
+                ),
+            /The custom type "ratio" has no isEqual function/,
+        );
+    }
+});
+
 Create("primitive, array and nested custom values resolve", () => {
     const library = custom();
 
