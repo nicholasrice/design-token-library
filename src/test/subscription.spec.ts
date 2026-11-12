@@ -1,7 +1,7 @@
 import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import { spy } from "sinon";
-import { recipes } from "../lib/recipe.js";
+import { override, recipes } from "../lib/recipe.js";
 import { ref, refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
@@ -644,6 +644,48 @@ Subscription(
 
         Assert.equal(subscriber.batches, [["a", "c"]]);
         Assert.equal(library.tokens.c.$value, hex("#333333"));
+    },
+);
+
+Subscription(
+    "an extension that overrides a recipe to return another ref is included when that ref's token changes",
+    async () => {
+        interface Picked {
+            n: DesignToken.Number;
+            a: DesignToken.Color;
+            b: DesignToken.Color;
+            c: DesignToken.Color;
+        }
+        const $ = refs<Picked>();
+        const Pick = recipes({
+            pick: (_: number): any => $.a,
+        });
+        const library = Library.create<Picked>({
+            n: { $type: DesignToken.Type.Number, $value: 1 },
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: hex("#222222") },
+            c: { $type: C, $value: Pick.pick($.n) },
+        });
+        // The refs a recipe's result has are found in each library that
+        // resolves it, as an override can return different ones.
+        const extended = library.extend<{}>(
+            {},
+            { recipes: [override(Pick.pick, (_: number): any => $.b)] },
+        );
+        library.tokens.c.$value;
+        extended.tokens.c.$value;
+        const fromLibrary = recorder();
+        const fromExtended = recorder();
+        library.subscribe(fromLibrary);
+        extended.subscribe(fromExtended);
+
+        library.tokens.b.set(hex("#333333"));
+        await nextUpdate();
+
+        Assert.equal(fromLibrary.batches, [["b"]]);
+        Assert.equal(fromExtended.batches, [["b", "c"]]);
+        Assert.equal(library.tokens.c.$value, hex("#111111"));
+        Assert.equal(extended.tokens.c.$value, hex("#333333"));
     },
 );
 
