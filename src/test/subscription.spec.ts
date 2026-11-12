@@ -648,6 +648,42 @@ Subscription(
 );
 
 Subscription(
+    "a token whose recipe returns another ref is no longer included when the old ref's token changes",
+    async () => {
+        interface Picked {
+            n: DesignToken.Number;
+            a: DesignToken.Color;
+            b: DesignToken.Color;
+            c: DesignToken.Color;
+        }
+        const $ = refs<Picked>();
+        const Pick = recipes({
+            pick: (first: number): any => (first > 0 ? $.a : $.b),
+        });
+        const library = Library.create<Picked>({
+            n: { $type: DesignToken.Type.Number, $value: 1 },
+            a: { $type: C, $value: hex("#111111") },
+            b: { $type: C, $value: hex("#222222") },
+            c: { $type: C, $value: Pick.pick($.n) },
+        });
+        library.tokens.c.$value;
+        library.tokens.n.set(0);
+        Assert.equal(library.tokens.c.$value, hex("#222222"));
+        await nextUpdate();
+        const subscriber = recorder();
+        library.subscribe(subscriber);
+
+        library.tokens.a.set(hex("#333333"));
+        await nextUpdate();
+        library.tokens.b.set(hex("#444444"));
+        await nextUpdate();
+
+        Assert.equal(subscriber.batches, [["a"], ["b", "c"]]);
+        Assert.equal(library.tokens.c.$value, hex("#444444"));
+    },
+);
+
+Subscription(
     "an extension that overrides a recipe to return another ref is included when that ref's token changes",
     async () => {
         interface Picked {
