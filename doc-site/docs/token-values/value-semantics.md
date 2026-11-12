@@ -12,4 +12,4 @@ When reading tokens, ref targets and plain data copies are frozen; mutating them
 
 A library with a subscriber keeps a token's value when the token resolves again to an equal one, so an unchanged value is the same object, and a consumer can compare values with `===`. Each DTCG type is compared by its parts: a dimension or a duration by its number and unit, so `0px` isn't `0rem`, a color by its color space, components and alpha but not its `hex` fallback, and arrays in order. An optional part, such as a color's `alpha` or a shadow's `inset`, is compared as it is written: a missing `alpha` isn't equal to `alpha: 1`. A [custom type](../advanced/custom-types#registering-a-type) is compared by its `isEqual`.
 
-A library without a subscriber keeps no previous values, so each time a token resolves its value is a new object.
+A library without a subscriber keeps no previous values, so each time a token resolves its value is a new object. When its last subscriber unsubscribes, it drops the values it kept, so a token that changed while it was subscribed and is read afterwards is a new object too.

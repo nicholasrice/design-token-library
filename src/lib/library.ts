@@ -1629,6 +1629,9 @@ class LibraryImpl implements Library.Library<any> {
     }
     public unsubscribe(subscriber: Library.Subscriber<any>) {
         this.scope.queue.unsubscribe(subscriber);
+        if (!this.scope.queue.subscribed) {
+            LibraryToken.dropPrevious(this.scope);
+        }
     }
 
     public extend(
@@ -1825,6 +1828,24 @@ class LibraryToken<T extends DesignToken.Any>
         this.cached = empty;
         this.scope.cached--;
         return true;
+    }
+
+    /**
+     * Drops the value each token of a library kept to compare with, once the
+     * library has no subscriber, which compares values.
+     */
+    public static dropPrevious(scope: Scope): void {
+        const drop = (token: LibraryToken<any>) => {
+            token.previous = empty;
+        };
+        if (scope.source) {
+            // The tokens an extension hasn't made have no value.
+            scope.made.forEach(drop);
+        } else {
+            forEachToken(scope.tokens, (_, descriptor) =>
+                drop(descriptor.get!()),
+            );
+        }
     }
 
     private setFound(names: Set<string> | null): void {
