@@ -14,6 +14,7 @@ import {
     recorder,
     settle,
 } from "./helpers.js";
+import { isCollected } from "./collect.js";
 import { hex, px } from "./values.js";
 
 const ab = refs<AB>();
@@ -21,6 +22,7 @@ const abc = refs<ABC>();
 
 const Subscription = suite("Library subscriptions");
 const SameValue = suite("Library subscriptions: unchanged values");
+const Unsubscribed = suite("Library subscriptions: after the last unsubscribe");
 const C = DesignToken.Type.Color;
 
 Subscription("unsubscribe stops notifications", async () => {
@@ -725,5 +727,103 @@ Subscription(
     },
 );
 
+interface Measured {
+    n: DesignToken.Number;
+    d: DesignToken.Dimension;
+}
+const measured = refs<Measured>();
+// While it fails, a token that a change dropped stays dropped, even in a
+// library that resolves its tokens as they change.
+let failing = false;
+const { scale } = recipes({
+    scale: (_: number) => {
+        if (failing) {
+            throw new Error("scale failed");
+        }
+        return px(4);
+    },
+});
+const measuredConfig = () =>
+    ({
+        n: { $type: DesignToken.Type.Number, $value: 1 },
+        // Equal for any n, so a change of n drops d without changing it.
+        d: { $type: DesignToken.Type.Dimension, $value: scale(measured.n) },
+    }) as const;
+
+Unsubscribed(
+    "a value dropped while subscribed isn't kept once the last subscriber unsubscribes",
+    async () => {
+        const library = Library.create<Measured>(measuredConfig());
+        const subscriber = recorder();
+        library.subscribe(subscriber);
+        const before = library.tokens.d.$value;
+
+        failing = true;
+        library.tokens.n.set(2);
+        await nextUpdate();
+        library.unsubscribe(subscriber);
+        failing = false;
+
+        const after = library.tokens.d.$value;
+        Assert.equal(after, before);
+        Assert.is.not(after, before);
+    },
+);
+
+Unsubscribed(
+    "an extension's value dropped while subscribed isn't kept once the last subscriber unsubscribes",
+    async () => {
+        const library = Library.create<Measured>(measuredConfig());
+        const extended = library.extend<{}>({ n: { $value: 1 } });
+        const subscriber = recorder();
+        extended.subscribe(subscriber);
+        const before = extended.tokens.d.$value;
+
+        failing = true;
+        extended.tokens.n.set(2);
+        await nextUpdate();
+        extended.unsubscribe(subscriber);
+        failing = false;
+
+        const after = extended.tokens.d.$value;
+        Assert.equal(after, before);
+        Assert.is.not(after, before);
+    },
+);
+
+Unsubscribed("a library with another subscriber keeps comparing", async () => {
+    const library = Library.create<Measured>(measuredConfig());
+    const first = recorder();
+    const second = recorder();
+    library.subscribe(first);
+    library.subscribe(second);
+    const before = library.tokens.d.$value;
+
+    library.tokens.n.set(2);
+    await nextUpdate();
+    library.unsubscribe(first);
+
+    Assert.is(library.tokens.d.$value, before);
+});
+
+Unsubscribed(
+    "a value dropped while subscribed is collected once the last subscriber unsubscribes",
+    async () => {
+        const library = Library.create<Measured>(measuredConfig());
+        const subscriber = recorder();
+        library.subscribe(subscriber);
+        const dropped = new WeakRef(library.tokens.d.$value);
+
+        failing = true;
+        library.tokens.n.set(2);
+        await nextUpdate();
+        library.unsubscribe(subscriber);
+        failing = false;
+
+        Assert.ok(await isCollected(dropped));
+    },
+);
+
 Subscription.run();
 SameValue.run();
+Unsubscribed.run();
