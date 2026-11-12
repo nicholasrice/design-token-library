@@ -72,9 +72,9 @@ const dependentsOf = (graph: Graph, name: string): string[] => {
 GraphSuite("visits each dependent of a token once", () => {
     const graph = new Graph(null, () => true);
 
-    graph.add("b", ["a"]);
-    graph.add("c", ["a", "b"]);
-    graph.add("c", ["a"]);
+    graph.add("b", new Set(["a"]));
+    graph.add("c", new Set(["a", "b"]));
+    graph.add("c", new Set(["a"]));
 
     Assert.equal(dependentsOf(graph, "a"), ["b", "c"]);
     Assert.equal(dependentsOf(graph, "b"), ["c"]);
@@ -83,26 +83,44 @@ GraphSuite("visits each dependent of a token once", () => {
 
 GraphSuite("remove drops only the given edges", () => {
     const graph = new Graph(null, () => true);
-    graph.add("b", ["a"]);
-    graph.add("c", ["a"]);
+    graph.add("b", new Set(["a"]));
+    graph.add("c", new Set(["a"]));
 
-    graph.remove("b", ["a"]);
+    graph.remove("b");
     Assert.equal(dependentsOf(graph, "a"), ["c"]);
 
-    graph.remove("c", ["a"]);
+    graph.remove("c");
     Assert.equal(dependentsOf(graph, "a"), []);
 
-    graph.add("b", ["a"]);
+    graph.add("b", new Set(["a"]));
     Assert.equal(dependentsOf(graph, "a"), ["b"]);
 });
+
+GraphSuite(
+    "has the edges of a dependent from add until remove, which says whether it had them",
+    () => {
+        const graph = new Graph(null, () => true);
+        Assert.not.ok(graph.has("b"));
+
+        graph.add("b", new Set(["a"]));
+        graph.add("b", new Set(["x"]));
+        Assert.ok(graph.has("b"));
+        Assert.equal(dependentsOf(graph, "x"), []);
+
+        Assert.ok(graph.remove("b"));
+        Assert.not.ok(graph.has("b"));
+        Assert.equal(dependentsOf(graph, "a"), []);
+        Assert.not.ok(graph.remove("b"));
+    },
+);
 
 GraphSuite("version changes with each add and remove", () => {
     const graph = new Graph(null, () => true);
     const versions = [graph.version];
 
-    graph.add("b", ["a"]);
+    graph.add("b", new Set(["a"]));
     versions.push(graph.version);
-    graph.remove("b", ["a"]);
+    graph.remove("b");
     versions.push(graph.version);
 
     Assert.is(new Set(versions).size, 3);
@@ -113,7 +131,7 @@ GraphSuite("version changes with the parent's", () => {
     const graph = new Graph(parent, () => false);
     const before = graph.version;
 
-    parent.add("b", ["a"]);
+    parent.add("b", new Set(["a"]));
 
     Assert.is.not(graph.version, before);
 });
@@ -124,10 +142,10 @@ GraphSuite(
         const own = new Set(["c"]);
         const parent = new Graph(null, () => true);
         const graph = new Graph(parent, (name) => own.has(name));
-        parent.add("b", ["a"]);
-        parent.add("c", ["a"]);
-        graph.add("c", ["x"]);
-        graph.add("d", ["a"]);
+        parent.add("b", new Set(["a"]));
+        parent.add("c", new Set(["a"]));
+        graph.add("c", new Set(["x"]));
+        graph.add("d", new Set(["a"]));
 
         Assert.equal(dependentsOf(graph, "a"), ["b", "d"]);
         Assert.equal(dependentsOf(graph, "x"), ["c"]);
@@ -140,10 +158,10 @@ GraphSuite("filters a parent's dependents at every layer", () => {
     const root = new Graph(null, () => true);
     const middle = new Graph(root, (name) => name === "b");
     const graph = new Graph(middle, (name) => name === "c");
-    root.add("b", ["a"]);
-    root.add("c", ["a"]);
-    root.add("d", ["a"]);
-    middle.add("b", ["y"]);
+    root.add("b", new Set(["a"]));
+    root.add("c", new Set(["a"]));
+    root.add("d", new Set(["a"]));
+    middle.add("b", new Set(["y"]));
 
     Assert.equal(dependentsOf(middle, "a"), ["c", "d"]);
     Assert.equal(dependentsOf(graph, "a"), ["d"]);

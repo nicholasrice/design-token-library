@@ -704,10 +704,6 @@ interface Scope {
      */
     readonly graph: Graph;
     /**
-     * The tokens whose edges the graph has, with the tokens they refer to.
-     */
-    readonly edges: Map<string, ReadonlySet<string>>;
-    /**
      * Whether the graph has the edges of all of the library's own tokens,
      * and its source's graph of all of its.
      */
@@ -745,7 +741,6 @@ const scopeOf = (recipes: Scope["recipes"], source?: Scope): Scope => {
         graph: source
             ? new Graph(source.graph, (name) => own.has(name))
             : new Graph(null, () => false),
-        edges: new Map(),
         complete: false,
         found: new Map(),
         cached: 0,
@@ -803,20 +798,6 @@ const dependentsOfToken = new WeakMap<
 >();
 
 /**
- * Adds the edges of a token to the graph of a scope, unless it has them.
- */
-const register = (
-    scope: Scope,
-    name: string,
-    dependencies: ReadonlySet<string>,
-): void => {
-    if (!scope.edges.has(name)) {
-        scope.edges.set(name, dependencies);
-        scope.graph.add(name, dependencies);
-    }
-};
-
-/**
  * The scope that has the configured value of a token of a library: the
  * library's, or that of the library it extends that the token inherits it
  * from.
@@ -837,12 +818,14 @@ const ownerOf = (scope: Scope, name: string): Scope => {
 const completeGraphOf = (scope: Scope): Graph => {
     if (!scope.complete) {
         const { source, own, made } = scope;
-        const add = (token: LibraryToken<any>) =>
-            register(
-                scope,
-                token.name,
-                refsOf(LibraryToken.configuredValue(token)),
-            );
+        const add = (token: LibraryToken<any>) => {
+            if (!scope.graph.has(token.name)) {
+                scope.graph.add(
+                    token.name,
+                    refsOf(LibraryToken.configuredValue(token)),
+                );
+            }
+        };
 
         if (source) {
             completeGraphOf(source);
@@ -1523,8 +1506,7 @@ class LibraryToken<T extends DesignToken.Any>
             // Resolving found every ref of the configured value, so the
             // graph has the token's edges before any token depends on its
             // value.
-            register(
-                ownerOf(this.scope, this.name),
+            ownerOf(this.scope, this.name).graph.add(
                 this.name,
                 found.refs ?? none,
             );
@@ -1563,14 +1545,9 @@ class LibraryToken<T extends DesignToken.Any>
         // A token that is set has a value of its own, so its edges are its
         // library's. Until the graph is complete, they are added again when
         // the token is resolved.
-        const { graph, edges, complete } = this.scope;
-        const previous = edges.get(this.name);
-        if (previous !== undefined) {
-            graph.remove(this.name, previous);
-            edges.delete(this.name);
-            if (complete) {
-                register(this.scope, this.name, refsOf(value));
-            }
+        const { graph, complete } = this.scope;
+        if (graph.remove(this.name) && complete) {
+            graph.add(this.name, refsOf(value));
         }
         LibraryToken.changed(this.scope, this.name, this);
     }
@@ -1615,7 +1592,7 @@ class LibraryToken<T extends DesignToken.Any>
     public static detach(token: LibraryToken<any>): void {
         token.raw = token.raw;
         token.scope.own.add(token.name);
-        register(token.scope, token.name, refsOf(token.raw));
+        token.scope.graph.add(token.name, refsOf(token.raw));
     }
 
     /**

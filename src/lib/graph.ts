@@ -15,6 +15,11 @@
  */
 export class Graph {
     private readonly edges = new Map<string, Set<string>>();
+    /**
+     * The tokens whose edges the graph has, with the tokens they refer to:
+     * the same edges as `edges`, from the other end.
+     */
+    private readonly dependencies = new Map<string, ReadonlySet<string>>();
     private changes = 0;
 
     /**
@@ -28,10 +33,23 @@ export class Graph {
     ) {}
 
     /**
-     * Adds the edges of `dependent` to each of `dependencies`.
+     * Whether the graph has the edges of `dependent`.
      */
-    public add(dependent: string, dependencies: Iterable<string>): void {
+    public has(dependent: string): boolean {
+        return this.dependencies.has(dependent);
+    }
+
+    /**
+     * Adds the edges of `dependent` to each of `dependencies`, unless the
+     * graph has its edges.
+     */
+    public add(dependent: string, dependencies: ReadonlySet<string>): void {
+        if (this.dependencies.has(dependent)) {
+            return;
+        }
+
         this.changes++;
+        this.dependencies.set(dependent, dependencies);
         for (const dependency of dependencies) {
             let dependents = this.edges.get(dependency);
             if (dependents === undefined) {
@@ -42,8 +60,17 @@ export class Graph {
         }
     }
 
-    public remove(dependent: string, dependencies: Iterable<string>): void {
+    /**
+     * Drops the edges of `dependent`, and says whether the graph had them.
+     */
+    public remove(dependent: string): boolean {
+        const dependencies = this.dependencies.get(dependent);
+        if (dependencies === undefined) {
+            return false;
+        }
+
         this.changes++;
+        this.dependencies.delete(dependent);
         for (const dependency of dependencies) {
             const dependents = this.edges.get(dependency);
             dependents?.delete(dependent);
@@ -51,6 +78,7 @@ export class Graph {
                 this.edges.delete(dependency);
             }
         }
+        return true;
     }
 
     /**
