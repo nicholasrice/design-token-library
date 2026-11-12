@@ -943,6 +943,23 @@ export class CircularReferenceError extends Error {
  */
 const resolving: LibraryToken<any>[] = [];
 
+/**
+ * The code of a value that is running as a token resolves, a recipe's
+ * function or a getter, if any. A token it reads other than by a ref isn't
+ * followed, so reading one there throws.
+ */
+let reading: { token: string; within: string } | null = null;
+
+const guarded = <R>(token: string, within: string, read: () => R): R => {
+    const previous = reading;
+    reading = { token, within };
+    try {
+        return read();
+    } finally {
+        reading = previous;
+    }
+};
+
 const isObject = <T>(value: T): value is T & {} => {
     return typeof value === "object" && value !== null;
 };
@@ -1303,10 +1320,12 @@ const tokenAt = (
  * is frozen, so the config isn't. A getter is read once, into a data
  * property. An object that is in the value twice, or in itself, has one copy.
  * Anything else, such as a class instance or a function, is returned as it
- * is: it can't be rebuilt, so it isn't copied, searched or frozen.
+ * is: it can't be rebuilt, so it isn't copied, searched or frozen. A token
+ * read by a recipe's function or a getter, rather than by a ref, throws.
  */
 const resolve = (
     value: unknown,
+    token: string,
     scope: Scope,
     found: { refs: Set<string> | null; results: Set<string> | null },
 ): unknown => {
@@ -1333,7 +1352,12 @@ const resolve = (
         if (isComputed(value)) {
             const { recipe, args } = value[COMPUTED];
             const fn = scope.recipes.get(recipe) ?? recipe[RECIPE].fn;
-            const result = fn(...args.map(walk));
+            const resolved = args.map(walk);
+            const result = guarded(
+                token,
+                `the recipe "${recipe[RECIPE].name}"`,
+                () => fn(...resolved),
+            );
 
             inResult++;
             try {
@@ -1370,7 +1394,11 @@ const resolve = (
                 "value" in descriptor
                     ? { ...descriptor, value: walk(descriptor.value) }
                     : {
-                          value: walk(Reflect.get(value, key)),
+                          value: walk(
+                              guarded(token, "a getter of its value", () =>
+                                  Reflect.get(value, key),
+                              ),
+                          ),
                           enumerable: descriptor.enumerable,
                           writable: true,
                           configurable: true,
@@ -1486,6 +1514,13 @@ class LibraryToken<T extends DesignToken.Any>
      * Gets the token value
      */
     public get $value(): DesignToken.ReadonlyValueByToken<T> {
+        // Before the cache, so a token that was read is caught too.
+        if (reading !== null) {
+            throw new Error(
+                `"${reading.token}" read the token "${this.name}" in ${reading.within}. A token read there isn't followed, so the value would not change with it. Pass the token to it as a ref instead.`,
+            );
+        }
+
         if (this.cached !== empty) {
             return this.cached;
         }
@@ -1509,6 +1544,7 @@ class LibraryToken<T extends DesignToken.Any>
             // The config's types guarantee what the raw value resolves to.
             const value = resolve(
                 this.raw,
+                this.name,
                 this.scope,
                 found,
             ) as DesignToken.ReadonlyValueByToken<T>;
