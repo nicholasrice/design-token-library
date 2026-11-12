@@ -45,4 +45,4 @@ library.tokens.a.set({ colorSpace: "srgb", components: [1, 1, 1] });
 
 A library without a subscriber is lazy: a token is resolved when it's read, and a `set()` only drops the values that depend on it. The last `unsubscribe()` makes a library lazy again, keeping the values it has.
 
-An extension's subscriber is told of the extension's own tokens: those it gives a value, those that call a recipe it overrides, and those that depend on them. Its other tokens are its source's values, the same objects, and a change to them isn't in its batches.
+An extension's subscriber is told of the extension's own tokens: those it gives a value, those that call a recipe it overrides, directly or in a recipe's result, those whose recipe's result refers to one of its own tokens, and those that depend on them. To find them, the first `subscribe()` resolves each of its source's tokens that calls a recipe, and a change that reaches such a token resolves it again. Its other tokens are its source's values, the same objects, and a change to them isn't in its batches.
