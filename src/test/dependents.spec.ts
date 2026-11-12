@@ -214,3 +214,58 @@ Dependents("throws for a token that isn't a token of a library", () => {
 });
 
 Dependents.run();
+const Walkers = suite("the walks of configured values");
+
+const Wrap = recipes({
+    first: (value: unknown): unknown => value,
+});
+const key = Symbol("key");
+const r = refs<{ a: DesignToken.Number }>();
+
+// Each kind of value a ref can be in. resolve(), the graph and
+// dependenciesOf() each walk configured values, so they must find the same
+// refs.
+const carriers: Record<string, () => unknown> = {
+    "a ref": () => r.a,
+    "plain data": () => ({ nested: { value: r.a } }),
+    "an array": () => [0, [r.a]],
+    "a recipe's argument": () => Wrap.first(r.a),
+    "a nested recipe's argument": () => Wrap.first(Wrap.first(r.a)),
+    "a symbol key": () => ({ [key]: r.a }),
+    "a non-enumerable key": () =>
+        Object.defineProperty({}, "hidden", { value: r.a, enumerable: false }),
+    "a getter": () => ({
+        get value() {
+            return r.a;
+        },
+    }),
+};
+
+// The values aren't of a token type, so the library isn't typed.
+const carrying = (value: unknown): any =>
+    Library.create({
+        a: { $type: DesignToken.Type.Number, $value: 1 },
+        c: { $type: "carrier", $value: value },
+    } as any);
+
+for (const [kind, value] of Object.entries(carriers)) {
+    Walkers(`each finds a ref in ${kind}`, () => {
+        Assert.equal(
+            names(dependenciesOf(carrying(value()).tokens.c)),
+            ["a"],
+            "dependenciesOf()",
+        );
+        Assert.equal(
+            names(dependentsOf(carrying(value()).tokens.a)),
+            ["c"],
+            "dependentsOf() on a library that hasn't been read",
+        );
+
+        const library = carrying(value());
+        const before = library.tokens.c.$value;
+        library.tokens.a.set(2);
+        Assert.is.not(library.tokens.c.$value, before, "set() after a read");
+    });
+}
+
+Walkers.run();

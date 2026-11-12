@@ -756,12 +756,15 @@ const scopeOf = (recipes: Scope["recipes"], source?: Scope): Scope => {
 };
 
 /**
- * The names of the tokens that the refs in a value are to, searched as
+ * Calls `visit` with the path of each ref in a value, searched as
  * {@link resolve} resolves them: in plain data and in the arguments of
- * computed values.
+ * computed values. `resolve` walks values on its own, as it copies them, so
+ * the two must search the same values.
  */
-const refsOf = (value: unknown): Set<string> => {
-    const names = new Set<string>();
+const forEachRef = (
+    value: unknown,
+    visit: (path: readonly string[]) => void,
+): void => {
     const seen = new Set<object>();
 
     const walk = (value: unknown): void => {
@@ -771,7 +774,7 @@ const refsOf = (value: unknown): Set<string> => {
         seen.add(value);
 
         if (isRef(value)) {
-            names.add(value[REF].join("."));
+            visit(value[REF]);
         } else if (isComputed(value)) {
             value[COMPUTED].args.forEach(walk);
         } else if (isPlain(value)) {
@@ -782,7 +785,14 @@ const refsOf = (value: unknown): Set<string> => {
     };
 
     walk(value);
+};
 
+/**
+ * The names of the tokens that the refs in a value are to.
+ */
+const refsOf = (value: unknown): Set<string> => {
+    const names = new Set<string>();
+    forEachRef(value, (path) => names.add(path.join(".")));
     return names;
 };
 
@@ -1663,34 +1673,15 @@ class LibraryToken<T extends DesignToken.Any>
 
     /**
      * The tokens that the refs in a token's configured value are to, in the
-     * token's library, searched as {@link resolve} resolves them: in plain
-     * data and in the arguments of computed values.
+     * token's library.
      */
     public static dependencies(
         token: LibraryToken<any>,
     ): ReadonlySet<LibraryToken<any>> {
         const dependencies = new Set<LibraryToken<any>>();
-        const seen = new Set<object>();
-
-        const walk = (value: unknown): void => {
-            if (!isObject(value) || seen.has(value)) {
-                return;
-            }
-            seen.add(value);
-
-            if (isRef(value)) {
-                dependencies.add(tokenAt(token.scope.tokens, value[REF]));
-            } else if (isComputed(value)) {
-                value[COMPUTED].args.forEach(walk);
-            } else if (isPlain(value)) {
-                for (const key of Reflect.ownKeys(value)) {
-                    walk(Reflect.get(value, key));
-                }
-            }
-        };
-
-        walk(token.raw);
-
+        forEachRef(token.raw, (path) =>
+            dependencies.add(tokenAt(token.scope.tokens, path)),
+        );
         return dependencies;
     }
 
