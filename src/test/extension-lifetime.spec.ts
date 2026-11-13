@@ -56,8 +56,8 @@ Lazy(
         library.tokens.a.set(hex("#222222"));
         await nextUpdate();
 
-        // Once each, from the extension's own tokens.
-        Assert.equal(subscriber.batches, [["a", "b"]]);
+        // Its tokens are its source's, which it isn't told of.
+        Assert.equal(subscriber.batches, []);
     },
 );
 

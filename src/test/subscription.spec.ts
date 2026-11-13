@@ -22,6 +22,9 @@ const abc = refs<ABC>();
 
 const Subscription = suite("Library subscriptions");
 const SameValue = suite("Library subscriptions: unchanged values");
+const Discovered = suite(
+    "Library subscriptions: what a recipe's result makes an extension's own",
+);
 const Unsubscribed = suite("Library subscriptions: after the last unsubscribe");
 const C = DesignToken.Type.Color;
 
@@ -93,25 +96,22 @@ Subscription(
     },
 );
 
-Subscription(
-    "an alias token that was never read is not included (lazy tracking)",
-    async () => {
-        const library = Library.create<AB>({
-            a: { $type: C, $value: hex("#111111") },
-            b: {
-                $type: C,
-                $value: ab.a,
-            },
-        });
-        const subscriber = recorder();
-        library.subscribe(subscriber);
+Subscription("an alias token that was never read is included", async () => {
+    const library = Library.create<AB>({
+        a: { $type: C, $value: hex("#111111") },
+        b: {
+            $type: C,
+            $value: ab.a,
+        },
+    });
+    const subscriber = recorder();
+    library.subscribe(subscriber);
 
-        library.tokens.a.set(hex("#222222"));
-        await nextUpdate();
+    library.tokens.a.set(hex("#222222"));
+    await nextUpdate();
 
-        Assert.equal(subscriber.batches, [["a"]]);
-    },
-);
+    Assert.equal(subscriber.batches, [["a", "b"]]);
+});
 
 Subscription(
     "a deep alias dependent is included when its dependency changes",
@@ -387,27 +387,30 @@ SameValue("setting the same object reference does not notify", async () => {
     Assert.equal(subscriber.batches, []);
 });
 
-SameValue("setting a structurally equal but new object notifies", async () => {
-    const library = Library.create<BorderTheme>({
-        a: {
-            $type: DesignToken.Type.Border,
-            $value: { color: hex("#111111"), width: px(1), style: "solid" },
-        },
-    });
-    const subscriber = recorder();
-    library.subscribe(subscriber);
+SameValue(
+    "setting a structurally equal but new object doesn't notify",
+    async () => {
+        const library = Library.create<BorderTheme>({
+            a: {
+                $type: DesignToken.Type.Border,
+                $value: { color: hex("#111111"), width: px(1), style: "solid" },
+            },
+        });
+        const subscriber = recorder();
+        library.subscribe(subscriber);
 
-    library.tokens.a.set({
-        color: hex("#111111"),
-        width: px(1),
-        style: "solid",
-    });
-    await nextUpdate();
+        library.tokens.a.set({
+            color: hex("#111111"),
+            width: px(1),
+            style: "solid",
+        });
+        await nextUpdate();
 
-    Assert.equal(subscriber.batches, [["a"]]);
-});
+        Assert.equal(subscriber.batches, []);
+    },
+);
 
-SameValue("setting an equal but new ref notifies", async () => {
+SameValue("setting an equal but new ref doesn't notify", async () => {
     const library = Library.create<AB>({
         a: { $type: C, $value: hex("#111111") },
         b: { $type: C, $value: ref("a") },
@@ -418,7 +421,7 @@ SameValue("setting an equal but new ref notifies", async () => {
     library.tokens.b.set(ref("a"));
     await nextUpdate();
 
-    Assert.equal(subscriber.batches, [["b"]]);
+    Assert.equal(subscriber.batches, []);
 });
 
 SameValue("a no-op set does not invalidate the cache", () => {
@@ -721,7 +724,8 @@ Subscription(
         await nextUpdate();
 
         Assert.equal(fromLibrary.batches, [["b"]]);
-        Assert.equal(fromExtended.batches, [["b", "c"]]);
+        // A subscribed extension isn't told of the tokens it inherits.
+        Assert.equal(fromExtended.batches, [["c"]]);
         Assert.equal(library.tokens.c.$value, hex("#111111"));
         Assert.equal(extended.tokens.c.$value, hex("#333333"));
     },
@@ -824,6 +828,160 @@ Unsubscribed(
     },
 );
 
+const N = DesignToken.Type.Number;
+// The libraries' values are numbers, and their configs aren't typed, as the
+// recipes return computed values and refs, which their types don't show.
+const untyped = (config: object): any => Library.create(config as any);
+const refTo = (name: string): any => ref(name as never);
+
+/** A source whose `t` calls `inner` only in the result of `outer`. */
+const nested = () => {
+    const { inner } = recipes({ inner: (n: number) => n + 1 });
+    const { outer } = recipes({
+        outer: (n: number): any => (n > 0 ? inner(n) : n),
+    });
+    const library = untyped({
+        n: { $type: N, $value: 1 },
+        t: { $type: N, $value: outer(refTo("n")) },
+        u: { $type: N, $value: refTo("t") },
+    });
+    const overrides = { recipes: [override(inner, (n: number) => n + 100)] };
+    return { library, overrides };
+};
+
+/** A source whose `t` refers to `a` or `b` only in the result of `pick`. */
+const picked = () => {
+    const { pick } = recipes({
+        pick: (n: number): any => (n > 0 ? refTo("a") : refTo("b")),
+    });
+    return untyped({
+        n: { $type: N, $value: 1 },
+        a: { $type: N, $value: 1 },
+        b: { $type: N, $value: 2 },
+        t: { $type: N, $value: pick(refTo("n")) },
+        u: { $type: N, $value: refTo("t") },
+    });
+};
+
+for (const first of ["t", "u"] as const) {
+    Discovered(
+        `a recipe called in a recipe's result that the extension overrides, ${first} read first`,
+        () => {
+            const { library, overrides } = nested();
+            const lazy = library.extend({}, overrides);
+            const subscribed = library.extend({}, overrides);
+            subscribed.subscribe(recorder());
+
+            Assert.is(subscribed.tokens[first].$value, 101);
+            Assert.is(subscribed.tokens.t.$value, lazy.tokens.t.$value);
+            Assert.is(subscribed.tokens.u.$value, lazy.tokens.u.$value);
+            Assert.is(library.tokens.t.$value, 2);
+        },
+    );
+
+    Discovered(
+        `a ref in a recipe's result to an extension's own token, ${first} read first`,
+        () => {
+            const subscribed = picked().extend({ a: { $value: 50 } });
+            subscribed.subscribe(recorder());
+
+            Assert.is(subscribed.tokens[first].$value, 50);
+            Assert.is(subscribed.tokens.t.$value, 50);
+            Assert.is(subscribed.tokens.u.$value, 50);
+        },
+    );
+}
+
+Discovered(
+    "an extension with nothing of its own that sets a token finds the results that refer to it",
+    async () => {
+        const subscribed = picked().extend({});
+        const subscriber = recorder();
+        subscribed.subscribe(subscriber);
+
+        subscribed.tokens.a.set(50);
+        await nextUpdate();
+
+        Assert.is(subscribed.tokens.u.$value, 50);
+        Assert.is(subscribed.tokens.t.$value, 50);
+        Assert.equal(
+            subscriber.batches.map((batch) => batch.sort()),
+            [["a", "t", "u"]],
+        );
+    },
+);
+
+Discovered("a source that read its tokens first makes no difference", () => {
+    const { library, overrides } = nested();
+    library.tokens.u.$value;
+    const subscribed = library.extend({}, overrides);
+    subscribed.subscribe(recorder());
+
+    Assert.is(subscribed.tokens.u.$value, 101);
+});
+
+Discovered(
+    "an extension of an extension finds what its own source's results call",
+    () => {
+        for (const subscribeMiddle of [false, true]) {
+            const { library, overrides } = nested();
+            const middle = library.extend({});
+            if (subscribeMiddle) {
+                middle.subscribe(recorder());
+            }
+            const subscribed = middle.extend({}, overrides);
+            subscribed.subscribe(recorder());
+
+            Assert.is(subscribed.tokens.u.$value, 101, `${subscribeMiddle}`);
+            Assert.is(middle.tokens.u.$value, 2, `${subscribeMiddle}`);
+        }
+    },
+);
+
+Discovered(
+    "a set() that makes a result call an overridden recipe makes the token own",
+    async () => {
+        const { library, overrides } = nested();
+        library.tokens.n.set(0);
+        const subscribed = library.extend({}, overrides);
+        const subscriber = recorder();
+        subscribed.subscribe(subscriber);
+        Assert.is(subscribed.tokens.u.$value, 0);
+
+        library.tokens.n.set(1);
+        await nextUpdate();
+
+        Assert.is(subscribed.tokens.u.$value, 101);
+        Assert.is(subscribed.tokens.t.$value, 101);
+        Assert.equal(
+            subscriber.batches.map((batch) => batch.sort()),
+            [["t", "u"]],
+        );
+    },
+);
+
+Discovered(
+    "a set() that makes a result refer to an extension's own token makes the token own",
+    async () => {
+        const library = picked();
+        library.tokens.n.set(0);
+        const subscribed = library.extend({ a: { $value: 50 } });
+        const subscriber = recorder();
+        subscribed.subscribe(subscriber);
+        Assert.is(subscribed.tokens.u.$value, 2);
+
+        library.tokens.n.set(1);
+        await nextUpdate();
+
+        Assert.is(subscribed.tokens.u.$value, 50);
+        Assert.equal(
+            subscriber.batches.map((batch) => batch.sort()),
+            [["t", "u"]],
+        );
+    },
+);
+
 Subscription.run();
 SameValue.run();
 Unsubscribed.run();
+Discovered.run();
