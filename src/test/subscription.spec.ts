@@ -928,6 +928,29 @@ Discovered(
     },
 );
 
+Discovered(
+    "a set() of an own token reports the tokens a recipe's result makes depend on it, though none was read",
+    async () => {
+        const subscribed = picked().extend({ a: { $value: 50 } });
+        const changes: string[][] = [];
+        subscribed.subscribe({
+            onChange(batch: ReadonlyArray<Library.Change<any>>) {
+                changes.push(
+                    batch.map(
+                        ({ token, valueChanged, origin }) =>
+                            `${token.name} ${valueChanged} ${origin}`,
+                    ),
+                );
+            },
+        });
+
+        subscribed.tokens.a.set(60);
+        await nextUpdate();
+
+        Assert.equal(changes, [["a true own", "t true own", "u true own"]]);
+    },
+);
+
 Discovered("a source that read its tokens first makes no difference", () => {
     const { library, overrides } = nested();
     library.tokens.u.$value;
