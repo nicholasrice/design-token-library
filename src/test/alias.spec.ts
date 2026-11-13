@@ -5,7 +5,15 @@ import * as Package from "../lib/index.js";
 import { ref, refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
-import { A, AB, ABC, aliasedPair, nextUpdate, recorder } from "./helpers.js";
+import {
+    A,
+    AB,
+    ABC,
+    aliasedPair,
+    nextUpdate,
+    recorder,
+    byIdentity,
+} from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Alias = suite("Library refs");
@@ -150,17 +158,20 @@ interface ArrayTheme {
 const arrayRefs = refs<ArrayTheme>();
 
 const arrayTheme = (steps: ArrayTheme["steps"]["$value"]) =>
-    Library.create<ArrayTheme>({
-        n: { $type: DesignToken.Type.Number, $value: 1 },
-        steps: { $type: "steps", $value: steps },
-        grid: {
-            $type: "grid",
-            $value: [
-                [arrayRefs.n, 2],
-                [3, arrayRefs.n],
-            ],
+    Library.create<ArrayTheme>(
+        {
+            n: { $type: DesignToken.Type.Number, $value: 1 },
+            steps: { $type: "steps", $value: steps },
+            grid: {
+                $type: "grid",
+                $value: [
+                    [arrayRefs.n, 2],
+                    [3, arrayRefs.n],
+                ],
+            },
         },
-    });
+        { types: byIdentity("steps", "grid") },
+    );
 
 Alias("an array value resolves to a new array", () => {
     const steps = [1, 2, 3];
@@ -679,9 +690,12 @@ Circular("CircularReferenceError is exported and extends Error", () => {
 
 Values("a function given as a value is the value, and isn't called", () => {
     const format = spy(() => "formatted");
-    const library = Library.create<any>({
-        a: { $type: "formatter", $value: format },
-    });
+    const library = Library.create<any>(
+        {
+            a: { $type: "formatter", $value: format },
+        },
+        { types: byIdentity("formatter") },
+    );
 
     Assert.is(library.tokens.a.$value, format);
     Assert.is(format.callCount, 0);
@@ -699,9 +713,12 @@ Values("a ref made by another copy of the package is a ref", () => {
 
 Values("a function in a plain value is a value, and isn't called", () => {
     const format = spy(() => "formatted");
-    const library = Library.create<any>({
-        a: { $type: "formatted", $value: { format, steps: [format] } },
-    });
+    const library = Library.create<any>(
+        {
+            a: { $type: "formatted", $value: { format, steps: [format] } },
+        },
+        { types: byIdentity("formatted") },
+    );
     const value = library.tokens.a.$value;
 
     Assert.is(value.format, format);

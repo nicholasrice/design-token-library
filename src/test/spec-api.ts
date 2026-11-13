@@ -2,29 +2,20 @@ import * as Package from "../lib/index.js";
 import { Library } from "../lib/library.js";
 
 /**
- * The API the equality, evaluation and origin specs need, before it exists. Tests reach it only through this
- * module, typed loosely, and each implementation PR tightens what it ships.
+ * The API the equality, evaluation and origin specs need, before it exists.
+ * Tests reach it only through this module, typed loosely, and each
+ * implementation PR tightens what it ships.
  */
 
-/** What a type registers on `create()` or `extend()`. */
-export interface TypeOptions {
-    readonly isEqual: (a: any, b: any) => boolean;
-}
+/** `Library.create(config, { types })`, for an untyped config. */
+export const create = (config: any, options?: Library.CreateOptions): any =>
+    Library.create<any>(config, options);
 
-/** `Library.create(config, { types })`: A. */
-export const create = (
-    config: any,
-    options?: { readonly types?: Record<string, TypeOptions> },
-): any => Reflect.apply(Library.create, undefined, [config, options]);
-
-/** `library.extend(config, { recipes, types })`: A. */
+/** `library.extend(config, { recipes, types })`, for an untyped config. */
 export const extend = (
-    library: any,
+    library: Library.Library<any>,
     config: any,
-    options?: {
-        readonly recipes?: readonly Library.RecipeOverride[];
-        readonly types?: Record<string, TypeOptions>;
-    },
+    options?: Library.ExtendOptions,
 ): any => library.extend(config, options);
 
 /** `library.subscribe(subscriber, { inherited })`: C. */

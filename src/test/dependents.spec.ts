@@ -5,6 +5,7 @@ import * as Package from "../lib/index.js";
 import { Library, dependenciesOf, dependentsOf } from "../lib/library.js";
 import { recipes } from "../lib/recipe.js";
 import { refs } from "../lib/ref.js";
+import { byIdentity } from "./helpers.js";
 import { hex } from "./values.js";
 
 const Dependents = suite("dependentsOf()");
@@ -243,10 +244,13 @@ const carriers: Record<string, () => unknown> = {
 
 // The values aren't of a token type, so the library isn't typed.
 const carrying = (value: unknown): any =>
-    Library.create({
-        a: { $type: DesignToken.Type.Number, $value: 1 },
-        c: { $type: "carrier", $value: value },
-    } as any);
+    Library.create(
+        {
+            a: { $type: DesignToken.Type.Number, $value: 1 },
+            c: { $type: "carrier", $value: value },
+        } as any,
+        { types: byIdentity("carrier") } as any,
+    );
 
 for (const [kind, value] of Object.entries(carriers)) {
     Walkers(`each finds a ref in ${kind}`, () => {

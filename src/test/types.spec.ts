@@ -8,7 +8,7 @@ import { recipes } from "../lib/recipe.js";
 import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
-import { Equal, Expect } from "./helpers.js";
+import { Equal, Expect, byIdentity } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Types = suite("Type-level API");
@@ -187,14 +187,17 @@ const tokenChildChecks = () => {
 };
 
 // Inferred tokens have their type's value, not the widened literal (#37).
-const inferred = Library.create({
-    space: {
-        $type: DesignToken.Type.Dimension,
-        $value: { value: 4, unit: "px" },
+const inferred = Library.create(
+    {
+        space: {
+            $type: DesignToken.Type.Dimension,
+            $value: { value: 4, unit: "px" },
+        },
+        line: { $type: DesignToken.Type.StrokeStyle, $value: "solid" },
+        custom: { $type: "elevation", $value: { level: 1 } },
     },
-    line: { $type: DesignToken.Type.StrokeStyle, $value: "solid" },
-    custom: { $type: "elevation", $value: { level: 1 } },
-});
+    { types: byIdentity("elevation") },
+);
 type InferredTypes = [
     Expect<
         Equal<

@@ -13,7 +13,7 @@ import {
     RatioToken,
     customConfig,
 } from "./custom-types.fixtures.js";
-import { nextUpdate, recorder } from "./helpers.js";
+import { nextUpdate, recorder, byIdentity } from "./helpers.js";
 import { theme } from "./my-design-system/theme.js";
 import { hex, px, toHex } from "./values.js";
 
@@ -25,7 +25,17 @@ const Extend = suite("Custom types: extend");
 const CSS = suite("Custom types: CSS");
 
 const C = DesignToken.Type.Color;
-const custom = () => Library.create(customConfig());
+const custom = () =>
+    Library.create(customConfig(), {
+        types: byIdentity(
+            "elevation",
+            "label",
+            "ratio",
+            "flag",
+            "steps",
+            "nested",
+        ),
+    });
 const $ = refs<CustomTheme>();
 
 const lowElevation = {
@@ -35,20 +45,36 @@ const lowElevation = {
 };
 
 Create("a static custom value is exposed with its metadata", () => {
-    const library = Library.create<{ r: RatioToken }>({
-        r: {
-            $type: "ratio",
-            $value: 1.5,
-            $description: "A ratio",
-            $extensions: { e: "e" },
+    const library = Library.create<{ r: RatioToken }>(
+        {
+            r: {
+                $type: "ratio",
+                $value: 1.5,
+                $description: "A ratio",
+                $extensions: { e: "e" },
+            },
         },
-    });
+        { types: byIdentity("ratio") },
+    );
 
     Assert.is(library.tokens.r.$value, 1.5);
     Assert.is(library.tokens.r.$type, "ratio");
     Assert.is(library.tokens.r.name, "r");
     Assert.is(library.tokens.r.$description, "A ratio");
     Assert.equal(library.tokens.r.$extensions, { e: "e" });
+});
+
+Create("a custom type registered without an isEqual function throws", () => {
+    for (const options of [{}, { isEqual: true }, null]) {
+        Assert.throws(
+            () =>
+                Library.create(
+                    { r: { $type: "ratio", $value: 1.5 } } as any,
+                    { types: { ratio: options } } as any,
+                ),
+            /The custom type "ratio" has no isEqual function/,
+        );
+    }
 });
 
 Create("primitive, array and nested custom values resolve", () => {
@@ -62,7 +88,7 @@ Create("primitive, array and nested custom values resolve", () => {
 });
 
 Create("the example design system resolves custom tokens", () => {
-    const library = Library.create(theme);
+    const library = Library.create(theme, { types: byIdentity("elevation") });
 
     Assert.is(library.tokens.elevations.raised.$type, "elevation");
     Assert.is(library.tokens.elevations.raised.$value.level, 1);
@@ -118,22 +144,25 @@ Alias("a custom value with a 'value' key is data, not a token", () => {
         toToken: DesignToken.Custom<"wrapped", Wrapped>;
     }
     const $ = refs<Theme>();
-    const library = Library.create<Theme>({
-        ratio: { $type: "ratio", $value: 2 },
-        static: { $type: "wrapped", $value: { $value: 1, unit: "px" } },
-        nested: {
-            $type: "nestedWrapped",
-            $value: { inner: { $value: 1, unit: "px" } },
+    const library = Library.create<Theme>(
+        {
+            ratio: { $type: "ratio", $value: 2 },
+            static: { $type: "wrapped", $value: { $value: 1, unit: "px" } },
+            nested: {
+                $type: "nestedWrapped",
+                $value: { inner: { $value: 1, unit: "px" } },
+            },
+            deep: {
+                $type: "wrapped",
+                $value: { $value: $.ratio, unit: "px" },
+            },
+            toToken: {
+                $type: "wrapped",
+                $value: $.static,
+            },
         },
-        deep: {
-            $type: "wrapped",
-            $value: { $value: $.ratio, unit: "px" },
-        },
-        toToken: {
-            $type: "wrapped",
-            $value: $.static,
-        },
-    });
+        { types: byIdentity("ratio", "wrapped", "nestedWrapped") },
+    );
 
     Assert.equal(library.tokens.static.$value, { $value: 1, unit: "px" });
     Assert.equal(library.tokens.nested.$value, {
@@ -195,11 +224,14 @@ Create(
         }
         const base = new Palette([1, 2]);
         const label = (n: number) => `step ${n}`;
-        const library = Library.create<Theme>({
-            base: { $type: "palette", $value: base },
-            alias: { $type: "palette", $value: ref("base") },
-            format: { $type: "format", $value: { label } },
-        });
+        const library = Library.create<Theme>(
+            {
+                base: { $type: "palette", $value: base },
+                alias: { $type: "palette", $value: ref("base") },
+                format: { $type: "format", $value: { label } },
+            },
+            { types: byIdentity("palette", "format") },
+        );
 
         Assert.is(library.tokens.base.$value, base);
         Assert.is(library.tokens.alias.$value, base);
@@ -241,6 +273,51 @@ Changes("dependents of a custom token recompute and notify", async () => {
         "ratio",
     ]);
 });
+
+Changes(
+    "an isEqual that throws reaches the reader once, and the token takes its new value",
+    async () => {
+        const failure = new Error("isEqual failed");
+        let fail = true;
+        const library: any = Library.create(
+            {
+                n: { $type: DesignToken.Type.Number, $value: 1 },
+                box: { $type: "box", $value: { n: ref<any>("n" as never) } },
+            } as any,
+            {
+                types: {
+                    box: {
+                        isEqual: () => {
+                            if (fail) {
+                                throw failure;
+                            }
+                            return true;
+                        },
+                    },
+                },
+            } as any,
+        );
+        library.subscribe(recorder());
+        const first = library.tokens.box.$value;
+
+        library.tokens.n.set(2);
+        await nextUpdate();
+        Assert.throws(
+            () => library.tokens.box.$value,
+            (error: unknown) => error === failure,
+        );
+
+        const next = library.tokens.box.$value;
+        Assert.equal(next, { n: 2 });
+        Assert.is.not(next, first);
+
+        // The comparison runs again on the next change.
+        fail = false;
+        library.tokens.n.set(3);
+        await nextUpdate();
+        Assert.is(library.tokens.box.$value, next);
+    },
+);
 
 Changes("a custom token deep-aliasing a standard token updates", async () => {
     const library = custom();
@@ -305,18 +382,21 @@ Extend("new custom tokens can be added", () => {
     const extended = custom().extend<{
         elevation: { floating: ElevationToken };
         z: DesignToken.Custom<"z-index", number>;
-    }>({
-        elevation: {
-            floating: {
-                $value: {
-                    level: 4,
-                    shadowColor: $.colors.muted,
-                    offsets: [px(0), px(2)],
+    }>(
+        {
+            elevation: {
+                floating: {
+                    $value: {
+                        level: 4,
+                        shadowColor: $.colors.muted,
+                        offsets: [px(0), px(2)],
+                    },
                 },
             },
+            z: { $type: "z-index", $value: 10 },
         },
-        z: { $type: "z-index", $value: 10 },
-    });
+        { types: byIdentity("z-index") },
+    );
 
     Assert.is(extended.tokens.z.$value, 10);
     Assert.is(extended.tokens.z.$type, "z-index");
@@ -341,18 +421,21 @@ interface Flat {
 }
 const flatRefs = refs<Flat>();
 const flat = () =>
-    Library.create<Flat>({
-        c: { $type: C, $value: hex("#111111") },
-        e: {
-            $type: "elevation",
-            $value: {
-                level: flatRefs.r,
-                shadowColor: flatRefs.c,
-                offsets: [px(0), px(2)],
+    Library.create<Flat>(
+        {
+            c: { $type: C, $value: hex("#111111") },
+            e: {
+                $type: "elevation",
+                $value: {
+                    level: flatRefs.r,
+                    shadowColor: flatRefs.c,
+                    offsets: [px(0), px(2)],
+                },
             },
+            r: { $type: "ratio", $value: 2 },
         },
-        r: { $type: "ratio", $value: 2 },
-    });
+        { types: byIdentity("elevation", "ratio") },
+    );
 const flatConverters = {
     elevation: (value: {
         level: number;
@@ -447,7 +530,10 @@ CSS("a custom type of false inside a group leaves the other tokens", () => {
 CSS("an extended library uses converters for new custom types", () => {
     const extended = flat().extend<{
         z: DesignToken.Custom<"z-index", number>;
-    }>({ z: { $type: "z-index", $value: 3 } });
+    }>(
+        { z: { $type: "z-index", $value: 3 } },
+        { types: byIdentity("z-index") },
+    );
 
     Assert.is(
         toCSS(extended, {

@@ -460,6 +460,19 @@ export namespace Library {
             [P in Exclude<keyof T[K], `$${string}`>]?: never;
         } : T[K] extends object ? ConfigValueCheck<T[K], R> : unknown;
     };
+    export type CreateArgs<T> = [CustomTypeNamesOf<T>] extends [never] ? [options?: CreateOptions & {
+        readonly types?: TypesOf<T, never>;
+    }] : [
+    options: CreateOptions & {
+        readonly types: TypesOf<T, CustomTypeNamesOf<T>>;
+    }
+    ];
+    export interface CreateOptions {
+        readonly types?: Types;
+    }
+    export type CustomTypeNamesOf<T> = 0 extends 1 & T ? never : T extends readonly unknown[] | Function ? never : T extends object ? {
+        [K in keyof T]-?: K extends "$type" ? T[K] extends string ? string extends T[K] ? never : Exclude<T[K], DesignToken.Type | DesignToken.ReservedTypeName> : never : K extends `$${string}` ? never : CustomTypeNamesOf<T[K]>;
+    }[keyof T] : never;
     export type DeepValue<V, T> = V | Ref<V, T> | Computed<DesignToken.DeepReadonly<V>, T> | (V extends object ? {
         readonly [K in keyof V]: DeepValue<V[K], T>;
     } : never);
@@ -469,6 +482,17 @@ export namespace Library {
         readonly whatToShow?: S;
     }
     export type EntryOf<S extends Show, R extends {}> = S extends "token" ? TokenEntry<R> : S extends "group" ? GroupEntry : TokenEntry<R> | GroupEntry;
+    export type ExtendArgs<K, T> = [
+    Exclude<CustomTypeNamesOf<K>, CustomTypeNamesOf<T>>
+    ] extends [never] ? [
+    options?: ExtendOptions & {
+        readonly types?: TypesOf<K, never, CustomTypeNamesOf<T>>;
+    }
+    ] : [
+    options: ExtendOptions & {
+        readonly types: TypesOf<K, CustomTypeNamesOf<K>, CustomTypeNamesOf<T>>;
+    }
+    ];
     export type ExtendConfig<T extends {}, R extends {} = T> = {
         [K in keyof T]?: T[K] extends DesignToken.Shape ? Omit<T[K], "$type" | "$value"> & {
             $type?: DesignToken.TypeByToken<T[K]>;
@@ -477,6 +501,7 @@ export namespace Library {
     };
     export interface ExtendOptions {
         readonly recipes?: readonly RecipeOverride[];
+        readonly types?: Types;
     }
     export type FilterResult = boolean | "reject";
     export interface GroupEntry {
@@ -492,8 +517,8 @@ export namespace Library {
     export type IsUnion<T, U = T> = T extends unknown ? [U] extends [T] ? false : true : never;
     // (undocumented)
     export interface Library<T extends {}, R extends {} = T> {
-        extend(config: ExtendConfig<T, R>, options?: ExtendOptions): Library<T, R>;
-        extend<K extends NoRoot<K> = {}>(config: ExtendConfig<T, R & NewTokens<K, T>> & Config<K, R & NewTokens<K, T>, never, T> & NoInfer<ConfigValueCheck<K, R & NewTokens<K, T>>> & (ConfigTypeHint | {}), options?: ExtendOptions): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
+        extend(config: ExtendConfig<T, R>, ...options: ExtendArgs<{}, T>): Library<T, R>;
+        extend<K extends NoRoot<K> = {}>(config: ExtendConfig<T, R & NewTokens<K, T>> & Config<K, R & NewTokens<K, T>, never, T> & NoInfer<ConfigValueCheck<K, R & NewTokens<K, T>>> & (ConfigTypeHint | {}), ...options: ExtendArgs<NewTokens<K, T>, T>): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
         // (undocumented)
         subscribe(subscriber: Library.Subscriber<R>): void;
         // (undocumented)
@@ -586,8 +611,22 @@ export namespace Library {
     export type TokenValues<T> = {
         [K in keyof T as K extends keyof DesignToken.Group ? never : K]: T[K] extends DesignToken.Shape ? TokenValue<DesignToken.ValueByToken<T[K]>> : T[K] extends object ? TokenValues<T[K]> : never;
     };
+    export interface TypeOptions<V = unknown> {
+        isEqual(previous: V, next: V): boolean;
+    }
+    export type Types = {
+        readonly [name: string]: TypeOptions<any>;
+    };
+    export type TypesOf<T, N extends string, I extends string = never> = {
+        readonly [P in Exclude<N, I>]: TypeOptions<ValueOfType<T, P>>;
+    } & {
+        readonly [P in DesignToken.ReservedTypeName | I]?: never;
+    } & Types;
+    export type ValueOfType<T, N extends string, G extends string = never> = {
+        [K in keyof T]-?: K extends `$${string}` ? never : T[K] extends DesignToken.Shape ? DesignToken.TypeByToken<T[K], G> extends N ? DesignToken.ReadonlyValueByToken<T[K]> : never : T[K] extends object ? ValueOfType<T[K], N, GroupType<T[K], G>> : never;
+    }[keyof T];
     const // (undocumented)
-    create: <T extends NoRoot<T> = any>(config: Library.Config<T, T> & NoInfer<ConfigValueCheck<T, T>> & (ConfigTypeHint | {})) => Library.Library<T>;
+    create: <T extends NoRoot<T> = any>(config: Library.Config<T, T> & NoInfer<ConfigValueCheck<T, T>> & (ConfigTypeHint | {}), ...options: NoInfer<CreateArgs<T>>) => Library.Library<T>;
     export {};
 }
 

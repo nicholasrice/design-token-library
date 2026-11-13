@@ -7,6 +7,7 @@ import * as Assert from "uvu/assert";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
 import { refs } from "../lib/ref.js";
+import { byIdentity } from "./helpers.js";
 
 const NonPlain = suite("Non-plain values");
 
@@ -22,7 +23,10 @@ class Palette {
 
 // The configs are untyped, as a value cast through `any` would be, so that the runtime is
 // tested without the types. Typed class values are tested with the custom types.
-const create = (config: Record<string, unknown>) => Library.create<any>(config);
+const create = (config: Record<string, unknown>) =>
+    Library.create<any>(config, {
+        types: byIdentity("composite", "palette", "x"),
+    });
 
 const $ = refs<{ n: DesignToken.Number; source: DesignToken.Number }>();
 

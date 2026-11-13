@@ -7,7 +7,7 @@ import { Library } from "../lib/library.js";
 import { COMPUTED, RECIPE, override, recipes } from "../lib/recipe.js";
 import { ref, refs } from "../lib/ref.js";
 import { Elevation } from "./custom-types.fixtures.js";
-import { Equal, Expect, nextUpdate, recorder } from "./helpers.js";
+import { Equal, Expect, nextUpdate, recorder, byIdentity } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Recipe = suite("recipes()");
@@ -103,7 +103,8 @@ const themeConfig = (): Library.Config<Theme> => ({
     },
 });
 
-const theme = () => Library.create(themeConfig());
+const theme = () =>
+    Library.create(themeConfig(), { types: byIdentity("elevation") });
 
 Recipe("recipes() and override() are exported by the package", () => {
     Assert.is(Reflect.get(Package, "recipes"), recipes);
@@ -141,15 +142,18 @@ Recipe("a recipe's function is called with the values of its refs", () => {
 
 Recipe("a recipe's function is not called until its token is read", () => {
     const fn = spy(scaleColor);
-    const library = Library.create<Theme>({
-        ...themeConfig(),
-        colors: {
-            $type: C,
-            base: { $value: hex("#808080") },
-            dark: { $value: recipes({ fn }).fn($.colors.base, 0.5) },
-            darker: { $value: hex("#000000") },
+    const library = Library.create<Theme>(
+        {
+            ...themeConfig(),
+            colors: {
+                $type: C,
+                base: { $value: hex("#808080") },
+                dark: { $value: recipes({ fn }).fn($.colors.base, 0.5) },
+                darker: { $value: hex("#000000") },
+            },
         },
-    });
+        { types: byIdentity("elevation") },
+    );
 
     Assert.is(fn.callCount, 0);
     library.tokens.colors.dark.$value;
@@ -227,16 +231,19 @@ Recipe("a cycle through a recipe throws a CircularReferenceError", () => {
 Recipe("an argument can be a value with refs in it", () => {
     const library = Library.create<
         Theme & { label: DesignToken.Custom<"label", string> }
-    >({
-        ...themeConfig(),
-        label: {
-            $type: "label",
-            $value: Recipes.describeBorder({
-                color: $.colors.base,
-                width: $.size,
-            }),
+    >(
+        {
+            ...themeConfig(),
+            label: {
+                $type: "label",
+                $value: Recipes.describeBorder({
+                    color: $.colors.base,
+                    width: $.size,
+                }),
+            },
         },
-    });
+        { types: byIdentity("elevation", "label") },
+    );
 
     Assert.is(library.tokens.label.$value, "2px srgb");
 });
@@ -268,15 +275,18 @@ Recipe("optional and rest parameters take refs", () => {
 
 Recipe("recipes are extended by spreading them", () => {
     const More = { ...Recipes, ...recipes({ tint: withAlpha }) };
-    const library = Library.create<Theme>({
-        ...themeConfig(),
-        colors: {
-            $type: C,
-            base: { $value: hex("#808080") },
-            dark: { $value: More.darken($.colors.base, 0.5) },
-            darker: { $value: More.tint($.colors.base, 0.1) },
+    const library = Library.create<Theme>(
+        {
+            ...themeConfig(),
+            colors: {
+                $type: C,
+                base: { $value: hex("#808080") },
+                dark: { $value: More.darken($.colors.base, 0.5) },
+                darker: { $value: More.tint($.colors.base, 0.1) },
+            },
         },
-    });
+        { types: byIdentity("elevation") },
+    );
 
     Assert.equal(Object.keys(More), [
         "darken",
@@ -294,15 +304,20 @@ Recipe("recipes are extended by spreading them", () => {
 });
 
 Recipe("a recipe's arguments can be made by ref()", () => {
-    const library = Library.create<Theme>({
-        ...themeConfig(),
-        colors: {
-            $type: C,
-            base: { $value: hex("#808080") },
-            dark: { $value: darken(ref("colors.base"), ref("factor")) },
-            darker: { $value: darken(darken(ref("colors.base"), 0.5), 0.5) },
+    const library = Library.create<Theme>(
+        {
+            ...themeConfig(),
+            colors: {
+                $type: C,
+                base: { $value: hex("#808080") },
+                dark: { $value: darken(ref("colors.base"), ref("factor")) },
+                darker: {
+                    $value: darken(darken(ref("colors.base"), 0.5), 0.5),
+                },
+            },
         },
-    });
+        { types: byIdentity("elevation") },
+    );
 
     Assert.equal(
         library.tokens.colors.dark.$value,
@@ -388,13 +403,16 @@ Recipe(
             shade: (fields: { level: number; blur: Dimension }) =>
                 new Shade(fields.level, fields.blur),
         });
-        const library = Library.create<Shades>({
-            step: { $type: DesignToken.Type.Number, $value: 2 },
-            raised: {
-                $type: "shade",
-                $value: shade({ level: ref("step"), blur: px(4) }),
+        const library = Library.create<Shades>(
+            {
+                step: { $type: DesignToken.Type.Number, $value: 2 },
+                raised: {
+                    $type: "shade",
+                    $value: shade({ level: ref("step"), blur: px(4) }),
+                },
             },
-        });
+            { types: byIdentity("shade") },
+        );
 
         Assert.instance(library.tokens.raised.$value, Shade);
         Assert.is(library.tokens.raised.$value.css, "0 2px 4px");
@@ -408,12 +426,15 @@ Recipe("a class instance a recipe returns is returned as it is", () => {
     const instance = new Map([[1, 2]]);
     const library = Library.create<{
         m: DesignToken.Custom<"map", Map<number, number>>;
-    }>({
-        m: {
-            $type: "map",
-            $value: recipes({ map: () => instance }).map(),
+    }>(
+        {
+            m: {
+                $type: "map",
+                $value: recipes({ map: () => instance }).map(),
+            },
         },
-    });
+        { types: byIdentity("map") },
+    );
 
     Assert.is(library.tokens.m.$value, instance);
 });
@@ -429,15 +450,18 @@ Recipe("a recipe's function gets frozen arguments", () => {
             return hex("#000000");
         },
     });
-    const library = Library.create<Theme>({
-        ...themeConfig(),
-        colors: {
-            $type: C,
-            base: { $value: hex("#808080") },
-            dark: { $value: inspect($.colors.base, { width: $.size }) },
-            darker: { $value: hex("#000000") },
+    const library = Library.create<Theme>(
+        {
+            ...themeConfig(),
+            colors: {
+                $type: C,
+                base: { $value: hex("#808080") },
+                dark: { $value: inspect($.colors.base, { width: $.size }) },
+                darker: { $value: hex("#000000") },
+            },
         },
-    });
+        { types: byIdentity("elevation") },
+    );
     library.tokens.colors.dark.$value;
 
     Assert.ok(
@@ -453,13 +477,16 @@ Recipe("mutating a recipe's argument throws", () => {
             return dimension;
         },
     });
-    const library = Library.create<Theme>({
-        ...themeConfig(),
-        size: {
-            $type: DesignToken.Type.Dimension,
-            $value: mutate(px(2)),
+    const library = Library.create<Theme>(
+        {
+            ...themeConfig(),
+            size: {
+                $type: DesignToken.Type.Dimension,
+                $value: mutate(px(2)),
+            },
         },
-    });
+        { types: byIdentity("elevation") },
+    );
 
     Assert.throws(() => library.tokens.size.$value, TypeError);
 });
@@ -723,17 +750,20 @@ Reads("throws in an override's function", () => {
 
 Reads("throws in a getter of a value", () => {
     let theme: Library.Library<any>;
-    theme = Library.create({
-        base: { $type: C, $value: hex("#111111") },
-        c: {
-            $type: "custom",
-            $value: {
-                get color() {
-                    return theme.tokens.base.$value;
+    theme = Library.create(
+        {
+            base: { $type: C, $value: hex("#111111") },
+            c: {
+                $type: "custom",
+                $value: {
+                    get color() {
+                        return theme.tokens.base.$value;
+                    },
                 },
             },
-        },
-    } as any);
+        } as any,
+        { types: byIdentity("custom") } as any,
+    );
 
     throwsRead(() => theme.tokens.c.$value, /a getter of its value/);
 });

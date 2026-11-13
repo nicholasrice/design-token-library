@@ -9,7 +9,7 @@ import {
 } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
 import { Library } from "../lib/library.js";
-import { Equal, Expect } from "./helpers.js";
+import { Equal, Expect, byIdentity } from "./helpers.js";
 import { hex, px } from "./values.js";
 
 const Records = suite("a converter that returns a record");
@@ -35,37 +35,40 @@ interface Theme {
 }
 
 const library = () =>
-    Library.create<Theme>({
-        fill: {
-            $type: "states",
-            $value: {
-                rest: hex("#111111"),
-                hover: hex("#222222"),
-                active: hex("#333333"),
-            },
-        },
-        accent: {
-            $root: {
+    Library.create<Theme>(
+        {
+            fill: {
                 $type: "states",
                 $value: {
-                    rest: hex("#aa0000"),
-                    hover: hex("#bb0000"),
-                    active: hex("#cc0000"),
+                    rest: hex("#111111"),
+                    hover: hex("#222222"),
+                    active: hex("#333333"),
                 },
             },
-        },
-        text: {
-            $type: DesignToken.Type.Typography,
-            $value: {
-                fontFamily: "Inter",
-                fontSize: px(14),
-                fontWeight: 400,
-                letterSpacing: px(0.5),
-                lineHeight: 1.5,
+            accent: {
+                $root: {
+                    $type: "states",
+                    $value: {
+                        rest: hex("#aa0000"),
+                        hover: hex("#bb0000"),
+                        active: hex("#cc0000"),
+                    },
+                },
             },
+            text: {
+                $type: DesignToken.Type.Typography,
+                $value: {
+                    fontFamily: "Inter",
+                    fontSize: px(14),
+                    fontWeight: 400,
+                    letterSpacing: px(0.5),
+                    lineHeight: 1.5,
+                },
+            },
+            size: { $type: DesignToken.Type.Dimension, $value: px(4) },
         },
-        size: { $type: DesignToken.Type.Dimension, $value: px(4) },
-    });
+        { types: byIdentity("states") },
+    );
 
 const converters = {
     states: (value: States) => ({
