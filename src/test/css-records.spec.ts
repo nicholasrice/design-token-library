@@ -2,7 +2,7 @@ import { suite } from "uvu";
 import * as Assert from "uvu/assert";
 import {
     CSSConverter,
-    CSSPropertyValues,
+    CSSCustomProperty,
     convert,
     toCSS,
     toProperties,
@@ -156,15 +156,15 @@ Records("toProperties is typed by the keys a converter returns", () => {
     type _ = Expect<
         Equal<
             Fill,
-            CSSPropertyValues & {
-                readonly hover: CSSPropertyValues;
-                readonly active: CSSPropertyValues;
+            CSSCustomProperty & {
+                readonly hover: CSSCustomProperty;
+                readonly active: CSSCustomProperty;
             }
         >
     >;
     // No `""` key, so no property of its own.
     type __ = Expect<Equal<keyof Text, "family" | "size" | "letter-spacing">>;
-    type ___ = Expect<Equal<typeof properties.size, CSSPropertyValues>>;
+    type ___ = Expect<Equal<typeof properties.size, CSSCustomProperty>>;
 
     // @ts-expect-error a typography written as its fields has no `var`
     properties.text.var;
@@ -179,7 +179,7 @@ Records(
         });
         const properties = toProperties(library(), { converters: { states } });
 
-        type _ = Expect<Equal<typeof properties.fill, CSSPropertyValues>>;
+        type _ = Expect<Equal<typeof properties.fill, CSSCustomProperty>>;
         // The others are there at runtime.
         Assert.is(
             Reflect.get(properties.fill, "hover").property,

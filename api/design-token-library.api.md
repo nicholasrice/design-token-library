@@ -18,15 +18,6 @@ export const configuredValueOf: <T extends DesignToken.Shape, R extends {}, G ex
 // @public
 export function convert<Name extends keyof DesignToken.ReadonlyValueByType>(type: Name, value: DesignToken.ReadonlyValueByType[Name]): string;
 
-// @public (undocumented)
-export type ConvertersOf<C> = {
-    [N in C extends {
-        $type: infer N extends string;
-    } ? N : never]: C extends {
-        $type: N;
-    } ? C extends DesignToken.Shape ? CSSConverter<DesignToken.ReadonlyValueByToken<C>, C> : never : never;
-};
-
 // @public
 export type CSSConverter<V, T extends DesignToken.Shape = DesignToken.Shape> = (value: V, token: Library.Token<T, {}>) => CSSValue;
 
@@ -36,16 +27,29 @@ export type CSSConverterEntries<T> = {
 };
 
 // @public
-export type CSSConverters<T> = ConvertersOf<CustomTokensOf<T>>;
+export type CSSConverterMap = {
+    readonly [type: string]: ((value: any, token: any) => CSSValue) | false;
+};
 
 // @public
-export type CSSOptions<T> = CSSPropertiesOptions & {
-    filter?(token: Library.Token<any, any>): boolean;
-} & ([CustomTokensOf<T>] extends [never] ? {
-    converters?: StandardConverters;
-} : {
-    converters: CSSConverterEntries<T> & StandardConverters;
-});
+export type CSSConverters<T> = {
+    [C in CustomTokensOf<T> as C extends {
+        $type: infer N extends string;
+    } ? N : never]: C extends DesignToken.Shape ? CSSConverter<DesignToken.ReadonlyValueByToken<C>, C> : never;
+};
+
+// @public (undocumented)
+export interface CSSCustomProperty {
+    // (undocumented)
+    readonly property: `--${string}`;
+    // (undocumented)
+    readonly var: `var(--${string})`;
+}
+
+// @public
+export interface CSSNameOptions {
+    name?(token: Library.Token<any, any>): string;
+}
 
 // @public
 export type CSSPropertiesLibrary<T extends {}, C = {}> = {
@@ -55,22 +59,9 @@ export type CSSPropertiesLibrary<T extends {}, C = {}> = {
 // @public
 export type CSSPropertiesOf<T, C = {}> = T extends {
     $type: infer N extends keyof C;
-} ? C[N] extends (...args: any[]) => infer V ? V extends string ? CSSPropertyValues : string extends keyof V ? CSSPropertyValues : ("" extends keyof V ? CSSPropertyValues : {}) & {
-    readonly [P in Exclude<keyof V, "">]: CSSPropertyValues;
-} : CSSPropertyValues : CSSPropertyValues;
-
-// @public
-export interface CSSPropertiesOptions {
-    name?(token: Library.Token<any, any>): string;
-}
-
-// @public (undocumented)
-export interface CSSPropertyValues {
-    // (undocumented)
-    readonly property: `--${string}`;
-    // (undocumented)
-    readonly var: `var(--${string})`;
-}
+} ? C[N] extends (...args: any[]) => infer V ? V extends string ? CSSCustomProperty : string extends keyof V ? CSSCustomProperty : ("" extends keyof V ? CSSCustomProperty : {}) & {
+    readonly [P in Exclude<keyof V, "">]: CSSCustomProperty;
+} : CSSCustomProperty : CSSCustomProperty;
 
 // @public
 export type CSSValue = string | CSSValues;
@@ -652,11 +643,6 @@ export const ownTokensOf: <R extends {}>(library: Library.Library<any, R>) => Re
 export const pathOf: (ref: Library.Ref<unknown, never>) => readonly string[];
 
 // @public
-export type PropertiesConverters = {
-    readonly [type: string]: ((value: any, token: any) => CSSValue) | false;
-};
-
-// @public
 export const px: (value: number) => DesignToken.Values.Dimension;
 
 // @public
@@ -685,7 +671,16 @@ export type StandardConverters = {
 export function toCSS<T extends {}, R extends {}>(library: Library.Library<T, R>, ...input: ToCSSArgs<NoInfer<T>>): string;
 
 // @public
-export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never] ? [options?: CSSOptions<T>] : [options: CSSOptions<T>];
+export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never] ? [options?: ToCSSOptions<T>] : [options: ToCSSOptions<T>];
+
+// @public
+export type ToCSSOptions<T> = CSSNameOptions & {
+    filter?(token: Library.Token<any, any>): boolean;
+} & ([CustomTokensOf<T>] extends [never] ? {
+    converters?: StandardConverters;
+} : {
+    converters: CSSConverterEntries<T> & StandardConverters;
+});
 
 // @public
 export class TokenResolutionError extends Error {
@@ -697,10 +692,10 @@ export class TokenResolutionError extends Error {
 }
 
 // @public
-export function toProperties<T extends Library.Library<any>, C extends PropertiesConverters = {}>(library: T, options?: ToPropertiesOptions<C>): CSSPropertiesLibrary<T["tokens"], C>;
+export function toProperties<T extends Library.Library<any>, C extends CSSConverterMap = {}>(library: T, options?: ToPropertiesOptions<C>): CSSPropertiesLibrary<T["tokens"], C>;
 
 // @public
-export interface ToPropertiesOptions<C extends PropertiesConverters = PropertiesConverters> extends CSSPropertiesOptions {
+export interface ToPropertiesOptions<C extends CSSConverterMap = CSSConverterMap> extends CSSNameOptions {
     converters?: C;
 }
 
