@@ -567,7 +567,7 @@ export namespace Library {
     export type Show = "all" | "token" | "group";
     // (undocumented)
     export interface SubscribeOptions {
-        readonly inherited?: boolean;
+        readonly origin?: "own" | "ancestor" | "all";
     }
     // (undocumented)
     export interface Subscriber<R extends {}> {

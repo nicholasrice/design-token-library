@@ -38,8 +38,8 @@ export namespace Library {
          * A library with a subscriber resolves its tokens, and a `set()`
          * resolves again the tokens it reaches. An extension resolves its
          * own tokens, and its subscriber is told of them; with
-         * `inherited: true`, it resolves its ancestor's tokens too, and is
-         * told of those whose values change.
+         * `origin: "ancestor"` or `"all"`, it resolves its ancestor's tokens
+         * too, and the subscriber is told of those whose values change.
          */
         subscribe(
             subscriber: Library.Subscriber<R>,
@@ -204,11 +204,12 @@ export namespace Library {
      */
     export interface SubscribeOptions {
         /**
-         * Whether a subscriber of an extension is also told of the tokens
-         * whose values are its ancestor's, when their values change. By
-         * default, it's told only of its own.
+         * Which tokens a subscriber is told of, by where their values come
+         * from, as {@link (Library:namespace).Change.origin} says: the
+         * library's own (the default), its ancestor's, or all. A library
+         * made by `create()` has only its own.
          */
-        readonly inherited?: boolean;
+        readonly origin?: "own" | "ancestor" | "all";
     }
 
     /**
@@ -906,7 +907,10 @@ interface Scope {
      * a default subscriber of an extension, a filter that leaves out the
      * tokens that are its ancestor's.
      */
-    readonly subscribers: Map<Library.Subscriber<any>, Library.Subscriber<any>>;
+    readonly subscribers: Map<
+        Library.Subscriber<any>,
+        { delivered: Library.Subscriber<any>; ancestral: boolean }
+    >;
     /**
      * The errors found as the library resolved its tokens on its own, which
      * a microtask delivers to its subscribers, or `null` with none.
@@ -916,7 +920,7 @@ interface Scope {
      * How many subscribers of an extension are told of the tokens that are
      * its ancestor's. With any, it resolves them and queues them.
      */
-    inherited: number;
+    ancestral: number;
     /**
      * The tokens of an extension that are made, by name: those that are read,
      * set, given a value by its config, or new in it. A library made by
@@ -969,11 +973,16 @@ interface Scope {
      */
     origin: Set<string> | null;
     /**
-     * Whether the origin has each token that a ref in a recipe's result
-     * makes the extension's own, for which its source's tokens that call
-     * recipes were resolved.
+     * The tokens of a subscribed extension that aren't its own and whose
+     * configured values call a recipe: what their recipes' results call and
+     * refer to can make them its own. Found with `origin`.
      */
-    foundAll: boolean;
+    callers: Set<string>;
+    /**
+     * Whether `callers` has been found, which waits until an extension can
+     * have a token of its own.
+     */
+    discovered: boolean;
 }
 
 /**
@@ -1008,8 +1017,9 @@ const scopeOf = (
         queue: new Queue(LibraryToken.reported),
         subscribers: new Map(),
         errors: null,
-        inherited: 0,
-        foundAll: false,
+        ancestral: 0,
+        callers: new Set(),
+        discovered: false,
         made: new Map(),
         own,
         extensions: new Set(),
@@ -1317,18 +1327,25 @@ const recordThrow = (
 
 /**
  * Delivers the errors a subscribed library found in a microtask to its
- * subscribers with `onError`. An error of a token that is its ancestor's is
- * delivered only to the subscribers told of those. One that no subscriber is
- * given is thrown, as is one that `onError` throws.
+ * subscribers with `onError` that are told of the token's changes, by its
+ * origin: one of an extension's own tokens to those with `origin` `"own"` or
+ * `"all"`, and one that is its ancestor's to those with `"ancestor"` or
+ * `"all"`. One that no subscriber is given is thrown, as is one that
+ * `onError` throws.
  */
 const deliverErrors = (scope: Scope, errors: readonly PendingError[]) => {
     for (const { error, ancestors } of errors) {
         let delivered = false;
-        for (const [subscriber, wrapped] of scope.subscribers) {
-            if (
-                typeof subscriber.onError !== "function" ||
-                (ancestors && wrapped !== subscriber)
-            ) {
+        for (const [
+            subscriber,
+            { delivered: to, ancestral },
+        ] of scope.subscribers) {
+            // Only a subscriber told of the ancestor's tokens alone is
+            // ancestral with a filter.
+            const told = ancestors
+                ? ancestral
+                : !ancestral || to === subscriber;
+            if (typeof subscriber.onError !== "function" || !told) {
                 continue;
             }
             delivered = true;
@@ -1738,6 +1755,7 @@ const resolve = (
     found: {
         refs: Set<string> | null;
         results: Set<string> | null;
+        calls: Set<Library.Recipe<any, unknown>> | null;
         inputs: unknown[] | null;
     },
 ): unknown => {
@@ -1766,6 +1784,9 @@ const resolve = (
 
         if (isComputed(value)) {
             const { recipe, args } = value[COMPUTED];
+            if (inResult > 0) {
+                (found.calls ??= new Set()).add(recipe);
+            }
             const fn = scope.recipes.get(recipe) ?? recipe[RECIPE].fn;
             const resolved = args.map(walk);
             const result = guarded(
@@ -1852,35 +1873,36 @@ class LibraryImpl implements Library.Library<any> {
     ) {
         const { scope } = this;
         this.unsubscribe(subscriber);
-        const inherited = scope.source !== undefined && !!options.inherited;
-        const delivered = inherited
-            ? subscriber
-            : scope.source === undefined
-              ? subscriber
-              : ownChangesTo(subscriber);
+        const { origin = "own" } = options;
+        // A library made by `create()` has only its own tokens.
+        const ancestral = scope.source !== undefined && origin !== "own";
+        const delivered =
+            origin === "all" || (origin === "own" && scope.source === undefined)
+                ? subscriber
+                : changesFrom(origin, subscriber);
         const subscribed = scope.queue.subscribed;
-        scope.subscribers.set(subscriber, delivered);
+        scope.subscribers.set(subscriber, { delivered, ancestral });
         scope.queue.subscribe(delivered);
-        if (inherited) {
-            scope.inherited++;
+        if (ancestral) {
+            scope.ancestral++;
         }
         if (!subscribed) {
             resolveOwn(scope);
         }
-        if (inherited && scope.inherited === 1) {
+        if (ancestral && scope.ancestral === 1) {
             resolveAncestors(scope);
         }
     }
     public unsubscribe(subscriber: Library.Subscriber<any>) {
         const { scope } = this;
-        const delivered = scope.subscribers.get(subscriber);
-        if (delivered === undefined) {
+        const subscribed = scope.subscribers.get(subscriber);
+        if (subscribed === undefined) {
             return;
         }
         scope.subscribers.delete(subscriber);
-        scope.queue.unsubscribe(delivered);
-        if (delivered === subscriber && scope.source !== undefined) {
-            scope.inherited--;
+        scope.queue.unsubscribe(subscribed.delivered);
+        if (subscribed.ancestral) {
+            scope.ancestral--;
         }
         if (!scope.queue.subscribed) {
             LibraryToken.dropPrevious(scope);
@@ -1895,8 +1917,7 @@ class LibraryImpl implements Library.Library<any> {
             throw new Error("Not a library.");
         }
         const { scope } = library;
-        const origin =
-            scope.source === undefined ? null : originOf(scope, true);
+        const origin = scope.source === undefined ? null : originOf(scope);
         const tokens: LibraryToken<any>[] = [];
         forEachToken(scope.tokens, (name, descriptor) => {
             if (origin === null || origin.has(name)) {
@@ -1954,6 +1975,11 @@ class TokenState<V> {
      * the value was resolved.
      */
     public found: ReadonlySet<string> | null = null;
+    /**
+     * The recipes that the results of recipes called, the last time the
+     * value was resolved, which the configured value doesn't show.
+     */
+    public called: ReadonlySet<Library.Recipe<any, unknown>> | null = null;
     /**
      * Each token whose value the value was resolved from, followed by that
      * value, the last time it was resolved; `null` when its library had no
@@ -2064,15 +2090,15 @@ class LibraryToken<T extends DesignToken.Any>
             thrown = null;
         }
         if (this.isAncestors()) {
-            const value = LibraryToken.ancestorValue(this);
-            if (value !== empty) {
-                if (scope.inherited > 0) {
-                    this.state.seen =
-                        value as DesignToken.ReadonlyValueByToken<T>;
-                }
-                // The ancestor token has the same type.
-                return value as DesignToken.ReadonlyValueByToken<T>;
+            // The ancestor token has the same type.
+            const value =
+                LibraryToken.ancestorValue<DesignToken.ReadonlyValueByToken<T>>(
+                    this,
+                );
+            if (scope.ancestral > 0) {
+                this.state.seen = value;
             }
+            return value;
         }
 
         if (this.state.cached !== empty) {
@@ -2099,6 +2125,7 @@ class LibraryToken<T extends DesignToken.Any>
             const found = {
                 refs: null as Set<string> | null,
                 results: null as Set<string> | null,
+                calls: null as Set<Library.Recipe<any, unknown>> | null,
                 // Only a library with a subscriber checks them.
                 inputs: scope.queue.subscribed ? ([] as unknown[]) : null,
             };
@@ -2118,6 +2145,7 @@ class LibraryToken<T extends DesignToken.Any>
                 found.refs ?? none,
             );
             this.setFound(found.results);
+            this.state.called = found.calls;
             this.state.inputs =
                 found.inputs?.length === 0 ? noInputs : found.inputs;
 
@@ -2258,7 +2286,7 @@ class LibraryToken<T extends DesignToken.Any>
             // value its subscribers were last told of.
             // Only a subscriber told of its ancestor's tokens queues those.
             state.before =
-                state.scope.inherited > 0 && this.isAncestors()
+                state.scope.ancestral > 0 && this.isAncestors()
                     ? state.seen
                     : state.cached !== empty
                       ? state.cached
@@ -2269,21 +2297,96 @@ class LibraryToken<T extends DesignToken.Any>
 
     /**
      * The value of a token of a subscribed extension that is its ancestor's:
-     * its ancestor's, the same object. When a recipe's result has a ref to a
-     * token that is the extension's own, the token is too, and `empty` is
-     * returned for it to resolve in the extension.
+     * its ancestor's, the same object. Which tokens are its own is found when
+     * it's first subscribed, and again as changes reach it, so none that
+     * should be is read here.
      */
-    private static ancestorValue(token: LibraryToken<any>): unknown {
+    private static ancestorValue<V>(token: LibraryToken<any>): V {
         const source: LibraryToken<any> = Object.getPrototypeOf(token);
-        const value = source.$value;
-        const origin = token.state.scope.origin!;
-        for (const name of source.state.found ?? none) {
-            if (origin.has(name)) {
-                addOrigin(token.state.scope, token.name);
-                return empty;
+        return source.$value;
+    }
+
+    /**
+     * Whether a token of a subscribed extension that isn't its own yet, and
+     * whose configured value calls a recipe, must be: it calls a recipe the
+     * extension overrides, or a recipe's result does, or refers to a token
+     * that is the extension's own. It's resolved in the source to find out
+     * what its results do.
+     */
+    public static discover(scope: Scope, name: string): boolean {
+        const { overridden } = scope;
+        if (
+            overridden.size > 0 &&
+            callsAny(
+                LibraryToken.configuredValue(tokenNamed(scope.source!, name)),
+                overridden,
+            )
+        ) {
+            return true;
+        }
+
+        const resolver = resolverOf(scope, name);
+        try {
+            resolver.$value;
+        } catch {
+            // An error of the source's token is reported by what follows it:
+            // the source's subscribers, and the extension's subscribers told
+            // of its ancestor's tokens, as it resolves them. Otherwise it
+            // throws when it's read.
+        }
+        const { called, found } = resolver.state;
+        const origin = scope.origin!;
+        for (const recipe of called ?? []) {
+            if (overridden.has(recipe)) {
+                return true;
             }
         }
-        return value;
+        for (const name of found ?? none) {
+            if (origin.has(name)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Finds the tokens of a subscribed extension that a change to the token
+     * named `name` makes its own: a recipe's result that the change reaches
+     * may now call a recipe the extension overrides, or refer to one of its
+     * own tokens.
+     */
+    private static rediscover(scope: Scope, name: string): void {
+        const origin = scope.origin!;
+        const { callers } = scope;
+        for (const caller of callers) {
+            if (origin.has(caller)) {
+                callers.delete(caller);
+            }
+        }
+        if (callers.size === 0) {
+            return;
+        }
+        const visited = new Set([name]);
+        const pending = [name];
+        const visit = (dependent: string): void => {
+            if (!visited.has(dependent)) {
+                visited.add(dependent);
+                pending.push(dependent);
+            }
+        };
+        for (let i = 0; i < pending.length; i++) {
+            scope.graph.dependentsOf(pending[i], visit);
+            foundDependentsOf(scope, pending[i], visit);
+        }
+        for (const reached of pending) {
+            if (
+                callers.has(reached) &&
+                !origin.has(reached) &&
+                LibraryToken.discover(scope, reached)
+            ) {
+                addOrigin(scope, reached);
+            }
+        }
     }
 
     /**
@@ -2340,7 +2443,7 @@ class LibraryToken<T extends DesignToken.Any>
                 LibraryToken.report(token, error);
             }
             // Only a subscriber told of its ancestor's tokens queues those.
-            const ancestors = scope.inherited > 0 && token.isAncestors();
+            const ancestors = scope.ancestral > 0 && token.isAncestors();
             let valueChanged = !Object.is(before, after);
             if (
                 valueChanged &&
@@ -2535,15 +2638,18 @@ class LibraryToken<T extends DesignToken.Any>
         token?: LibraryToken<any>,
     ): void {
         const { origin } = scope;
-        const inherited = scope.inherited > 0;
-        if (!inherited && origin !== null && origin.size === 0) {
+        if (origin !== null) {
+            LibraryToken.rediscover(scope, name);
+        }
+        const ancestral = scope.ancestral > 0;
+        if (!ancestral && origin !== null && origin.size === 0) {
             // Its values are all its ancestor's, and it holds none of them.
             return;
         }
         const isOwn = (name: string) => origin === null || origin.has(name);
         // The tokens queued: its own, and with a subscriber told of its
         // ancestor's, those too.
-        const isQueued = (name: string) => inherited || isOwn(name);
+        const isQueued = (name: string) => ancestral || isOwn(name);
 
         const changed =
             token ??
@@ -2569,7 +2675,7 @@ class LibraryToken<T extends DesignToken.Any>
                 const token = tokenNamed(scope, dependent);
                 token.queue();
                 token.state.current = empty;
-            } else if (inherited) {
+            } else if (ancestral) {
                 tokenNamed(scope, dependent).queue();
             } else {
                 madeToken(scope, dependent)?.uncache();
@@ -2740,7 +2846,49 @@ function addOrigin(scope: Scope, name: string, inherit = true): void {
         scope.graph.dependentsOf(pending[i], visit);
         foundDependentsOf(scope, pending[i], visit);
     }
+    if (!scope.discovered && scope.queue.subscribed) {
+        discoverAll(scope, inherit);
+    }
 }
+
+/**
+ * Finds the tokens of an extension that recipes' results make its own.
+ * What a result calls and refers to is known only once it has resolved, so
+ * each token of the source that calls a recipe is resolved: the
+ * extension's own tokens are then the same whatever the source has read.
+ */
+function discoverAll(scope: Scope, inherit: boolean): void {
+    scope.discovered = true;
+    const origin = scope.origin!;
+    for (const name of callersOf(scope.source!)) {
+        if (!origin.has(name)) {
+            scope.callers.add(name);
+        }
+    }
+    for (const name of scope.callers) {
+        if (!origin.has(name) && LibraryToken.discover(scope, name)) {
+            addOrigin(scope, name, inherit);
+        }
+    }
+}
+
+/**
+ * The token of an extension's source that resolves the value the
+ * extension's token named `name` has as its ancestor's: the source's, or,
+ * when that is its own ancestor's too, the nearest that isn't.
+ */
+const resolverOf = (scope: Scope, name: string): LibraryToken<any> => {
+    let source = scope.source!;
+    while (
+        source.source !== undefined &&
+        source.origin !== null &&
+        source.queue.subscribed &&
+        !source.origin.has(name)
+    ) {
+        source = source.source;
+    }
+    return tokenNamed(source, name);
+};
 
 /**
  * Whether a value calls one of `recipes`, or with `null` any recipe, in plain
@@ -2836,54 +2984,21 @@ const callersOf = (scope: Scope): string[] => {
 
 /**
  * The tokens of an extension that are its own, found the first time they're
- * needed.
- *
- * A token that resolves a ref in a recipe's result depends on the token it's
- * to, which is found as its ancestor resolves it. With `found`, each token of
- * the source that calls a recipe is resolved, to find them all, for
- * {@link ownTokensOf}; otherwise, an extension leaves its ancestors lazy, and
- * such a token becomes its own when its ancestor resolves it.
+ * needed: those it gives a value, and those that recipes' results make its
+ * own, which {@link discoverAll} finds once it can have any.
  */
-function originOf(scope: Scope, found = false): Set<string> {
-    const source = scope.source!;
+function originOf(scope: Scope): Set<string> {
     let { origin } = scope;
     if (origin === null) {
         origin = scope.origin = new Set();
-        const seeds = [...scope.own];
-        if (scope.overridden.size > 0) {
-            for (const name of callersOf(source)) {
-                if (
-                    !scope.own.has(name) &&
-                    callsAny(
-                        LibraryToken.configuredValue(tokenNamed(source, name)),
-                        scope.overridden,
-                    )
-                ) {
-                    seeds.push(name);
-                }
-            }
-        }
-        for (const name of seeds) {
+        for (const name of scope.own) {
             addOrigin(scope, name, false);
         }
     }
-
-    if (found && !scope.foundAll && origin.size > 0) {
-        scope.foundAll = true;
-        for (const name of callersOf(source)) {
-            if (!origin.has(name)) {
-                try {
-                    tokenNamed(source, name).$value;
-                } catch {
-                    // It throws again when it's read.
-                }
-            }
-        }
-        for (const name of [...origin]) {
-            foundDependentsOf(scope, name, (dependent) =>
-                addOrigin(scope, dependent),
-            );
-        }
+    // With no token of its own and no recipe overridden, none can be, until
+    // it has one.
+    if (!scope.discovered && (origin.size > 0 || scope.overridden.size > 0)) {
+        discoverAll(scope, false);
     }
     return origin;
 }
@@ -2903,14 +3018,15 @@ const changeOf = (
  * A subscriber of an extension's batches that's told only of the changes to
  * its own tokens.
  */
-const ownChangesTo = (
+const changesFrom = (
+    origin: "own" | "ancestor",
     subscriber: Library.Subscriber<any>,
 ): Library.Subscriber<any> => ({
     onChange(changes) {
-        const own = changes.filter((change) => change.origin === "own");
-        if (own.length > 0) {
+        const told = changes.filter((change) => change.origin === origin);
+        if (told.length > 0) {
             subscriber.onChange(
-                own.length === changes.length ? changes : Object.freeze(own),
+                told.length === changes.length ? changes : Object.freeze(told),
             );
         }
     },

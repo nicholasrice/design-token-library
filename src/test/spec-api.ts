@@ -21,7 +21,7 @@ export const extend = (
     options?: Library.ExtendOptions,
 ): any => library.extend(config, options);
 
-/** `library.subscribe(subscriber, { inherited })`. */
+/** `library.subscribe(subscriber, { origin })`. */
 export const subscribe = (
     library: Library.Library<any>,
     subscriber: Library.Subscriber<any>,

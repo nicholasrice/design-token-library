@@ -76,7 +76,7 @@ A `TokenResolutionError` has:
 | `phase` | `"isEqual"` when its type's `isEqual` threw comparing the value it resolved with the one it had, `"resolve"` otherwise |
 | `cause` | The error thrown |
 
-`onError` is called in a microtask after the batch the error was found in, once for each error. It doesn't end the subscription: the subscriber is still told of later changes, and of later errors. An extension's subscriber is given the errors of the tokens it's told of, so one without `inherited: true` isn't given those of its ancestor's tokens.
+`onError` is called in a microtask after the batch the error was found in, once for each error. It doesn't end the subscription: the subscriber is still told of later changes, and of later errors. An extension's subscriber is given the errors of the tokens it's told of, by their `origin`: one with the default `origin: "own"` isn't given those of its ancestor's tokens, and one with `"ancestor"` isn't given those of its own.
 
 An error that no subscriber with `onError` is told of is thrown from a microtask, as an error thrown by `onChange` or `onError` is, so it reaches the runtime's handler for uncaught errors rather than being lost.
 
@@ -84,7 +84,7 @@ Reading a token isn't changed: its `$value` throws the error itself to its reade
 
 ## Extensions
 
-An extension's subscriber is told of the extension's own tokens: those it gives a value, those that are set, those new in it, those that call a recipe it overrides, and those that depend on one of them, including through a ref a recipe's result has. Its other tokens are its ancestor's values, the same objects, and a change to them isn't in its batches: its ancestor reports it.
+An extension's subscriber is told of the extension's own tokens: those it gives a value, those that are set, those new in it, those that call a recipe it overrides, directly or in a recipe's result, and those that depend on one of them, including through a ref a recipe's result has. To find them whatever its ancestor has read, its first `subscribe()` resolves each of its ancestor's tokens that calls a recipe, and a change that reaches such a token resolves it again. Its other tokens are its ancestor's values, the same objects, and a change to them isn't in its batches: its ancestor reports it.
 
 A token becomes the extension's own when it's set, even to the value it had, or when a token it depends on becomes its own. Its change has `originChanged`, and `valueChanged` only if its value isn't equal to the one it had. Nothing makes a token its ancestor's again.
 
@@ -96,10 +96,10 @@ extension.subscribe({ onChange(changes) { /* ... */ } });
 extension.tokens.a.set(library.tokens.a.$value);
 ```
 
-A subscriber that holds only the extension and needs all of its values subscribes with `inherited: true`, and is also told of the tokens that are its ancestor's when their values change, with `origin: "ancestor"`. The extension then resolves those tokens too.
+A subscriber chooses which tokens it is told of with `origin`: `"own"` (the default), `"ancestor"`, or `"all"`, matching each change's `origin`. A subscriber that holds only the extension and needs all of its values subscribes with `origin: "all"`. With `"ancestor"` or `"all"`, the extension resolves its ancestor's tokens too.
 
 ```ts
-extension.subscribe(subscriber, { inherited: true });
+extension.subscribe(subscriber, { origin: "all" });
 ```
 
 `ownTokensOf()` lists an extension's own tokens, for a first render that writes only them, such as with [`toCSS`](../export/css-output)'s `filter`. It lists every token of a library made by `create()`. To find the tokens that a ref in a recipe's result makes its own, it resolves its ancestors' tokens that call recipes.

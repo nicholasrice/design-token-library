@@ -192,12 +192,14 @@ specTest(
 specTest(
     Evaluation,
     "B",
-    "EVAL-08: an extension leaves its lazy ancestors lazy",
+    "EVAL-08: an extension resolves its ancestors' recipe calls once, and leaves the rest lazy",
     () => {
         const { library, extendA, calls } = parentOf();
         subscribe(extendA(), changeRecorder());
 
-        Assert.is(calls("y"), 0, "the extension doesn't read y");
+        // What a recipe's result calls or refers to is found only by
+        // resolving it, so the parent's y is resolved once.
+        Assert.is(calls("y"), 1, "the parent's y, to find what it calls");
         Assert.is(calls("b"), 1, "the extension's own b");
 
         library.tokens.b.$value;

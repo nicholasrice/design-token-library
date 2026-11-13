@@ -183,43 +183,43 @@ Errors(
 );
 
 Errors(
-    "an extension's default subscriber isn't given the errors of its ancestor's tokens",
+    "an extension's subscriber is given the errors of the tokens it's told of, by origin",
     async () => {
         const uncaught = captureUncaughtErrors();
         try {
             const library = numbers();
             library.subscribe(recorder());
+            // `a` is the extension's own, as it depends on `n`.
             const extension = library.extend({
                 n: { $value: 1 },
             } as never);
             const own = recorder();
-            const inherited = recorder();
-            extension.subscribe(own);
-            extension.subscribe(inherited, { inherited: true });
-            const plain = library.extend({});
-            const told = recorder();
-            plain.subscribe(told);
+            const ancestor = recorder();
             const all = recorder();
-            plain.subscribe(all, { inherited: true });
+            extension.subscribe(own);
+            extension.subscribe(ancestor, { origin: "ancestor" });
+            extension.subscribe(all, { origin: "all" });
+            // `a` is its ancestor's.
+            const plain = library.extend({});
+            const plainOwn = recorder();
+            const plainAncestor = recorder();
+            const plainAll = recorder();
+            plain.subscribe(plainOwn);
+            plain.subscribe(plainAncestor, { origin: "ancestor" });
+            plain.subscribe(plainAll, { origin: "all" });
 
             library.tokens.n.set(-1);
             extension.tokens.n.set(-1);
             await settle();
 
-            Assert.equal(
-                own.errors.map((error) => error.tokenName),
-                ["a"],
-                "its own token",
-            );
-            Assert.equal(
-                inherited.errors.map((error) => error.tokenName),
-                ["a"],
-            );
-            Assert.equal(told.errors, [], "a token that is its ancestor's");
-            Assert.equal(
-                all.errors.map((error) => error.tokenName),
-                ["a"],
-            );
+            const names = (subscriber: ReturnType<typeof recorder>) =>
+                subscriber.errors.map((error) => error.tokenName);
+            Assert.equal(names(own), ["a"], "its own token");
+            Assert.equal(names(ancestor), [], "not its ancestor's");
+            Assert.equal(names(all), ["a"]);
+            Assert.equal(names(plainOwn), [], "a token that is its ancestor's");
+            Assert.equal(names(plainAncestor), ["a"]);
+            Assert.equal(names(plainAll), ["a"]);
             Assert.equal(uncaught.errors, []);
         } finally {
             uncaught.restore();
@@ -259,7 +259,7 @@ Errors(
         );
         const extension = library.extend({});
         const subscriber = recorder();
-        extension.subscribe(subscriber, { inherited: true });
+        extension.subscribe(subscriber, { origin: "all" });
 
         library.tokens.n.set(2);
         await settle();
@@ -277,6 +277,36 @@ Errors(
             [["box", "n"]],
         );
         Assert.equal(extension.tokens.box.$value, { n: 2 });
+    },
+);
+
+Errors(
+    "an ancestor's token that throws as an extension finds its own tokens is reported once, to the subscribers told of it",
+    async () => {
+        const uncaught = captureUncaughtErrors();
+        try {
+            const library = numbers(-1);
+            const extension = library.extend({ b: { $value: 5 } });
+            const own = recorder();
+            extension.subscribe(own);
+            await settle();
+
+            Assert.equal(own.errors, [], "not its own token");
+            Assert.equal(uncaught.errors, []);
+
+            const inherited = recorder();
+            extension.subscribe(inherited, { origin: "all" });
+            await settle();
+
+            Assert.equal(
+                inherited.errors.map((error) => error.tokenName),
+                ["a"],
+            );
+            Assert.equal(own.errors, []);
+            Assert.equal(uncaught.errors, []);
+        } finally {
+            uncaught.restore();
+        }
     },
 );
 

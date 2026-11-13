@@ -73,7 +73,9 @@ for (const entry of entriesOf(library)) {
 }
 
 // A subscriber is told of changes, with each token's origin.
-const subscribeOptions: Library.SubscribeOptions = { inherited: true };
+const subscribeOptions: Library.SubscribeOptions = { origin: "all" };
+// @ts-expect-error origin is "own", "ancestor" or "all"
+const notAnOrigin: Library.SubscribeOptions = { origin: "both" };
 extended.subscribe(
     {
         onChange(changes: ReadonlyArray<Library.Change<Tokens>>) {
@@ -95,8 +97,12 @@ const changesOnly: Library.Subscriber<Tokens> = { onChange() {} };
 extended.subscribe(changesOnly);
 // @ts-expect-error `onError` takes a TokenResolutionError
 extended.subscribe({ onChange() {}, onError(error: string) { void error; } });
-const own: ReadonlyArray<Library.TokenRecord<Tokens>> = ownTokensOf(extended);
+// The list's type is the one ownTokensOf() returns: read-only, of the extension's tokens.
+const own = ownTokensOf(extended);
 // @ts-expect-error the list is read-only
 own.push(extended.tokens.size);
+const ownToken: Library.TokenRecord<Tokens> | undefined = own[0];
+// @ts-expect-error an entry is a token of the extension's shape
+const otherToken: Library.TokenRecord<{ x: DesignToken.Color }> | undefined = own[0];
 
-void [byPath, value, notARef, toCSS(library), options, swatches, names, reserved];
+void [ownToken, otherToken, notAnOrigin, byPath, value, notARef, toCSS(library), options, swatches, names, reserved];
