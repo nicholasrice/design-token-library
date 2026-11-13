@@ -50,9 +50,37 @@ library.tokens.a.set({ colorSpace: "srgb", components: [1, 1, 1] });
 library.tokens.a.set({ colorSpace: "srgb", components: [1, 1, 1] });
 ```
 
-`subscribe()` sends no batch of its own. A token that throws doesn't stop `subscribe()` or `set()`: it throws when it's read, and a token that starts or stops throwing is in the batch.
+`subscribe()` sends no batch of its own. A token that throws doesn't stop `subscribe()` or `set()`: it throws when it's read, and a token that starts or stops throwing is in the batch. The error goes to the subscriber's `onError`, described in [Errors](#errors).
 
 A library without a subscriber is lazy: a token is resolved when it's read, and a `set()` only drops the values that depend on it. The last `unsubscribe()` makes a library lazy again, keeping the values it has.
+
+## Errors
+
+A subscribed library resolves tokens on its own: as it's subscribed, and when a batch is delivered. An error a token throws then, from a recipe, a ref to a token the library doesn't have, a circular reference, or its custom type's `isEqual`, is given to each subscriber's optional `onError`:
+
+```ts
+library.subscribe({
+  onChange(changes) { /* ... */ },
+  onError(error) {
+    // error: TokenResolutionError
+    console.warn(error.tokenName, error.phase, error.cause);
+  },
+});
+```
+
+A `TokenResolutionError` has:
+
+| Field | |
+|---|---|
+| `tokenName` | The name of the token that threw. A token that depends on it rethrows the same error, which is given once |
+| `phase` | `"isEqual"` when its type's `isEqual` threw comparing the value it resolved with the one it had, `"resolve"` otherwise |
+| `cause` | The error thrown |
+
+`onError` is called in a microtask after the batch the error was found in, once for each error. It doesn't end the subscription: the subscriber is still told of later changes, and of later errors. An extension's subscriber is given the errors of the tokens it's told of, by their `origin`: one with the default `origin: "own"` isn't given those of its ancestor's tokens, and one with `"ancestor"` isn't given those of its own.
+
+An error that no subscriber with `onError` is told of is thrown from a microtask, as an error thrown by `onChange` or `onError` is, so it reaches the runtime's handler for uncaught errors rather than being lost.
+
+Reading a token isn't changed: its `$value` throws the error itself to its reader. An `isEqual` that throws as a token is read throws to the reader too, and the token takes its new value the next time it's read.
 
 ## Extensions
 

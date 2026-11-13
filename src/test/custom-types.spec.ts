@@ -6,7 +6,7 @@ import * as Assert from "uvu/assert";
 import { ref, refs } from "../lib/ref.js";
 import { toCSS, toProperties } from "../lib/css-reflector.js";
 import { DesignToken } from "../lib/design-token.js";
-import { Library } from "../lib/library.js";
+import { Library, TokenResolutionError } from "../lib/library.js";
 import {
     CustomTheme,
     ElevationToken,
@@ -280,7 +280,7 @@ Changes("dependents of a custom token recompute and notify", async () => {
 });
 
 Changes(
-    "an isEqual that throws while subscribed is swallowed, and the token takes its new value",
+    "an isEqual that throws while subscribed is given to onError, and the token takes its new value",
     async () => {
         const failure = new Error("isEqual failed");
         let fail = true;
@@ -302,14 +302,24 @@ Changes(
                 },
             } as any,
         );
-        library.subscribe(recorder());
+        const subscriber = recorder();
+        library.subscribe(subscriber);
         const first = library.tokens.box.$value;
 
         library.tokens.n.set(2);
         await nextUpdate();
-        // A known gap: a subscribed library compares the value as it
-        // resolves it after the change, and the error isn't reported. An
-        // onError on subscribers is to report it.
+        await nextUpdate();
+
+        Assert.is(subscriber.errors.length, 1);
+        const [error] = subscriber.errors;
+        Assert.instance(error, TokenResolutionError);
+        Assert.is(error.tokenName, "box");
+        Assert.is(error.phase, "isEqual");
+        Assert.is(error.cause, failure);
+        Assert.equal(
+            subscriber.batches.map((batch) => batch.sort()),
+            [["box", "n"]],
+        );
 
         const next = library.tokens.box.$value;
         Assert.equal(next, { n: 2 });

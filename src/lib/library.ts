@@ -221,6 +221,18 @@ export namespace Library {
          * microtask runs. Each change has its value or its origin changed.
          */
         onChange(changes: ReadonlyArray<Library.Change<R>>): void;
+        /**
+         * Called with an error that a token threw as the library resolved
+         * it on its own: as it was subscribed, or after a change. Reading
+         * the token throws to its reader instead.
+         *
+         * @remarks
+         * It's called in a microtask after the batch the error was found
+         * in, once for each error, and the subscriber is still told of
+         * later changes. An error that no subscriber with `onError` is told
+         * of is thrown from a microtask.
+         */
+        onError?(error: TokenResolutionError): void;
     }
 
     /**
@@ -900,6 +912,11 @@ interface Scope {
         { delivered: Library.Subscriber<any>; ancestral: boolean }
     >;
     /**
+     * The errors found as the library resolved its tokens on its own, which
+     * a microtask delivers to its subscribers, or `null` with none.
+     */
+    errors: PendingError[] | null;
+    /**
      * How many subscribers of an extension are told of the tokens that are
      * its ancestor's. With any, it resolves them and queues them.
      */
@@ -969,6 +986,15 @@ interface Scope {
 }
 
 /**
+ * An error a subscribed library found, and whether its token's value is its
+ * ancestor's.
+ */
+interface PendingError {
+    readonly error: TokenResolutionError;
+    readonly ancestors: boolean;
+}
+
+/**
  * Removes the scope of a collected extension from its source's.
  */
 const extensionsOf = new FinalizationRegistry<{
@@ -990,6 +1016,7 @@ const scopeOf = (
         types,
         queue: new Queue(LibraryToken.reported),
         subscribers: new Map(),
+        errors: null,
         ancestral: 0,
         callers: new Set(),
         discovered: false,
@@ -1241,6 +1268,102 @@ export class CircularReferenceError extends Error {
         this.chain = chain;
     }
 }
+
+/**
+ * Given to a subscriber's `onError` when a token throws as a subscribed
+ * library resolves it on its own. The error thrown is its `cause`.
+ *
+ * @public
+ */
+export class TokenResolutionError extends Error {
+    public override readonly name = "TokenResolutionError";
+
+    /**
+     * The name of the token that threw.
+     */
+    public readonly tokenName: string;
+
+    /**
+     * What threw: its type's `isEqual`, comparing the value it resolved with
+     * the one it had, or resolving its value.
+     */
+    public readonly phase: "isEqual" | "resolve";
+
+    constructor(
+        tokenName: string,
+        phase: "isEqual" | "resolve",
+        cause: unknown,
+    ) {
+        super(
+            phase === "isEqual"
+                ? `The isEqual of "${tokenName}" threw.`
+                : `"${tokenName}" threw as it resolved.`,
+            { cause },
+        );
+        this.tokenName = tokenName;
+        this.phase = phase;
+    }
+}
+
+/**
+ * The token that first threw the error being thrown, and what threw it,
+ * found as a read that throws unwinds. The outermost read clears it.
+ */
+let thrown: {
+    error: unknown;
+    name: string;
+    phase: TokenResolutionError["phase"];
+} | null = null;
+
+const recordThrow = (
+    error: unknown,
+    name: string,
+    phase: TokenResolutionError["phase"],
+): void => {
+    if (thrown === null || thrown.error !== error) {
+        thrown = { error, name, phase };
+    }
+};
+
+/**
+ * Delivers the errors a subscribed library found in a microtask to its
+ * subscribers with `onError` that are told of the token's changes, by its
+ * origin: one of an extension's own tokens to those with `origin` `"own"` or
+ * `"all"`, and one that is its ancestor's to those with `"ancestor"` or
+ * `"all"`. One that no subscriber is given is thrown, as is one that
+ * `onError` throws.
+ */
+const deliverErrors = (scope: Scope, errors: readonly PendingError[]) => {
+    for (const { error, ancestors } of errors) {
+        let delivered = false;
+        for (const [
+            subscriber,
+            { delivered: to, ancestral },
+        ] of scope.subscribers) {
+            // Only a subscriber told of the ancestor's tokens alone is
+            // ancestral with a filter.
+            const told = ancestors
+                ? ancestral
+                : !ancestral || to === subscriber;
+            if (typeof subscriber.onError !== "function" || !told) {
+                continue;
+            }
+            delivered = true;
+            try {
+                subscriber.onError(error);
+            } catch (failure) {
+                queueMicrotask(() => {
+                    throw failure;
+                });
+            }
+        }
+        if (!delivered) {
+            queueMicrotask(() => {
+                throw error;
+            });
+        }
+    }
+};
 
 /**
  * The tokens currently resolving their values, outermost first.
@@ -1963,6 +2086,9 @@ class LibraryToken<T extends DesignToken.Any>
      */
     private value(): DesignToken.ReadonlyValueByToken<T> {
         const { scope } = this.state;
+        if (resolving.length === 0) {
+            thrown = null;
+        }
         if (this.isAncestors()) {
             // The ancestor token has the same type.
             const value =
@@ -1987,7 +2113,9 @@ class LibraryToken<T extends DesignToken.Any>
                 .slice(resolving.indexOf(this))
                 .map((token) => token.name);
 
-            throw new CircularReferenceError([...chain, this.name]);
+            const error = new CircularReferenceError([...chain, this.name]);
+            recordThrow(error, this.name, "resolve");
+            throw error;
         }
 
         this.state.resolving = true;
@@ -2024,10 +2152,7 @@ class LibraryToken<T extends DesignToken.Any>
             const { previous } = this.state;
             if (previous !== empty) {
                 this.state.previous = empty;
-                if (
-                    scope.queue.subscribed &&
-                    equalityOf(scope, this._type)(previous, value)
-                ) {
+                if (scope.queue.subscribed && this.equals(previous, value)) {
                     value = previous;
                 }
             }
@@ -2037,9 +2162,25 @@ class LibraryToken<T extends DesignToken.Any>
             this.state.scope.cached++;
 
             return value;
+        } catch (error) {
+            recordThrow(error, this.name, "resolve");
+            throw error;
         } finally {
             this.state.resolving = false;
             resolving.pop();
+        }
+    }
+
+    /**
+     * Compares two values by the token's type, recording an error that its
+     * equality throws.
+     */
+    private equals(a: unknown, b: unknown): boolean {
+        try {
+            return equalityOf(this.state.scope, this._type)(a, b);
+        } catch (error) {
+            recordThrow(error, this.name, "isEqual");
+            throw error;
         }
     }
 
@@ -2185,7 +2326,14 @@ class LibraryToken<T extends DesignToken.Any>
         }
 
         const resolver = resolverOf(scope, name);
-        LibraryToken.tryResolve(resolver);
+        try {
+            resolver.$value;
+        } catch {
+            // An error of the source's token is reported by what follows it:
+            // the source's subscribers, and the extension's subscribers told
+            // of its ancestor's tokens, as it resolves them. Otherwise it
+            // throws when it's read.
+        }
         const { called, found } = resolver.state;
         const origin = scope.origin!;
         for (const recipe of called ?? []) {
@@ -2290,19 +2438,25 @@ class LibraryToken<T extends DesignToken.Any>
             let after: unknown;
             try {
                 after = token.$value;
-            } catch {
+            } catch (error) {
                 after = empty;
+                LibraryToken.report(token, error);
             }
             // Only a subscriber told of its ancestor's tokens queues those.
             const ancestors = scope.ancestral > 0 && token.isAncestors();
-            const valueChanged =
-                !Object.is(before, after) &&
-                !(
-                    ancestors &&
-                    before !== empty &&
-                    after !== empty &&
-                    equalityOf(scope, token._type)(before, after)
-                );
+            let valueChanged = !Object.is(before, after);
+            if (
+                valueChanged &&
+                ancestors &&
+                before !== empty &&
+                after !== empty
+            ) {
+                try {
+                    valueChanged = !token.equals(before, after);
+                } catch (error) {
+                    LibraryToken.report(token, error);
+                }
+            }
             if (valueChanged || originChanged) {
                 reported.push(
                     changeOf(
@@ -2318,14 +2472,46 @@ class LibraryToken<T extends DesignToken.Any>
     }
 
     /**
-     * Resolves a token, if it doesn't throw.
+     * Resolves a token of a subscribed library, reporting an error it throws
+     * to the library's subscribers.
      */
     public static tryResolve(token: LibraryToken<any>): void {
         try {
             token.$value;
-        } catch {
-            // It throws again when it's read.
+        } catch (error) {
+            LibraryToken.report(token, error);
         }
+    }
+
+    /**
+     * Queues an error a token of a subscribed library threw as the library
+     * resolved it, for its subscribers, as a {@link TokenResolutionError} of
+     * the token that threw it first. An error is reported once in a
+     * microtask, as the tokens that depend on a token that throws rethrow
+     * its error.
+     */
+    private static report(token: LibraryToken<any>, error: unknown): void {
+        const { name, phase } =
+            thrown !== null && thrown.error === error
+                ? thrown
+                : { name: token.name, phase: "resolve" as const };
+        thrown = null;
+        const { scope } = token.state;
+        let errors = scope.errors;
+        if (errors === null) {
+            const pending: PendingError[] = (errors = scope.errors = []);
+            queueMicrotask(() => {
+                scope.errors = null;
+                deliverErrors(scope, pending);
+            });
+        }
+        if (errors.some((pending) => pending.error.cause === error)) {
+            return;
+        }
+        errors.push({
+            error: new TokenResolutionError(name, phase, error),
+            ancestors: token.isAncestors(),
+        });
     }
 
     /**

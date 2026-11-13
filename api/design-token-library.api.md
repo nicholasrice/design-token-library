@@ -572,6 +572,7 @@ export namespace Library {
     // (undocumented)
     export interface Subscriber<R extends {}> {
         onChange(changes: ReadonlyArray<Library.Change<R>>): void;
+        onError?(error: TokenResolutionError): void;
     }
     export type Token<T extends DesignToken.Shape, C extends {}, G extends string = never> = {
         set(value: ConfigTokenValue<T, C> | DesignToken.ReadonlyValueByToken<T>): void;
@@ -685,6 +686,15 @@ export function toCSS<T extends {}, R extends {}>(library: Library.Library<T, R>
 
 // @public
 export type ToCSSArgs<T> = [CustomTokensOf<T>] extends [never] ? [options?: CSSOptions<T>] : [options: CSSOptions<T>];
+
+// @public
+export class TokenResolutionError extends Error {
+    constructor(tokenName: string, phase: "isEqual" | "resolve", cause: unknown);
+    // (undocumented)
+    readonly name = "TokenResolutionError";
+    readonly phase: "isEqual" | "resolve";
+    readonly tokenName: string;
+}
 
 // @public
 export function toProperties<T extends Library.Library<any>, C extends PropertiesConverters = {}>(library: T, options?: ToPropertiesOptions<C>): CSSPropertiesLibrary<T["tokens"], C>;

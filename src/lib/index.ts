@@ -1,6 +1,7 @@
 export { DesignToken } from "./design-token.js";
 export {
     CircularReferenceError,
+    TokenResolutionError,
     Library,
     configuredValueOf,
     entriesOf,

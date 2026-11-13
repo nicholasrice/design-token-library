@@ -3,7 +3,17 @@
 // without `skipLibCheck`, so a name in the typings that doesn't resolve, which would be an error for a consumer, is one here.
 //
 // A line with `@ts-expect-error` is one that has to be an error: if the typings stop reporting it, so does this check.
-import { DesignToken, entriesOf, isRef, Library, ownTokensOf, ref, refs, toCSS } from "design-token-library";
+import {
+    DesignToken,
+    entriesOf,
+    isRef,
+    Library,
+    ownTokensOf,
+    ref,
+    refs,
+    toCSS,
+    TokenResolutionError,
+} from "design-token-library";
 
 type Tokens = {
     size: DesignToken.Number;
@@ -74,9 +84,19 @@ extended.subscribe(
                 void [token.name, valueChanged, own, originChanged];
             }
         },
+        onError(error: TokenResolutionError) {
+            const phase: "isEqual" | "resolve" = error.phase;
+            const cause: unknown = error.cause;
+            void [error.tokenName, phase, cause, error instanceof Error];
+        },
     },
     subscribeOptions,
 );
+// `onError` is optional.
+const changesOnly: Library.Subscriber<Tokens> = { onChange() {} };
+extended.subscribe(changesOnly);
+// @ts-expect-error `onError` takes a TokenResolutionError
+extended.subscribe({ onChange() {}, onError(error: string) { void error; } });
 // The list's type is the one ownTokensOf() returns: read-only, of the extension's tokens.
 const own = ownTokensOf(extended);
 // @ts-expect-error the list is read-only

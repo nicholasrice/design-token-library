@@ -690,6 +690,10 @@ specTest(
         library.tokens.b.set(hex("#222222"));
         await nextUpdate();
         Assert.equal(subscriber.names, [["b"]]);
+        Assert.equal(
+            subscriber.errors.map((error) => [error.tokenName, error.phase]),
+            [["a", "resolve"]],
+        );
     },
 );
 
@@ -710,6 +714,10 @@ specTest(
 
         Assert.equal(subscriber.names, [["b", "n"]]);
         Assert.throws(() => library.tokens.b.$value, /negative/);
+        Assert.equal(
+            subscriber.errors.map((error) => [error.tokenName, error.phase]),
+            [["b", "resolve"]],
+        );
     },
 );
 

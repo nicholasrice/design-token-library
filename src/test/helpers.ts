@@ -1,7 +1,7 @@
 import type { Callback, Test } from "uvu";
 import { refs } from "../lib/ref.js";
 import { DesignToken } from "../lib/design-token.js";
-import { Library } from "../lib/library.js";
+import { Library, TokenResolutionError } from "../lib/library.js";
 import { hex } from "./values.js";
 
 /**
@@ -83,13 +83,19 @@ export function captureUncaughtErrors() {
 }
 
 /**
- * A subscriber that records the token names of each change batch. An entry is
- * a token, or a change with its token.
+ * A subscriber that records the token names of each change batch, and the
+ * errors given to `onError`. An entry is a token, or a change with its token.
  */
 export function recorder() {
     const batches: string[][] = [];
+    const errors: TokenResolutionError[] = [];
     return {
         batches,
+        /** The errors given to `onError`. */
+        errors,
+        onError(error: TokenResolutionError) {
+            errors.push(error);
+        },
         onChange(
             records: ReadonlyArray<
                 { name: string } | { token: { name: string } }

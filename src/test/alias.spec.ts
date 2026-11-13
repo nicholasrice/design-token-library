@@ -552,6 +552,11 @@ Alias("a throwing ref does not track tokens read after it fails", async () => {
     await nextUpdate();
 
     Assert.equal(subscriber.batches, [["b"]], "only b changed");
+    Assert.equal(
+        subscriber.errors.map((error) => error.tokenName),
+        ["a"],
+        "subscribing reports the token that throws",
+    );
 });
 
 const cyclicPair = () =>

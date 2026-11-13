@@ -1,4 +1,8 @@
-import { Library, ownTokensOf as ownTokensOfLibrary } from "../lib/library.js";
+import {
+    Library,
+    TokenResolutionError,
+    ownTokensOf as ownTokensOfLibrary,
+} from "../lib/library.js";
 
 /**
  * The API the equality, evaluation and origin specs need, before it exists.
@@ -51,14 +55,20 @@ export const ownTokensOf = (
  */
 export const changeRecorder = () => {
     const batches: ReadonlyArray<Change>[] = [];
+    const errors: TokenResolutionError[] = [];
     return {
         batches,
+        /** The errors given to `onError`. */
+        errors,
         /** The sorted token names of each batch. */
         get names(): string[][] {
             return batches.map(namesOfBatch);
         },
         onChange(batch: ReadonlyArray<Change>) {
             batches.push(batch);
+        },
+        onError(error: TokenResolutionError) {
+            errors.push(error);
         },
     };
 };

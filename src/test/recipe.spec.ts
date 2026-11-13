@@ -388,6 +388,11 @@ Recipe(
         await nextUpdate();
 
         Assert.equal(subscriber.batches, [["b"]], "only b changed");
+        Assert.equal(
+            subscriber.errors.map((error) => error.tokenName),
+            ["a"],
+            "subscribing reports the token that throws",
+        );
     },
 );
 
