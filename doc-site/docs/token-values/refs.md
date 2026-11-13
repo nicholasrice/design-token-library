@@ -29,7 +29,7 @@ alias: { $type: DesignToken.Type.Color, $value: theme.static },
 
 ## Config shared between libraries
 
-A ref is checked against the tokens of the library it's used in, not its whole shape, so config that refers to some tokens works in any library that has them. A function that makes config to share between libraries is typed by the shapes it needs, with an intersection when it needs tokens from several, and takes no type parameter for the library:
+Refs are checked when config is passed to a library, against that library's tokens. The shapes in the config's type only say which tokens it needs, so any library that has them accepts the config. A function that makes config to share between libraries is typed by the shapes it needs, with an intersection when it needs tokens from several, and takes no type parameter for the library:
 
 ```ts
 interface Colors {
