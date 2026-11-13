@@ -1,6 +1,6 @@
 # Tokens Files
 
-A library can be created from a tokens file (`.tokens.json`), or extended by one. `parse` reads the [Design Tokens Format Module 2025.10](https://www.designtokens.org/tr/2025.10/format/) and its [Color Module](https://www.designtokens.org/tr/2025.10/color/), so a file exported from a design tool loads as it is. It also reads this library's extensions to the format: custom types and recipe calls.
+A library can be created from a tokens file (`.tokens.json`), or extended by one. `parse` reads the [Design Tokens Format Module 2025.10](https://www.designtokens.org/tr/2025.10/format/) and its [Color Module](https://www.designtokens.org/tr/2025.10/color/), so a file in the 2025.10 format loads as it is. It also reads this library's extensions to the format: custom types and recipe calls.
 
 ```json
 {
@@ -78,7 +78,7 @@ A reference that is inherited is not rewritten: it still names the original toke
 
 - A pointer to a token's `$value` is the same as the reference `{color.blue}`, so it stays live.
 - A pointer to anything else, such as a component (`#/color/blue/$value/components/0`) or a unit, is replaced by a copy of what it points at when the file is read. That copy does not follow later changes.
-- `~1` and `~0` escape `/` and `~`, and `$ref` inside `$extensions` is left as the vendor wrote it. A pointer that makes a file expand to more than a million nodes is an error, as for `$extends`.
+- `~1` and `~0` escape `/` and `~`, and a `$ref` inside a vendor's `$extensions` is left as the vendor wrote it, but one inside this library's own (`design-token-library`) is resolved, since it holds the library's form of the token. A pointer that makes a file expand to more than a million nodes is an error, as for `$extends`.
 
 ## Custom types
 

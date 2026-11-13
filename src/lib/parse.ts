@@ -113,7 +113,13 @@ const recipesByName = (
 ): RecipesByName => {
     const byName = new Map<string, Library.Recipe<any, unknown>>();
 
-    for (const recipe of Object.values(recipes)) {
+    for (const [key, recipe] of Object.entries(recipes)) {
+        if (typeof recipe?.[RECIPE]?.name !== "string") {
+            throw new Error(
+                `"${key}" in the recipes isn't a recipe. Make them with recipes().`,
+            );
+        }
+
         const { name } = recipe[RECIPE];
         const known = byName.get(name);
 
@@ -176,20 +182,29 @@ const typeIn = (node: unknown): string | undefined => {
 };
 
 /**
- * Every `$type` of the tokens and groups of a library.
+ * Every `$type` of the tokens and groups of a library. A token of a library
+ * is an accessor, which makes the token of an extension when it is read, so
+ * this is found only when a document needs it.
  */
 const typesIn = (tokens: object): Set<string> => {
     const found = new Set<string>();
-    const walk = (node: unknown) => {
+    const add = (node: unknown) => {
         const type = typeIn(node);
 
         if (type !== undefined) {
             found.add(type);
         }
+    };
+    const walk = (group: object) => {
+        add(group);
 
-        if (isGroupNode(node)) {
-            for (const key of Object.keys(node)) {
-                walk(node[key]);
+        for (const key of Object.keys(group)) {
+            const descriptor = Reflect.getOwnPropertyDescriptor(group, key)!;
+
+            if (!("value" in descriptor)) {
+                add(descriptor.get!());
+            } else if (isObject(descriptor.value)) {
+                walk(descriptor.value);
             }
         }
     };
@@ -208,6 +223,7 @@ const convert = (
     base: object | undefined,
     compliant: ReadonlyMap<string, CompliantForm>,
     customTypes: ReadonlySet<string>,
+    libraryTypes: () => ReadonlySet<string>,
     recipes: RecipesByName,
     report: Report,
 ): Node => {
@@ -216,7 +232,9 @@ const convert = (
     const circular = new Set<string>();
 
     const knownType = (type: string): boolean =>
-        isStandardType(type) || customTypes.has(type);
+        isStandardType(type) ||
+        customTypes.has(type) ||
+        libraryTypes().has(type);
 
     // The token or group of the library at a path.
     const inBase = (path: string[]): unknown =>
@@ -533,8 +551,11 @@ const convert = (
                 report(
                     `${path}.$type`,
                     `${JSON.stringify(node.$type)} is not a type of ${where}. Expected one of ${[
-                        ...Object.values(DesignToken.Type),
-                        ...customTypes,
+                        ...new Set([
+                            ...Object.values(DesignToken.Type),
+                            ...customTypes,
+                            ...libraryTypes(),
+                        ]),
                     ].join(", ")}.`,
                 );
             }
@@ -675,21 +696,6 @@ const convert = (
 
         if (isReference(value)) {
             read = reference(value, type, where);
-
-            const found = find(path);
-            const inherited =
-                found?.kind === "token" ? found.inherited : undefined;
-
-            if (
-                node.$type === undefined &&
-                inherited !== undefined &&
-                typeOf(referencePath(value)) !== inherited
-            ) {
-                report(
-                    where,
-                    `references "${value}", but the token's group gives the $type ${JSON.stringify(inherited)}.`,
-                );
-            }
         } else {
             read =
                 call(value, where) ??
@@ -895,34 +901,47 @@ export function parse(
         ]);
     }
 
-    let native: ReturnType<typeof resolveExtension>;
-
     try {
-        native = resolveExtension(resolveReferences(doc, report), report);
+        const resolved = resolveReferences(doc, report);
+
+        // A reference that fails stays as it was written, so what reads it
+        // next would report it again as something else.
+        if (issues.length > 0) {
+            throw new ParseError(issues);
+        }
+
+        const native = resolveExtension(resolved, report);
+        const base = options.extends?.tokens;
+        let libraryTypes: Set<string> | undefined;
+        const config = convert(
+            native.doc,
+            base,
+            native.compliant,
+            new Set(Object.keys(options.types ?? {})),
+            () => (libraryTypes ??= base ? typesIn(base) : new Set()),
+            recipesByName(options.recipes),
+            report,
+        );
+
+        if (issues.length > 0) {
+            throw new ParseError(issues);
+        }
+
+        return config;
     } catch (error) {
         if (error instanceof TooLarge) {
             throw new ParseError([...issues, tooLarge()]);
         }
 
+        // The passes recurse, so a document nested deeper than the stack
+        // allows is a problem of the document, not of the library.
+        if (error instanceof RangeError && /call stack/i.test(error.message)) {
+            throw new ParseError([
+                ...issues,
+                { path: "", message: "is nested too deeply to read." },
+            ]);
+        }
+
         throw error;
     }
-
-    const base = options.extends?.tokens;
-    const config = convert(
-        native.doc,
-        base,
-        native.compliant,
-        new Set([
-            ...Object.keys(options.types ?? {}),
-            ...(base ? typesIn(base) : []),
-        ]),
-        recipesByName(options.recipes),
-        report,
-    );
-
-    if (issues.length > 0) {
-        throw new ParseError(issues);
-    }
-
-    return config;
 }

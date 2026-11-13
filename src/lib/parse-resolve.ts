@@ -10,6 +10,7 @@ import {
     type Node,
     type Report,
 } from "./parse-document.js";
+import { EXTENSION } from "./parse-extension.js";
 
 /**
  * Parses a JSON Pointer in URI fragment form (RFC 6901), such as
@@ -256,6 +257,12 @@ const resolvePointers = (doc: Node, report: Report): Node => {
         for (const segment of path) {
             if (isObject(node) && "$ref" in node) {
                 node = refObject(node, here);
+
+                // A reference to a token stands for its $value, so a pointer
+                // can go on through it.
+                if (isReference(node)) {
+                    node = pointerGet([...referencePath(node), "$value"], here);
+                }
             }
 
             if (Array.isArray(node)) {
@@ -331,17 +338,37 @@ const resolvePointers = (doc: Node, report: Report): Node => {
 
     let visited = 0;
 
+    // Extensions are vendor data, and a "$ref" in one is theirs, except in
+    // this library's own: it holds the library's form of the token, which
+    // the hand-written form's "$ref" reads in.
+    const extensionsOf = (extensions: any, here: string[]): any => {
+        if (!isObject(extensions) || !Object.hasOwn(extensions, EXTENSION)) {
+            return extensions;
+        }
+
+        const result: Node = { ...extensions };
+
+        setOwn(
+            result,
+            EXTENSION,
+            walk(extensions[EXTENSION], [...here, EXTENSION]),
+        );
+
+        return result;
+    };
+
     const walk = (node: any, here: string[]): any => {
+        // A node is an object or an array, as `expandedSize()` counts them.
+        if (typeof node !== "object" || node === null) {
+            return node;
+        }
+
         if (++visited > MAX_EXPANDED_NODES) {
             throw new TooLarge();
         }
 
         if (Array.isArray(node)) {
             return node.map((item, index) => walk(item, [...here, `${index}`]));
-        }
-
-        if (!isObject(node)) {
-            return node;
         }
 
         if ("$ref" in node) {
@@ -351,12 +378,11 @@ const resolvePointers = (doc: Node, report: Report): Node => {
         const result: Node = {};
 
         for (const key of Object.keys(node)) {
-            // Extensions are vendor data; a "$ref" there is theirs.
             setOwn(
                 result,
                 key,
                 key === "$extensions"
-                    ? node[key]
+                    ? extensionsOf(node[key], [...here, key])
                     : walk(node[key], [...here, key]),
             );
         }

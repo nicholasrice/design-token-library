@@ -603,6 +603,38 @@ Pointers("a pointer can escape / and ~", () => {
     Assert.is(pointers.escaped.$value, 42);
 });
 
+Pointers("a pointer can go through a $value that is a $ref", () => {
+    const shadow = {
+        color: { colorSpace: "srgb", components: [0, 0, 0], alpha: 0.2 },
+        offsetX: { value: 0, unit: "px" },
+        offsetY: { value: 2, unit: "px" },
+        blur: { value: 4, unit: "px" },
+        spread: { value: 0, unit: "px" },
+    };
+    const tokens = tokensOf({
+        s: { $type: "shadow", $value: shadow },
+        t2: { $type: "shadow", $value: { $ref: "#/s/$value" } },
+        c: { $type: "color", $value: { $ref: "#/t2/$value/color" } },
+    });
+
+    Assert.equal(tokens.c.$value, shadow.color);
+});
+
+Pointers("a $ref in this library's own extension is resolved", () => {
+    const tokens = tokensOf({
+        n: { $type: "number", $value: 3 },
+        m: {
+            $type: "number",
+            $value: 0,
+            $extensions: {
+                "design-token-library": { $value: { $ref: "#/n/$value" } },
+            },
+        },
+    });
+
+    Assert.is(tokens.m.$value, 3);
+});
+
 Pointers("a $ref inside $extensions is left alone", () => {
     const { pointers } = load("extends");
 
@@ -1120,6 +1152,16 @@ Invalid("a reference to a group", () => {
     );
 });
 
+Aliases("an alias takes the type of its target, not its group's", () => {
+    const tokens = tokensOf({
+        n: { $type: "number", $value: 1 },
+        g: { $type: "dimension", t: { $value: "{n}" } },
+    });
+
+    Assert.is(tokens.g.t.$type, "number");
+    Assert.is(tokens.g.t.$value, 1);
+});
+
 Invalid("a reference to a token of another type", () => {
     rejects(
         {
@@ -1127,16 +1169,6 @@ Invalid("a reference to a token of another type", () => {
             t: { $type: "dimension", $value: "{n}" },
         },
         /a number token, where a dimension is needed/,
-    );
-});
-
-Invalid("an alias whose type conflicts with its group's", () => {
-    rejects(
-        {
-            n: { $type: "number", $value: 1 },
-            g: { $type: "dimension", t: { $value: "{n}" } },
-        },
-        /but the token's group gives the \$type "dimension"/,
     );
 });
 
@@ -1216,6 +1248,25 @@ Invalid("a $ref that is not a pointer into the document", () => {
 
 Invalid("a $ref to nothing", () => {
     rejects(token("number", { $ref: "#/nope/$value" }), /does not exist/);
+});
+
+Invalid("a reference in a call with spaces around its path", () => {
+    rejects(
+        token("dimension", "scale({ s }, 2)"),
+        /a reference without spaces around its path/,
+        withRecipes,
+    );
+});
+
+Invalid("a reference to nothing in a typed group is one issue", () => {
+    Assert.is(
+        issues({ g: { $type: "number", a: { $value: "{nope}" } } }).length,
+        1,
+    );
+});
+
+Invalid("a $ref to nothing is one issue", () => {
+    Assert.is(issues(token("color", { $ref: "#/nope/$value" })).length, 1);
 });
 
 Invalid("a $ref with other properties, or circular", () => {
@@ -1526,6 +1577,29 @@ Invalid("two different recipes with one name", () => {
     Assert.throws(
         () => parse({}, { recipes: { ...TestRecipes, otherText: other.text } }),
         /Two different recipes are named "text"/,
+    );
+});
+
+Invalid("a document nested too deeply is an issue, not a RangeError", () => {
+    const call = "add(".repeat(20000) + "1" + ",1)".repeat(20000);
+
+    rejects(token("number", call), /nested too deeply/, {
+        recipes: recipes({ add: (a: number, b: number) => a + b }),
+    });
+
+    let deep: object = { $type: "number", $value: 1 };
+
+    for (let i = 0; i < 20000; i++) {
+        deep = { g: deep };
+    }
+
+    rejects(deep, /nested too deeply/);
+});
+
+Invalid("a value of the recipes that isn't a recipe", () => {
+    Assert.throws(
+        () => parse({}, { recipes: { helper: (() => 1) as any } }),
+        /"helper" in the recipes isn't a recipe/,
     );
 });
 

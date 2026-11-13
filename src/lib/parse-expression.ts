@@ -158,6 +158,12 @@ export const parseCall = (
                 fail(`"}" to end the reference`);
             }
 
+            // As in a reference that is the whole value, whose path isn't
+            // trimmed either.
+            if (/^\s|\s$/.test(path)) {
+                fail(`a reference without spaces around its path`);
+            }
+
             index = end + 1;
             return { kind: "reference", path: path.split(".") };
         }
