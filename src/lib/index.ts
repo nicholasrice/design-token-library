@@ -6,6 +6,7 @@ export {
     entriesOf,
     dependenciesOf,
     dependentsOf,
+    ownTokensOf,
 } from "./library.js";
 export { isComputed, override, recipes } from "./recipe.js";
 export { isRef, pathOf, ref, refs } from "./ref.js";

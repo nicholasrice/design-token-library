@@ -89,8 +89,8 @@ type Resolution = [
 
 // Subscriber records are a union discriminated by `type`
 library.subscribe({
-    onChange(records) {
-        for (const record of records) {
+    onChange(changes) {
+        for (const { token: record } of changes) {
             if (record.$type === "elevation") {
                 const value = record.$value;
                 type Narrowed = Expect<

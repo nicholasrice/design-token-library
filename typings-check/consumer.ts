@@ -3,7 +3,7 @@
 // without `skipLibCheck`, so a name in the typings that doesn't resolve, which would be an error for a consumer, is one here.
 //
 // A line with `@ts-expect-error` is one that has to be an error: if the typings stop reporting it, so does this check.
-import { DesignToken, entriesOf, isRef, Library, ref, refs, toCSS } from "design-token-library";
+import { DesignToken, entriesOf, isRef, Library, ownTokensOf, ref, refs, toCSS } from "design-token-library";
 
 type Tokens = {
     size: DesignToken.Number;
@@ -61,4 +61,28 @@ const reserved: Library.ExtendOptions & Library.ExtendArgs<{}, Tokens>[0] = { ty
 for (const entry of entriesOf(library)) {
     void entry.path;
 }
-void [byPath, value, notARef, toCSS(library), options, swatches, names, reserved];
+
+// A subscriber is told of changes, with each token's origin.
+const subscribeOptions: Library.SubscribeOptions = { origin: "all" };
+// @ts-expect-error origin is "own", "ancestor" or "all"
+const notAnOrigin: Library.SubscribeOptions = { origin: "both" };
+extended.subscribe(
+    {
+        onChange(changes: ReadonlyArray<Library.Change<Tokens>>) {
+            for (const { token, valueChanged, origin, originChanged } of changes) {
+                const own: "own" | "ancestor" = origin;
+                void [token.name, valueChanged, own, originChanged];
+            }
+        },
+    },
+    subscribeOptions,
+);
+// The list's type is the one ownTokensOf() returns: read-only, of the extension's tokens.
+const own = ownTokensOf(extended);
+// @ts-expect-error the list is read-only
+own.push(extended.tokens.size);
+const ownToken: Library.TokenRecord<Tokens> | undefined = own[0];
+// @ts-expect-error an entry is a token of the extension's shape
+const otherToken: Library.TokenRecord<{ x: DesignToken.Color }> | undefined = own[0];
+
+void [ownToken, otherToken, notAnOrigin, byPath, value, notARef, toCSS(library), options, swatches, names, reserved];

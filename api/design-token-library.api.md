@@ -426,6 +426,12 @@ export const isRef: (value: unknown) => value is Library.Ref<unknown, never>;
 
 // @public (undocumented)
 export namespace Library {
+    export interface Change<R extends {}> {
+        readonly origin: "ancestor" | "own";
+        readonly originChanged: boolean;
+        readonly token: TokenRecord<R>;
+        readonly valueChanged: boolean;
+    }
     export interface Computed<V, T> {
         // (undocumented)
         readonly [COMPUTED]: {
@@ -519,8 +525,7 @@ export namespace Library {
     export interface Library<T extends {}, R extends {} = T> {
         extend(config: ExtendConfig<T, R>, ...options: ExtendArgs<{}, T>): Library<T, R>;
         extend<K extends NoRoot<K> = {}>(config: ExtendConfig<T, R & NewTokens<K, T>> & Config<K, R & NewTokens<K, T>, never, T> & NoInfer<ConfigValueCheck<K, R & NewTokens<K, T>>> & (ConfigTypeHint | {}), ...options: ExtendArgs<NewTokens<K, T>, T>): Library<T & NewTokens<K, T>, R & NewTokens<K, T>>;
-        // (undocumented)
-        subscribe(subscriber: Library.Subscriber<R>): void;
+        subscribe(subscriber: Library.Subscriber<R>, options?: Library.SubscribeOptions): void;
         // (undocumented)
         tokens: TokenLibrary<T, R>;
         // (undocumented)
@@ -561,9 +566,12 @@ export namespace Library {
     };
     export type Show = "all" | "token" | "group";
     // (undocumented)
+    export interface SubscribeOptions {
+        readonly origin?: "own" | "ancestor" | "all";
+    }
+    // (undocumented)
     export interface Subscriber<R extends {}> {
-        // (undocumented)
-        onChange(records: ReadonlyArray<Library.TokenRecord<R>>): void;
+        onChange(changes: ReadonlyArray<Library.Change<R>>): void;
     }
     export type Token<T extends DesignToken.Shape, C extends {}, G extends string = never> = {
         set(value: ConfigTokenValue<T, C> | DesignToken.ReadonlyValueByToken<T>): void;
@@ -635,6 +643,9 @@ export const ms: (value: number) => DesignToken.Values.Duration;
 
 // @public
 export const override: <A extends unknown[], V>(recipe: Library.Recipe<A, V>, fn: (...args: A) => V) => Library.RecipeOverride;
+
+// @public
+export const ownTokensOf: <R extends {}>(library: Library.Library<any, R>) => ReadonlyArray<Library.TokenRecord<R>>;
 
 // @public
 export const pathOf: (ref: Library.Ref<unknown, never>) => readonly string[];
