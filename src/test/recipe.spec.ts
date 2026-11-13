@@ -659,5 +659,100 @@ Recipe("type-level assertions compile", () => {
     Assert.ok([recipeChecks, darkened, unbound]);
 });
 
+const Reads = suite("a token read other than by a ref");
+
+interface Base {
+    base: DesignToken.Color;
+    c: DesignToken.Color;
+}
+
+const throwsRead = (read: () => unknown, within: RegExp) =>
+    Assert.throws(
+        read,
+        (error: Error) =>
+            /"c" read the token "base"/.test(error.message) &&
+            within.test(error.message) &&
+            /as a ref/.test(error.message),
+    );
+
+Reads("throws in a recipe's function, naming the token and the recipe", () => {
+    let theme: Library.Library<Base>;
+    const { lighten } = recipes({
+        lighten: (_: number): DesignToken.Values.Readonly.Color =>
+            theme.tokens.base.$value,
+    });
+    theme = Library.create<Base>({
+        base: { $type: C, $value: hex("#111111") },
+        c: { $type: C, $value: lighten(1) },
+    });
+
+    throwsRead(() => theme.tokens.c.$value, /the recipe "lighten"/);
+});
+
+Reads("throws for a token that was read already", () => {
+    let theme: Library.Library<Base>;
+    const { lighten } = recipes({
+        lighten: (_: number): DesignToken.Values.Readonly.Color =>
+            theme.tokens.base.$value,
+    });
+    theme = Library.create<Base>({
+        base: { $type: C, $value: hex("#111111") },
+        c: { $type: C, $value: lighten(1) },
+    });
+    theme.tokens.base.$value;
+
+    throwsRead(() => theme.tokens.c.$value, /the recipe "lighten"/);
+});
+
+Reads("throws in an override's function", () => {
+    const { lighten } = recipes({
+        lighten: (color: DesignToken.Values.Readonly.Color) => color,
+    });
+    const theme = Library.create<Base>({
+        base: { $type: C, $value: hex("#111111") },
+        c: { $type: C, $value: lighten(hex("#222222")) },
+    });
+    const extended: Library.Library<Base> = theme.extend<{}>(
+        {},
+        { recipes: [override(lighten, () => extended.tokens.base.$value)] },
+    );
+
+    throwsRead(() => extended.tokens.c.$value, /the recipe "lighten"/);
+    Assert.equal(theme.tokens.c.$value, hex("#222222"));
+});
+
+Reads("throws in a getter of a value", () => {
+    let theme: Library.Library<any>;
+    theme = Library.create({
+        base: { $type: C, $value: hex("#111111") },
+        c: {
+            $type: "custom",
+            $value: {
+                get color() {
+                    return theme.tokens.base.$value;
+                },
+            },
+        },
+    } as any);
+
+    throwsRead(() => theme.tokens.c.$value, /a getter of its value/);
+});
+
+Reads("leaves the library usable after it throws", () => {
+    let theme: Library.Library<Base>;
+    const { lighten } = recipes({
+        lighten: (_: number): DesignToken.Values.Readonly.Color =>
+            theme.tokens.base.$value,
+    });
+    theme = Library.create<Base>({
+        base: { $type: C, $value: hex("#111111") },
+        c: { $type: C, $value: lighten(1) },
+    });
+
+    Assert.throws(() => theme.tokens.c.$value);
+    Assert.equal(theme.tokens.base.$value, hex("#111111"));
+});
+
 Recipe.run();
 Override.run();
+Reads.run();

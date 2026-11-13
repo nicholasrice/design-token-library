@@ -2,6 +2,10 @@ import { ISubscribable, Subscribable } from "./notifier.js";
 
 export interface IQueue<T extends {}> extends ISubscribable<ReadonlyArray<T>> {
     add(target: T): void;
+    /**
+     * Whether the queue has a subscriber.
+     */
+    readonly subscribed: boolean;
 }
 
 export class Queue<T extends {}>
@@ -10,6 +14,10 @@ export class Queue<T extends {}>
 {
     private targets: Set<T> = new Set();
     private needsQueue: boolean = true;
+
+    public get subscribed(): boolean {
+        return this.subscribers.size > 0;
+    }
 
     public add(target: T) {
         this.targets.add(target);

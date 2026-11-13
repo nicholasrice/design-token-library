@@ -19,7 +19,7 @@ hover: {
 },
 ```
 
-The function runs when the token is read and again when a dependency changes, so it must be pure. Arguments are fully resolved before the call. Ref values and copies of plain data are frozen; other values (such as class instances) are passed through. Type parameters as `DesignToken.Values.Readonly.Color`. Arguments and return types are checked against the token's `$type`.
+The function runs when the token is read and again when a dependency changes, so it must be pure. Pass tokens to it as refs: a function that reads a token's `$value` itself throws, since the read isn't followed and its result wouldn't change with the token. Arguments are fully resolved before the call. Ref values and copies of plain data are frozen; other values (such as class instances) are passed through. Type parameters as `DesignToken.Values.Readonly.Color`. Arguments and return types are checked against the token's `$type`.
 
 A computed value is data: the recipe, its name, and its arguments. Extend a recipe set by spreading:
 

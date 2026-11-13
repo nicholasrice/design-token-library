@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- A library finds which tokens depend on which from their configured values, rather than by watching what each token reads as it resolves. Each token's edges are added when it is resolved, so a `set()` invalidates the tokens that were read without walking the library, and `dependentsOf()` completes the graph once and keeps it up to date as tokens are set. An extension shares the graph of the library it extends and adds only its own tokens', so `dependentsOf()` on one of its tokens makes only the tokens it lists, not every token. A change to a token of a source reaches its extensions through their libraries, once each, rather than through a link on each of their tokens, so `subscribe()` on an extension no longer costs a link per token, and an extension that is read holds about half the memory.
+- What a subscriber of an extension is told of follows the extension's own tokens. A `set()` on a source's token that the extension has a value of its own for no longer tells it of the extension's tokens that depend on it, whose values don't change, and which of its tokens it is told of no longer depends on which tokens of the source have been read.
+- `dependentsOf()` no longer throws when another token of the library has a ref to a token it doesn't have. Reading that token's `$value` still does.
+- **Breaking:** Reading a token's `$value` in a recipe's function or a getter in a value, such as a token of a library it closes over, throws. Such a read isn't followed, so the value that read it wouldn't change with the token. The error names the token being resolved, the token it read and the recipe, and says to pass the token as a ref. A ref that a recipe's function returns is still followed.
+
+### Fixed
+
+- Reading a token of an extension no longer changes what its source token depends on (#19). The test of it, which was skipped, runs.
+
 ## [0.3.1] - 2026-11-04
 
 ### Fixed
