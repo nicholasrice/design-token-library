@@ -82,12 +82,12 @@ A reference that is inherited is not rewritten: it still names the original toke
 
 ## Custom types
 
-A [custom type](./custom-types) is read when its name is in `types`. Any other `$type` that isn't one of the format's is an error, so a typo such as `"colour"` is caught. A custom value isn't checked, and a reference anywhere in it is a ref:
+A [custom type](./custom-types) is read when it is registered in `types`, the same object that `create()` and `extend()` take. Any other `$type` that isn't one of the format's is an error, so a typo such as `"colour"` is caught. A custom value isn't checked, and a reference anywhere in it is a ref:
 
 ```ts
-const library = Library.create<Theme>(
-    parse(text, { types: Object.values(MyTypes) }),
-);
+const types = { steps: { isEqual: stepsEqual } };
+
+const library = Library.create<Theme>(parse(text, { types }), { types });
 ```
 
 ## Recipe calls

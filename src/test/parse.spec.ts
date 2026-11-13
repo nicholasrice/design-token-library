@@ -29,9 +29,7 @@ const create = (
     document: object,
     options: ParseOptions = {},
 ): Library.Library<{}> =>
-    Library.create<{}>(parse(document, options), {
-        types: byIdentity(...(options.types ?? [])),
-    });
+    Library.create<{}>(parse(document, options), { types: options.types });
 
 const tokensOf = (document: object, options = {}): any =>
     create(document, options).tokens;
@@ -618,7 +616,7 @@ Pointers("a $ref inside $extensions is left alone", () => {
 Custom("a custom type is read as it's written", () => {
     const { t } = tokensOf(
         { t: { $type: "steps", $value: { scale: [1, 2], name: "x" } } },
-        { types: ["steps"] },
+        { types: byIdentity("steps") },
     );
 
     Assert.is(t.$type, "steps");
@@ -634,7 +632,7 @@ Custom("a reference anywhere in a custom value is a ref", () => {
                 $value: { scale: [1, "{n}"], nested: { of: "{n}" } },
             },
         },
-        { types: ["steps"] },
+        { types: byIdentity("steps") },
     );
 
     Assert.equal(tokens.t.$value, { scale: [1, 2], nested: { of: 2 } });
@@ -646,7 +644,7 @@ Custom("a reference anywhere in a custom value is a ref", () => {
 Custom("a group can give its tokens a custom type", () => {
     const { steps } = tokensOf(
         { steps: { $type: "steps", small: { $value: [1] } } },
-        { types: ["steps"] },
+        { types: byIdentity("steps") },
     );
 
     Assert.is(steps.small.$type, "steps");
@@ -659,7 +657,7 @@ Custom("a whole custom value can refer to a token of its type", () => {
             a: { $type: "steps", $value: [1] },
             b: { $type: "steps", $value: "{a}" },
         },
-        { types: ["steps"] },
+        { types: byIdentity("steps") },
     );
 
     Assert.equal(b.$value, [1]);
@@ -768,7 +766,7 @@ Recipes("a call can be inside a composite value", () => {
 Recipes("a call can be anywhere in a custom value", () => {
     const { t } = tokensOf(
         { t: { $type: "steps", $value: { label: ['text("a")'] } } },
-        { ...withRecipes, types: ["steps"] },
+        { ...withRecipes, types: byIdentity("steps") },
     );
 
     Assert.equal(t.$value, { label: ["a"] });
@@ -777,7 +775,7 @@ Recipes("a call can be anywhere in a custom value", () => {
 Recipes("a string in a call is a string, not a reference", () => {
     const { t } = tokensOf(
         { t: { $type: "label", $value: 'text("{not.a.ref}")' } },
-        { ...withRecipes, types: ["label"] },
+        { ...withRecipes, types: byIdentity("label") },
     );
 
     Assert.is(t.$value, "{not.a.ref}");
@@ -789,7 +787,7 @@ Recipes("a string that calls something else stays a string", () => {
             css: { $type: "css", $value: "calc(100% - 4px)" },
             font: { $type: "fontFamily", $value: "darken(Sans)" },
         },
-        { types: ["css"] },
+        { types: byIdentity("css") },
     );
 
     Assert.is(css.$value, "calc(100% - 4px)");
@@ -799,7 +797,7 @@ Recipes("a string that calls something else stays a string", () => {
 Recipes("a recipe is called by its name, not its key", () => {
     const { t } = tokensOf(
         { t: { $type: "label", $value: 'text("a")' } },
-        { recipes: { renamed: TestRecipes.text }, types: ["label"] },
+        { recipes: { renamed: TestRecipes.text }, types: byIdentity("label") },
     );
 
     Assert.is(t.$value, "a");
@@ -811,7 +809,7 @@ Recipes("a recipe can be given under two keys", () => {
             { t: { $type: "label", $value: 'text("a")' } },
             {
                 recipes: { ...TestRecipes, other: TestRecipes.text },
-                types: ["label"],
+                types: byIdentity("label"),
             },
         ),
     );
@@ -831,7 +829,11 @@ Recipes("an override in extend() applies to a parsed call", () => {
 // --- The DTCG form, with this library's extension --------------------------
 
 const compliant = (options = {}) =>
-    load("compliant", { ...withRecipes, types: ["ratio"], ...options });
+    load("compliant", {
+        ...withRecipes,
+        types: byIdentity("ratio"),
+        ...options,
+    });
 
 Compliant("a token's own $value is read from the extension", () => {
     const { color } = compliant();
@@ -1020,7 +1022,8 @@ Invalid("a $type that is not a type", () => {
 Invalid("a custom type the document does not declare", () => {
     rejects(token("palette", [1]), /"palette" is not a type/);
     Assert.is(
-        parse(token("palette", [1]), { types: ["palette"] }).t.$value[0],
+        parse(token("palette", [1]), { types: byIdentity("palette") }).t
+            .$value[0],
         1,
     );
 });
@@ -1062,7 +1065,7 @@ Invalid("a reference in a custom value to a token that does not exist", () => {
     rejects(
         { t: { $type: "steps", $value: { of: ["{nope}"] } } },
         /t\.\$value\.of\[0\]: references "\{nope\}", which does not exist/,
-        { types: ["steps"] },
+        { types: byIdentity("steps") },
     );
 });
 
@@ -1073,7 +1076,7 @@ Invalid("a whole custom value that refers to a token of another type", () => {
             t: { $type: "steps", $value: "{n}" },
         },
         /a number token, where a steps is needed/,
-        { types: ["steps"] },
+        { types: byIdentity("steps") },
     );
 });
 
@@ -1594,7 +1597,7 @@ Invalid("the DTCG form of a token with the extension is still checked", () => {
             },
         },
         /^t\.\$value: is not a color/,
-        { types: ["ratio"] },
+        { types: byIdentity("ratio") },
     );
     rejects(
         {
@@ -1605,12 +1608,12 @@ Invalid("the DTCG form of a token with the extension is still checked", () => {
             },
         },
         /^t\.\$type: "ratio" is not a standard type, so the token's DTCG form isn't DTCG/,
-        { types: ["ratio"] },
+        { types: byIdentity("ratio") },
     );
     rejects(
         { t: { $value: 1, $extensions: own({ $type: "ratio" }) } },
         /^t: has no \$type in its DTCG form/,
-        { types: ["ratio"] },
+        { types: byIdentity("ratio") },
     );
     rejects(
         {
@@ -1621,7 +1624,7 @@ Invalid("the DTCG form of a token with the extension is still checked", () => {
             },
         },
         /references "\{nope\}", which does not exist/,
-        { types: ["ratio"] },
+        { types: byIdentity("ratio") },
     );
 });
 

@@ -70,12 +70,12 @@ export class ParseError extends Error {
  */
 export interface ParseOptions {
     /**
-     * The names of the custom types the document may use, such as
-     * `Object.values(MyTypes)`. Their values are read as they are, with the
-     * references in them. A `$type` that is neither a standard type nor one
-     * of these is an error.
+     * The custom types the document may use, registered as `create()` and
+     * `extend()` take them: pass the same object to both. Their values are
+     * read as they are, with the references in them. A `$type` that is
+     * neither a standard type nor one of these is an error.
      */
-    readonly types?: readonly string[];
+    readonly types?: Library.Types;
 
     /**
      * The recipes the document may call, such as `{ ...Recipes, ...More }`.
@@ -912,7 +912,10 @@ export function parse(
         native.doc,
         base,
         native.compliant,
-        new Set([...(options.types ?? []), ...(base ? typesIn(base) : [])]),
+        new Set([
+            ...Object.keys(options.types ?? {}),
+            ...(base ? typesIn(base) : []),
+        ]),
         recipesByName(options.recipes),
         report,
     );
