@@ -1,0 +1,947 @@
+import { DesignToken } from "./design-token.js";
+import { Library } from "./library.js";
+import {
+    isChildName,
+    isGroupNode,
+    isObject,
+    isReference,
+    isTokenNode,
+    label,
+    referencePath,
+    setOwn,
+    type Node,
+    type Report,
+} from "./parse-document.js";
+import {
+    EXTENSION,
+    resolveExtension,
+    type CompliantForm,
+} from "./parse-extension.js";
+import { calledName, parseCall, type Expression } from "./parse-expression.js";
+import { resolveReferences, TooLarge, tooLarge } from "./parse-resolve.js";
+import { isStandardType, readValue, type ValueContext } from "./parse-value.js";
+import { RECIPE } from "./recipe.js";
+import { refTo } from "./ref.js";
+
+/**
+ * One problem found in a tokens document.
+ *
+ * @public
+ */
+export interface ParseIssue {
+    /**
+     * The dotted path of the token or group, plus the location inside its
+     * value, such as `color.brand.$value.components[0]`.
+     */
+    readonly path: string;
+    readonly message: string;
+}
+
+/**
+ * Thrown by {@link (parse:1)} for a document with problems. It reports every
+ * problem found, not only the first.
+ *
+ * @public
+ */
+export class ParseError extends Error {
+    public override readonly name = "ParseError";
+
+    public readonly issues: ReadonlyArray<ParseIssue>;
+
+    constructor(issues: ReadonlyArray<ParseIssue>) {
+        super(
+            `Invalid design tokens document (${issues.length} ${
+                issues.length === 1 ? "issue" : "issues"
+            }):\n${issues
+                .map(
+                    (issue) =>
+                        `  ${issue.path || "(document)"}: ${issue.message}`,
+                )
+                .join("\n")}`,
+        );
+        this.issues = issues;
+    }
+}
+
+/**
+ * Options of {@link (parse:1)}.
+ *
+ * @public
+ */
+export interface ParseOptions {
+    /**
+     * The custom types the document may use, registered as `create()` and
+     * `extend()` take them: pass the same object to both. Their values are
+     * read as they are, with the references in them. A `$type` that is
+     * neither a standard type nor one of these is an error.
+     */
+    readonly types?: Library.Types;
+
+    /**
+     * The recipes the document may call, such as `{ ...Recipes, ...More }`.
+     * A string written as a call to one of them, such as
+     * `"darken({color.blue}, 0.2)"`, is a computed value. A recipe is known
+     * by its name, not by its key here, and two different recipes can't have
+     * the same name.
+     */
+    readonly recipes?: Readonly<Record<string, Library.Recipe<any, unknown>>>;
+}
+
+/**
+ * Options of {@link (parse:1)} for a document that extends a library.
+ *
+ * @public
+ */
+export interface ParseExtendOptions<T extends {}, R extends {}>
+    extends ParseOptions {
+    /**
+     * The library the document extends. The document is checked against
+     * it: a token it restates keeps its type and is checked as it, a group
+     * keeps its type, a reference may name its tokens, and its custom types
+     * are known.
+     */
+    readonly extends: Library.Library<T, R>;
+}
+
+type RecipesByName = ReadonlyMap<string, Library.Recipe<any, unknown>>;
+
+/**
+ * The recipes of `options.recipes` by name, which must be unique.
+ */
+const recipesByName = (
+    recipes: ParseOptions["recipes"] = {},
+): RecipesByName => {
+    const byName = new Map<string, Library.Recipe<any, unknown>>();
+
+    for (const [key, recipe] of Object.entries(recipes)) {
+        if (typeof recipe?.[RECIPE]?.name !== "string") {
+            throw new Error(
+                `"${key}" in the recipes isn't a recipe. Make them with recipes().`,
+            );
+        }
+
+        const { name } = recipe[RECIPE];
+        const known = byName.get(name);
+
+        if (known !== undefined && known !== recipe) {
+            throw new Error(
+                `Two different recipes are named "${name}", so a document can't call one of them by name.`,
+            );
+        }
+
+        byName.set(name, recipe);
+    }
+
+    return byName;
+};
+
+const TOKEN_PROPERTIES = [
+    "$value",
+    "$type",
+    "$description",
+    "$extensions",
+    "$deprecated",
+];
+
+const GROUP_PROPERTIES = [
+    "$type",
+    "$description",
+    "$extensions",
+    "$deprecated",
+];
+
+/**
+ * A token or group found by its path: a token of the document, with the type
+ * its groups give it and the type of the library's token it restates, a
+ * token only in the library being extended, or a group.
+ */
+type Found =
+    | {
+          kind: "token";
+          node: Node;
+          inherited: string | undefined;
+          library: string | undefined;
+      }
+    | { kind: "library"; type: string | undefined }
+    | { kind: "group" };
+
+/**
+ * The child of a group of a library's tokens. A library's group is an
+ * object, its token an object with a `$value`, as in a document.
+ */
+const childOf = (group: unknown, key: string): unknown =>
+    isGroupNode(group) && Object.hasOwn(group, key) ? group[key] : undefined;
+
+/**
+ * The `$type` of a library's token or group, which is never its value.
+ */
+const typeIn = (node: unknown): string | undefined => {
+    const type = isObject(node) ? Reflect.get(node, "$type") : undefined;
+
+    return typeof type === "string" ? type : undefined;
+};
+
+/**
+ * Every `$type` of the tokens and groups of a library. A token of a library
+ * is an accessor, which makes the token of an extension when it is read, so
+ * this is found only when a document needs it.
+ */
+const typesIn = (tokens: object): Set<string> => {
+    const found = new Set<string>();
+    const add = (node: unknown) => {
+        const type = typeIn(node);
+
+        if (type !== undefined) {
+            found.add(type);
+        }
+    };
+    const walk = (group: object) => {
+        add(group);
+
+        for (const key of Object.keys(group)) {
+            const descriptor = Reflect.getOwnPropertyDescriptor(group, key)!;
+
+            if (!("value" in descriptor)) {
+                add(descriptor.get!());
+            } else if (isObject(descriptor.value)) {
+                walk(descriptor.value);
+            }
+        }
+    };
+
+    walk(tokens);
+
+    return found;
+};
+
+/**
+ * Checks a document and turns it into the {@link (Library:namespace).Config}
+ * a library is created from. Every problem is reported.
+ */
+const convert = (
+    doc: Node,
+    base: object | undefined,
+    compliant: ReadonlyMap<string, CompliantForm>,
+    customTypes: ReadonlySet<string>,
+    libraryTypes: () => ReadonlySet<string>,
+    recipes: RecipesByName,
+    report: Report,
+): Node => {
+    const types = new Map<string, string | undefined>();
+    const chain: string[] = [];
+    const circular = new Set<string>();
+
+    const knownType = (type: string): boolean =>
+        isStandardType(type) ||
+        customTypes.has(type) ||
+        libraryTypes().has(type);
+
+    // The token or group of the library at a path.
+    const inBase = (path: string[]): unknown =>
+        path.reduce<unknown>(childOf, base);
+
+    // The $type a group gives its tokens: the library's, which an extension
+    // can't change, else the document's.
+    const groupType = (node: unknown, baseNode: unknown): string | undefined =>
+        (isGroupNode(baseNode) ? typeIn(baseNode) : undefined) ??
+        (isGroupNode(node) ? typeIn(node) : undefined);
+
+    // Finds a token or group by path, in the document or the library it
+    // extends, with the type its groups give it.
+    const find = (path: string[]): Found | undefined => {
+        let node: unknown = doc;
+        let baseNode: unknown = base;
+        let inherited = groupType(node, baseNode);
+
+        for (const segment of path) {
+            if (!isChildName(segment)) {
+                return undefined;
+            }
+
+            node = childOf(node, segment);
+            baseNode = childOf(baseNode, segment);
+
+            if (node === undefined && baseNode === undefined) {
+                return undefined;
+            }
+
+            inherited = groupType(node, baseNode) ?? inherited;
+        }
+
+        if (isTokenNode(node)) {
+            return {
+                kind: "token",
+                node,
+                inherited,
+                library: isTokenNode(baseNode) ? typeIn(baseNode) : undefined,
+            };
+        }
+
+        if (node === undefined && isTokenNode(baseNode)) {
+            return { kind: "library", type: typeIn(baseNode) };
+        }
+
+        return isObject(node) || isObject(baseNode)
+            ? { kind: "group" }
+            : undefined;
+    };
+
+    // The type of a token: its own, else the type of the token it refers
+    // to, else the nearest group's.
+    const typeOf = (path: string[]): string | undefined => {
+        const key = label(path);
+
+        if (types.has(key)) {
+            return types.get(key);
+        }
+
+        const found = find(path);
+
+        if (found?.kind === "library") {
+            return found.type;
+        }
+
+        if (found?.kind !== "token") {
+            return undefined;
+        }
+
+        // A token of the library keeps its type.
+        if (found.library !== undefined) {
+            return found.library;
+        }
+
+        if (chain.includes(key)) {
+            // Reported by checkCycle.
+            return undefined;
+        }
+
+        chain.push(key);
+
+        const { node, inherited } = found;
+        let type: string | undefined;
+
+        if (typeof node.$type === "string") {
+            type = node.$type;
+        } else if (isReference(node.$value)) {
+            type = typeOf(referencePath(node.$value));
+        }
+
+        type ??= inherited;
+        chain.pop();
+        types.set(key, type);
+
+        return type;
+    };
+
+    // Follows a token's chain of references to find a loop. A token with its
+    // own $type never needs the chain to find its type, so typeOf cannot
+    // find it.
+    const checkCycle = (path: string[]) => {
+        const visited: string[] = [];
+        let current: string[] | undefined = path;
+
+        while (current) {
+            const key = label(current);
+
+            if (visited.includes(key)) {
+                const loop = visited.slice(visited.indexOf(key));
+
+                if (!loop.some((member) => circular.has(member))) {
+                    report(
+                        label(path),
+                        `Circular reference: ${[...loop, key].join(" → ")}.`,
+                    );
+                }
+
+                for (const member of loop) {
+                    circular.add(member);
+                }
+
+                return;
+            }
+
+            visited.push(key);
+
+            const found = find(current);
+            current =
+                found?.kind === "token" && isReference(found.node.$value)
+                    ? referencePath(found.node.$value)
+                    : undefined;
+        }
+    };
+
+    // Reads a reference to a token, such as "{color.blue}", which must be of
+    // the `expected` type when there is one.
+    const reference = (
+        value: unknown,
+        expected: string | undefined,
+        path: string,
+    ): unknown =>
+        isReference(value)
+            ? refer(referencePath(value), expected, path)
+            : undefined;
+
+    // Makes the ref to the token at `target`, which must exist and be of the
+    // `expected` type when there is one.
+    const refer = (
+        target: string[],
+        expected: string | undefined,
+        path: string,
+    ): Library.Ref<any, any> => {
+        const value = `{${label(target)}}`;
+        const found = find(target);
+
+        if (!found) {
+            report(path, `references "${value}", which does not exist.`);
+        } else if (found.kind === "group") {
+            report(
+                path,
+                `references "${value}", which is a group. A reference must name a token.`,
+            );
+        } else if (expected !== undefined) {
+            const type = typeOf(target);
+
+            if (type !== undefined && type !== expected) {
+                report(
+                    path,
+                    `references "${value}", a ${type} token, where a ${expected} is needed.`,
+                );
+            }
+        }
+
+        return refTo(target);
+    };
+
+    // The call of a string that looks like a call to a name that isn't a
+    // recipe, by its path, to explain why its value isn't valid.
+    const unknownCalls = new Map<string, string>();
+
+    // The config value of an expression of a recipe call.
+    const evaluate = (expression: Expression, path: string): unknown => {
+        switch (expression.kind) {
+            case "call": {
+                const recipe = recipes.get(expression.name);
+
+                if (recipe === undefined) {
+                    report(
+                        path,
+                        `calls "${expression.name}", which is not one of the recipes.`,
+                    );
+                    return undefined;
+                }
+
+                return recipe(
+                    ...expression.args.map((arg) => evaluate(arg, path)),
+                );
+            }
+            case "reference":
+                // A recipe decides what its arguments may be.
+                return refer(expression.path, undefined, path);
+            case "literal":
+                return expression.value;
+            case "array":
+                return expression.items.map((item) => evaluate(item, path));
+            case "object":
+                return Object.fromEntries(
+                    expression.entries.map(([key, value]) => [
+                        key,
+                        evaluate(value, path),
+                    ]),
+                );
+        }
+    };
+
+    // A string is a recipe call only when it calls one of the recipes, so a
+    // string value such as "calc(100% - 4px)" stays a string.
+    const callsRecipe = (value: unknown): value is string => {
+        const name = typeof value === "string" ? calledName(value) : undefined;
+
+        return name !== undefined && recipes.has(name);
+    };
+
+    // Reads a recipe call, such as "darken({color.blue}, 0.2)".
+    const call = (value: unknown, path: string): unknown => {
+        if (!callsRecipe(value)) {
+            const name =
+                typeof value === "string" ? calledName(value) : undefined;
+
+            if (name !== undefined) {
+                unknownCalls.set(path, name);
+            }
+
+            return undefined;
+        }
+
+        const parsed = parseCall(value);
+
+        if ("error" in parsed) {
+            report(path, `is not a valid recipe call: ${parsed.error}`);
+            // Reported, so the reader of the position doesn't report it again.
+            return value;
+        }
+
+        return evaluate(parsed.call, path);
+    };
+
+    const context: ValueContext = {
+        report: (path, message) => {
+            const name = unknownCalls.get(path);
+
+            report(
+                path,
+                name === undefined
+                    ? message
+                    : `${message} It looks like a recipe call, but "${name}" is not one of the recipes.`,
+            );
+        },
+        reference: (value, type, path) =>
+            reference(value, type, path) ?? call(value, path),
+    };
+
+    // A custom value isn't checked, but the references and recipe calls in
+    // it are read, at any depth.
+    const readCustom = (value: unknown, path: string): unknown => {
+        const read = reference(value, undefined, path) ?? call(value, path);
+
+        if (read !== undefined) {
+            return read;
+        }
+
+        if (Array.isArray(value)) {
+            return value.map((item, index) =>
+                readCustom(item, `${path}[${index}]`),
+            );
+        }
+
+        if (isObject(value)) {
+            const result: Node = {};
+
+            for (const key of Object.keys(value)) {
+                setOwn(result, key, readCustom(value[key], `${path}.${key}`));
+            }
+
+            return result;
+        }
+
+        return value;
+    };
+
+    const checkMetadata = (node: Node, path: string, where: string) => {
+        if (
+            node.$description !== undefined &&
+            typeof node.$description !== "string"
+        ) {
+            report(`${path}.$description`, `must be a string.`);
+        }
+
+        if (node.$extensions !== undefined && !isObject(node.$extensions)) {
+            report(`${path}.$extensions`, `must be an object.`);
+        }
+
+        if (
+            node.$deprecated !== undefined &&
+            typeof node.$deprecated !== "boolean" &&
+            typeof node.$deprecated !== "string"
+        ) {
+            report(`${path}.$deprecated`, `must be true, false or a string.`);
+        }
+
+        if (node.$type !== undefined) {
+            if (typeof node.$type !== "string" || !knownType(node.$type)) {
+                report(
+                    `${path}.$type`,
+                    `${JSON.stringify(node.$type)} is not a type of ${where}. Expected one of ${[
+                        ...new Set([
+                            ...Object.values(DesignToken.Type),
+                            ...customTypes,
+                            ...libraryTypes(),
+                        ]),
+                    ].join(", ")}.`,
+                );
+            }
+        }
+    };
+
+    // A copy of the metadata, so the library doesn't share it with the
+    // document.
+    const metadataOf = (node: Node, keys: string[]): Node => {
+        const result: Node = {};
+
+        for (const key of keys) {
+            if (node[key] !== undefined) {
+                result[key] = structuredClone(node[key]);
+            }
+        }
+
+        return result;
+    };
+
+    // The type of a token in its DTCG form: its own or its group's, else, for
+    // an alias, the DTCG type of the token it names, as the format says. A
+    // token without the extension is the same in both forms.
+    const dtcgTypeOf = (
+        path: string[],
+        seen: readonly string[] = [],
+    ): string | undefined => {
+        const key = label(path);
+        const form = compliant.get(key);
+
+        if (form === undefined) {
+            return typeOf(path);
+        }
+
+        return form.type !== undefined ||
+            !isReference(form.value) ||
+            seen.includes(key)
+            ? form.type
+            : dtcgTypeOf(referencePath(form.value), [...seen, key]);
+    };
+
+    // Checks the DTCG form of a token whose own form is in this library's
+    // extension. Its references only have to exist: they're of the DTCG
+    // form, and the types of the tokens are their own.
+    const checkCompliant = (form: CompliantForm, here: string) => {
+        const where = `${here}.$value`;
+        const type =
+            form.type ??
+            (isReference(form.value)
+                ? dtcgTypeOf(referencePath(form.value))
+                : undefined);
+
+        if (type === undefined) {
+            report(
+                here,
+                `has no $type in its DTCG form, its own, its group's or the one of the token it references.`,
+            );
+        } else if (!isStandardType(type)) {
+            report(
+                `${here}.$type`,
+                `${JSON.stringify(type)} is not a standard type, so the token's DTCG form isn't DTCG. Its own type goes in $extensions["${EXTENSION}"].$type.`,
+            );
+        } else if (isReference(form.value)) {
+            reference(form.value, undefined, where);
+        } else {
+            readValue(type, form.value, where, {
+                report,
+                reference: (value, _type, path) =>
+                    reference(value, undefined, path),
+            });
+        }
+    };
+
+    const convertToken = (node: Node, path: string[]): Node | undefined => {
+        const here = label(path);
+
+        for (const key of Object.keys(node)) {
+            if (!TOKEN_PROPERTIES.includes(key)) {
+                report(
+                    here,
+                    key.startsWith("$")
+                        ? `has an unsupported property "${key}". A token accepts ${TOKEN_PROPERTIES.join(", ")}.`
+                        : `has a $value, so it is a token and cannot have a child "${key}".`,
+                );
+            }
+        }
+
+        checkMetadata(node, here, "a token");
+
+        const library = typeIn(inBase(path));
+
+        if (
+            library !== undefined &&
+            typeof node.$type === "string" &&
+            node.$type !== library
+        ) {
+            report(
+                `${here}.$type`,
+                `is "${node.$type}", but the token is a ${library} in the library it extends, which can't be changed.`,
+            );
+        }
+
+        if (isReference(node.$value)) {
+            checkCycle(path);
+        }
+
+        const type = typeOf(path);
+
+        if (type === undefined) {
+            if (!circular.has(here)) {
+                report(
+                    here,
+                    `has no $type. A token takes its own $type, the type of the token it references, or the $type of the nearest group${
+                        callsRecipe(node.$value)
+                            ? ", not the type of a recipe's result"
+                            : ""
+                    }.`,
+                );
+            }
+
+            return undefined;
+        }
+
+        if (!knownType(type)) {
+            if (typeof node.$type !== "string") {
+                report(
+                    here,
+                    `has the type ${JSON.stringify(type)}, which is not known.`,
+                );
+            }
+
+            return undefined;
+        }
+
+        const value: unknown = node.$value;
+        const where = `${here}.$value`;
+        let read: unknown;
+
+        if (isReference(value)) {
+            read = reference(value, type, where);
+        } else {
+            read =
+                call(value, where) ??
+                (isStandardType(type)
+                    ? readValue(type, value, where, context)
+                    : readCustom(value, where));
+        }
+
+        const form = compliant.get(here);
+
+        if (form !== undefined) {
+            checkCompliant(form, here);
+        }
+
+        return {
+            $type: type,
+            $value: read,
+            ...metadataOf(node, ["$description", "$extensions", "$deprecated"]),
+        };
+    };
+
+    const convertGroup = (node: Node, path: string[]): Node => {
+        const here = label(path);
+        const result: Node = metadataOf(node, GROUP_PROPERTIES);
+        const library = inBase(path);
+
+        checkMetadata(node, here, "a group");
+
+        // A group of the library keeps its type, and an extension doesn't
+        // restate it.
+        const libraryType = typeIn(library);
+
+        if (libraryType !== undefined && node.$type !== undefined) {
+            if (node.$type !== libraryType) {
+                report(
+                    `${here}.$type`,
+                    `is ${JSON.stringify(node.$type)}, but the group is of ${libraryType} in the library it extends, which can't be changed.`,
+                );
+            }
+
+            delete result.$type;
+        }
+
+        for (const key of Object.keys(node)) {
+            if (!isChildName(key)) {
+                if (!GROUP_PROPERTIES.includes(key)) {
+                    report(
+                        here,
+                        `has an unsupported property "${key}". A group accepts ${GROUP_PROPERTIES.join(", ")}.`,
+                    );
+                }
+
+                continue;
+            }
+
+            const child = node[key];
+            const childPath = [...path, key];
+
+            if (key === "") {
+                report(here, `has a child with an empty name.`);
+                continue;
+            }
+
+            if (key === "__proto__" || /[{}.]/.test(key)) {
+                report(
+                    label(childPath),
+                    `is not a valid name. A name cannot be "__proto__", or contain ".", "{" or "}".`,
+                );
+                continue;
+            }
+
+            if (!isObject(child)) {
+                report(
+                    label(childPath),
+                    `must be a token or a group (an object), but found ${JSON.stringify(child)}.`,
+                );
+                continue;
+            }
+
+            if (key === "$root" && path.length === 0) {
+                report(
+                    key,
+                    `$root is the token of a group, so it cannot be at the top level of a document.`,
+                );
+                continue;
+            }
+
+            const libraryChild = childOf(library, key);
+
+            if (isTokenNode(child) && isGroupNode(libraryChild)) {
+                report(
+                    label(childPath),
+                    `is a group in the library it extends, so it can't be a token.`,
+                );
+                continue;
+            }
+
+            if (!isTokenNode(child) && isTokenNode(libraryChild)) {
+                report(
+                    label(childPath),
+                    `is a token in the library it extends, so it can't be a group.`,
+                );
+                continue;
+            }
+
+            if (isTokenNode(child)) {
+                const token = convertToken(child, childPath);
+
+                if (token) {
+                    setOwn(result, key, token);
+                }
+            } else if (key === "$root") {
+                report(
+                    label(childPath),
+                    `$root must be a token, so it needs a $value.`,
+                );
+            } else {
+                setOwn(result, key, convertGroup(child, childPath));
+            }
+        }
+
+        return result;
+    };
+
+    return convertGroup(doc, []);
+};
+
+/**
+ * Reads a tokens document: the
+ * {@link https://www.designtokens.org/tr/2025.10/format/ | DTCG 2025.10}
+ * format and color module, and this library's extensions to it. Returns the
+ * {@link (Library:namespace).Config} it describes, to create a library from.
+ *
+ * @remarks
+ * `$extends` and `$ref` are resolved, every token gets its resolved `$type`,
+ * and every value of a standard type is checked. A reference, such as
+ * `"{color.blue}"`, becomes a {@link (Library:namespace).Ref}, so the token
+ * follows the token it names. A custom type is read when it's one of
+ * `options.types`. A string that calls one of `options.recipes`, such as
+ * `"darken({color.blue}, 0.2)"`, is a computed value. A document in the DTCG
+ * form keeps a token's own `$type` and `$value`, and a group's own `$type`,
+ * in `$extensions["design-token-library"]`: those are read, and the DTCG form
+ * is checked. A document with problems throws a {@link ParseError} that
+ * lists all of them.
+ *
+ * A document's shape is known only when it's read, so the config isn't
+ * typed. Give the library's shape to `Library.create` to type its tokens.
+ * A document that extends a library, such as a theme, is checked against
+ * it with `options.extends`, so its config is typed for `extend()`.
+ *
+ * @example
+ * ```ts
+ * const base = Library.create<Theme>(parse(baseText, { recipes: Recipes }));
+ * const dark = base.extend(parse(darkText, { recipes: Recipes, extends: base }));
+ * ```
+ *
+ * @param document - the document, as JSON text or already parsed. It isn't
+ * changed.
+ *
+ * @public
+ */
+export function parse<T extends {}, R extends {}>(
+    document: string | object,
+    options: ParseExtendOptions<T, R>,
+): Library.ExtendConfig<T, R>;
+/**
+ * Reads a tokens document that doesn't extend a library, so its config isn't
+ * typed.
+ *
+ * @public
+ */
+export function parse(
+    document: string | object,
+    options?: ParseOptions,
+): Library.Config<any>;
+export function parse(
+    document: string | object,
+    options: ParseOptions & {
+        readonly extends?: Library.Library<any, any>;
+    } = {},
+): Node {
+    const issues: ParseIssue[] = [];
+    const report: Report = (path, message) => issues.push({ path, message });
+    let doc: unknown = document;
+
+    if (typeof document === "string") {
+        try {
+            // A byte order mark, which some tools write, isn't JSON.
+            doc = JSON.parse(document.replace(/^\uFEFF/, ""));
+        } catch (error) {
+            throw new ParseError([
+                {
+                    path: "",
+                    message: `is not valid JSON: ${error instanceof Error ? error.message : error}`,
+                },
+            ]);
+        }
+    }
+
+    if (!isObject(doc)) {
+        throw new ParseError([
+            { path: "", message: "must be a JSON object, the root group." },
+        ]);
+    }
+
+    try {
+        const resolved = resolveReferences(doc, report);
+
+        // A reference that fails stays as it was written, so what reads it
+        // next would report it again as something else.
+        if (issues.length > 0) {
+            throw new ParseError(issues);
+        }
+
+        const native = resolveExtension(resolved, report);
+        const base = options.extends?.tokens;
+        let libraryTypes: Set<string> | undefined;
+        const config = convert(
+            native.doc,
+            base,
+            native.compliant,
+            new Set(Object.keys(options.types ?? {})),
+            () => (libraryTypes ??= base ? typesIn(base) : new Set()),
+            recipesByName(options.recipes),
+            report,
+        );
+
+        if (issues.length > 0) {
+            throw new ParseError(issues);
+        }
+
+        return config;
+    } catch (error) {
+        if (error instanceof TooLarge) {
+            throw new ParseError([...issues, tooLarge()]);
+        }
+
+        // The passes recurse, so a document nested deeper than the stack
+        // allows is a problem of the document, not of the library.
+        if (error instanceof RangeError && /call stack/i.test(error.message)) {
+            throw new ParseError([
+                ...issues,
+                { path: "", message: "is nested too deeply to read." },
+            ]);
+        }
+
+        throw error;
+    }
+}

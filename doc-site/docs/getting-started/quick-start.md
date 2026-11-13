@@ -102,4 +102,6 @@ library.tokens.colors.foreground.set({
 });
 ```
 
+A library can also be created from a tokens file, or extended by one: see [Tokens Files](./advanced/tokens-files).
+
 The library reconciles aliases and computed values when tokens change, can [notify subscribers](./advanced/subscriptions), and supports [theming via `extend()`](./advanced/extending). For CSS export, see [CSS output](./export/css-output) ([`toCSS()`](/design-token-library/api-reference/design-token-library.tocss), [`toProperties()`](/design-token-library/api-reference/design-token-library.toproperties)).

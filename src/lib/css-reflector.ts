@@ -1,5 +1,6 @@
 import { DesignToken } from "./design-token.js";
 import { Library } from "./library.js";
+import { FONT_WEIGHTS } from "./standard-values.js";
 import { isObject, isToken } from "./utilities.js";
 
 /**
@@ -499,29 +500,8 @@ const fontFamilyQuoter = (value: string): string => {
     return value.includes(" ") ? `"${value}"` : value;
 };
 
-const fontWeights: Record<string, number> = {
-    thin: 100,
-    hairline: 100,
-    "extra-light": 200,
-    "ultra-light": 200,
-    light: 300,
-    normal: 400,
-    regular: 400,
-    book: 400,
-    medium: 500,
-    "semi-bold": 600,
-    "demi-bold": 600,
-    bold: 700,
-    "extra-bold": 800,
-    "ultra-bold": 800,
-    black: 900,
-    heavy: 900,
-    "extra-black": 950,
-    "ultra-black": 950,
-};
-
 const fontWeightConverter = (value: DesignToken.Values.FontWeight): string => {
-    return String(typeof value === "number" ? value : fontWeights[value]);
+    return String(typeof value === "number" ? value : FONT_WEIGHTS[value]);
 };
 
 type Unpacked<T> = T extends (infer U)[] ? U : T;
