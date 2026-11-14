@@ -13,6 +13,12 @@ export { isComputed, override, recipes } from "./recipe.js";
 export { parse, ParseError } from "./parse.js";
 export type { ParseExtendOptions, ParseIssue, ParseOptions } from "./parse.js";
 export { isRef, pathOf, ref, refs } from "./ref.js";
+export { stringify } from "./stringify.js";
+export type {
+    StringifyExtendedOptions,
+    StringifyOptions,
+    StringifyStandardOptions,
+} from "./stringify.js";
 export {
     convert,
     toCSS,

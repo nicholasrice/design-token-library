@@ -1,0 +1,24 @@
+{
+    "$description": "Custom types, an extension of this library: a $type that is registered in the types given to parse(), with a value the library doesn't check, and refs and recipe calls anywhere in it.",
+    "ratio": { "$type": "ratio", "$value": 1.5 },
+    "count": { "$type": "number", "$value": 3 },
+    "scale": {
+        "$type": "steps",
+        "$description": "A group that gives its tokens a custom type.",
+        "base": {
+            "$value": { "from": 1, "factor": "{ratio}", "list": [1, "{ratio}"] }
+        },
+        "large": { "$value": "{scale.base}" }
+    },
+    "color": {
+        "$type": "color",
+        "blue": {
+            "$value": { "colorSpace": "srgb", "components": [0, 0.4, 1] }
+        },
+        "palette": {
+            "$type": "palette",
+            "$description": "A custom value that a recipe computes.",
+            "$value": "createPalette({color.blue}, {count})"
+        }
+    }
+}
