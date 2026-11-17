@@ -695,6 +695,23 @@ Custom("a whole custom value can refer to a token of its type", () => {
     Assert.equal(b.$value, [1]);
 });
 
+Custom("custom-types.tokens.json is read with its refs and calls", () => {
+    const palette = recipes({
+        createPalette: (base: Color, count: number) =>
+            Array.from({ length: count }, () => base),
+    });
+    const tokens = tokensOf(fixture("custom-types"), {
+        types: byIdentity("ratio", "steps", "palette"),
+        recipes: palette,
+    });
+
+    Assert.is(tokens.ratio.$type, "ratio");
+    Assert.is(tokens.scale.large.$type, "steps");
+    Assert.equal(tokens.scale.large.$value.list, [1, 1.5]);
+    Assert.is(tokens.color.palette.$type, "palette");
+    Assert.is(tokens.color.palette.$value.length, 3);
+});
+
 // --- Recipe calls (an extension) -------------------------------------------
 
 type Color = DesignToken.Values.Readonly.Color;

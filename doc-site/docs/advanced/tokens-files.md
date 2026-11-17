@@ -152,6 +152,65 @@ With `extends`, the file is checked against the library, so it can leave out wha
 
 Its config is the library's `Library.ExtendConfig`, so `extend()` is typed. New tokens in the file are added, but they aren't in the type.
 
+## Writing a tokens file
+
+`stringify` writes a library as the text of a tokens file, which `parse` reads. It has two forms, by who reads the file: the `"standard"` form, the default, is a 2025.10 document that any tool that reads the format can read, and the `"extended"` form is this library's own, with recipe calls and custom types, for a file that only this library reads.
+
+### The standard form, for any tool
+
+```ts
+import { stringify } from "design-token-library";
+
+const text = stringify(library); // JSON text, indented by four spaces
+```
+
+- A [ref](../token-values/refs) is written as the format's reference, `"{color.blue}"`, as a whole value or inside a composite one, so the aliases of a library are the aliases of the file. Any other value is the one the token has now, so a `set()` is in it. The output is a copy.
+- A recipe's result is written as the value it computed, because the format has no recipes. A ref to a token that isn't written as itself, because `filter` leaves it out or a converter writes it differently, is written as its value.
+- `$description`, `$extensions` and `$deprecated` of tokens and groups are kept, and `$root` is a token. A group's `$type` is kept when it is one of the format's.
+- A library made by `extend()` is written whole, with its overrides.
+
+A [custom type](./custom-types) has no form in the format, so a library that has one is an error until each type is dealt with. The message names the first token:
+
+```ts
+stringify(library, {
+    // Write the tokens of a type as a token of a standard type...
+    converters: {
+        palette: (palette) => ({
+            $type: "gradient",
+            $value: palette.map((color, index) => ({
+                color,
+                position: index / (palette.length - 1),
+            })),
+        }),
+    },
+    // ...or leave tokens out. A group that this empties is left out too.
+    filter: (token) => token.$type !== "ratio",
+});
+```
+
+A converter wins over the format for a standard type, too. It returns the `$type` and `$value` to write, which must be valid in the format.
+
+What is not written is what the format can't hold: a recipe call. The file can be read, but the library can't be rebuilt from it with its recipes. A value that a recipe computes is also a point in time: it is written as it was, which is not what it is when the recipe isn't deterministic or reads something outside the library.
+
+### The extended form, for this library
+
+```ts
+const text = stringify(library, { format: "extended" });
+
+const again = Library.create<Theme>(parse(text, { types, recipes: Recipes }), {
+    types,
+});
+```
+
+A token's value is written as it was configured, not as it evaluates, so the file is the one a person would write by hand, and it does not go out of date:
+
+- A ref is `"{color.blue}"`, wherever it is in the value.
+- A recipe's call is `"darken({color.blue}, 0.2)"`, with its arguments as references, calls and JSON, written by the recipe's name. `parse` needs the same `recipes` to read it.
+- A custom type is written with its own `$type` and value, and `parse` needs the same `types`. A group's custom `$type` is kept.
+- Every token is written with its `$type`, since a call has none of its own.
+
+The extended form has no `converters`, since nothing needs converting. A tool that doesn't know the library's extensions can't read the file. It is an error for a token to hold a value that JSON can't, such as a function or a class instance, and for a token to refer to one that `filter` leaves out. The error names the token.
+
 ## Errors
 
 A file with problems throws a `ParseError` that lists all of them, each with the path of the token and the place in its value:

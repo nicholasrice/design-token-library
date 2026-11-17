@@ -701,6 +701,28 @@ export type StandardConverters = {
 };
 
 // @public
+export const stringify: (library: Library.Library<any, any>, options?: StringifyOptions) => string;
+
+// @public
+export interface StringifyExtendedOptions {
+    readonly filter?: (token: Library.Token<any, any>) => boolean;
+    readonly format: "extended";
+}
+
+// @public
+export type StringifyOptions = StringifyStandardOptions | StringifyExtendedOptions;
+
+// @public
+export interface StringifyStandardOptions {
+    readonly converters?: Readonly<Record<string, (value: any, token: Library.Token<any, any>) => {
+        $type: string;
+        $value: unknown;
+    }>>;
+    readonly filter?: (token: Library.Token<any, any>) => boolean;
+    readonly format?: "standard";
+}
+
+// @public
 export function toCSS<T extends {}, R extends {}>(library: Library.Library<T, R>, ...input: ToCSSArgs<NoInfer<T>>): string;
 
 // @public
